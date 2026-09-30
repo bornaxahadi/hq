@@ -396,7 +396,7 @@ function openProject(id){const p=id?{...(projects().find(x=>x.id===id)||{})}:{st
   queueSave();closeSheet();location.hash='projects';rerender();toast(id?'Project saved':'Project added')}}
 
 /* ================= people ================= */
-const REL={partner:['Partner','g'],team:['Team','b'],friend:['Friend','v'],buyer:['Buyer','w'],seller:['Seller','w'],client:['Client','b'],careful:['Careful','r']};
+const REL={family:['Family','v'],partner:['Partner','g'],team:['Team','b'],friend:['Friend','v'],buyer:['Buyer','w'],seller:['Seller','w'],client:['Client','b'],careful:['Careful','r']};
 function people(){const m={};(D.people||[]).forEach(p=>m[p.id]={...p,src:'claude'});(U?.people||[]).forEach(p=>m[p.id]={...(m[p.id]||{}),...p});return Object.values(m).filter(p=>!p.deleted&&p.name).sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name))}
 const personById=id=>people().find(p=>p.id===id);
 const initials=n=>String(n||'?').replace(/^(Mr|Dr|Mrs)\.?\s+/i,'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
@@ -411,9 +411,9 @@ function meetingsOf(pid,p){const f=short(p.name).toLowerCase()||'#';return meeti
 function personCard(p){const R=REL[p.rel]||REL.friend,ds=dealsOf(p.id).filter(d=>!['Won','Lost'].includes(d.stage));
  return `<div class="person" data-person="${p.id}">${avatar(p,46)}<div class="pt2"><b>${esc(p.name)}${p.aka?` <small>· ${esc(p.aka)}</small>`:''}</b><small>${esc(p.role||'')}</small><div class="ptags"><span class="pill ${R[1]}">${R[0]}</span>${ds.slice(0,2).map(d=>`<span class="pill">${ic('deal')}${esc(d.name)}</span>`).join('')}${p.phone?'':'<span class="pill faint">no number</span>'}</div></div>${ic('chev')}</div>`}
 let pfilter='all';
-function renderPeople(){const P=people(),F=[['all','All'],['partner','Partners'],['team','Team'],['friend','Friends'],['buyer','Buyers & sellers'],['client','Clients'],['careful','Careful']];
- const shown=P.filter(p=>pfilter==='all'||p.rel===pfilter||(pfilter==='buyer'&&p.rel==='seller'));
- $('#p-people').innerHTML=`<div class="pt">People <span>${P.length} contacts · your business circle</span></div>
+function renderPeople(){const P=people(),F=[['all','All'],['family','Family'],['partner','Partners'],['team','Team'],['friend','Friends'],['buyer','Buyers & sellers'],['client','Clients'],['careful','Careful']];
+ const shown=P.filter(p=>pfilter==='all'||p.rel===pfilter||(pfilter==='buyer'&&p.rel==='seller')).sort((a,b)=>(b.rel==='family')-(a.rel==='family'));
+ $('#p-people').innerHTML=`<div class="pt">People <span>${P.length} contacts · family & business circle</span></div>
  <div class="addline"><input class="inp" id="psearch" placeholder="Search a name…"><button data-act="newperson" aria-label="Add contact">${ic('plus')}</button></div>
  <div class="filters">${F.filter(([k])=>k==='all'||P.some(p=>p.rel===k||(k==='buyer'&&p.rel==='seller'))).map(([k,l])=>`<button data-pf="${k}" class="${pfilter===k?'on':''}">${l}</button>`).join('')}</div>
  <div class="card"><div class="plist">${shown.map(personCard).join('')||empty('Nobody here yet','users')}</div></div>
