@@ -4,6 +4,8 @@ const TZ='Asia/Dubai', KEY='hq.pw', REPO='bornaxahadi/hq', API='https://api.gith
 
 /* ================= icons ================= */
 const P={
+ bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+ phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
  chart:'<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
  rocket:'<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 12a13 13 0 0 1 11-9 13 13 0 0 1-9 11l-2-2z"/><path d="M9 12H5l2-4h5M12 15v4l4-2v-5"/>',
@@ -95,15 +97,15 @@ async function ghGet(path){const r=await fetch(API+path+'?ref=main&t='+Date.now(
  if(r.status===404)return null;if(!r.ok)throw new Error('GitHub '+r.status);const j=await r.json();return{sha:j.sha,json:JSON.parse(atob(j.content.replace(/\s/g,'')))}}
 async function ghPut(path,text,sha,msg){const r=await fetch(API+path,{method:'PUT',headers:{Authorization:'Bearer '+TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json'},
  body:JSON.stringify({message:msg,content:btoa(text),branch:'main',...(sha?{sha}:{})})});if(!r.ok){const e=new Error('GitHub '+r.status);e.status=r.status;throw e}return (await r.json()).content.sha}
-const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],updated:null});
+const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],updated:null});
 function mergeArr(a=[],b=[]){const m={};[...a,...b].forEach(x=>{if(!x||!x.id)return;const o=m[x.id];if(!o||(x.updated||'')>(o.updated||''))m[x.id]=x});return Object.values(m)}
 function mergeObj(a={},b={},f='updated'){const m={...a};Object.entries(b).forEach(([k,v])=>{if(!m[k]||(v[f]||'')>(m[k][f]||''))m[k]=v});return m}
-function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),updated:new Date().toISOString()}}
+function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),updated:new Date().toISOString()}}
 async function loadUser(){
  let remote=null;
  try{ if(TOKEN){const g=await ghGet('user.enc');if(g){userSalt=g.json.salt;remote=await dec(g.json)}} else {const j=await pagesJSON('user.enc');if(j){userSalt=j.salt;remote=await dec(j)}} }catch(e){console.warn(e)}
  let local=null;try{const t=ls.get('hq.user');if(t)local=JSON.parse(t)}catch(e){}
- U=local?mergeU(remote,local):(remote||emptyU());
+ U=local?mergeU(remote,local):(remote||emptyU());U={...emptyU(),...U};
  ls.set('hq.user',JSON.stringify(U));
  if(local&&TOKEN&&JSON.stringify(local)!==JSON.stringify(remote))queueSave();
 }
@@ -148,7 +150,8 @@ const TITLES=['Rookie','Apprentice','Explorer','Builder','Operator','Strategist'
 function game(){
  const L=entries(),today=nowD().date;
  const doneTodos=(U?.todos||[]).filter(t=>t.done&&!t.deleted).length+Object.values(U?.ctodo||{}).filter(x=>x.done).length;
- const xp=L.reduce((a,e)=>a+dayXP(e),0)+doneTodos*5;
+ const logged=(U?.meetings||[]).filter(m=>m.loggedAt&&m.status==='done').length;
+ const xp=L.reduce((a,e)=>a+dayXP(e),0)+doneTodos*5+logged*15;
  const level=Math.floor(Math.sqrt(xp/60))+1,cur=60*(level-1)**2,nxt=60*level**2;
  const streak=f=>{let s=0,prev=null;for(let i=L.length-1;i>=0;i--){if(prev&&daysBetween(L[i].date,prev)>1)break;if(f&&!f(L[i]))break;s++;prev=L[i].date}if(L.length&&daysBetween(L[L.length-1].date,today)>1)return 0;return s};
  const words=(D.arabic_words||[]).length||L.reduce((a,e)=>a+e.words,0);
@@ -164,6 +167,7 @@ function game(){
   {n:'Arabic 50',d:'Learn 50 words',icn:'ar',bg:'bg-c',ok:words>=50},
   {n:'Cloud 10h',d:'10 hours of cloud',icn:'cloud',bg:'bg-b',ok:H.cloud>=10},
   {n:'Networker',d:'Attend 10 meetings',icn:'users',bg:'bg-a',ok:L.reduce((a,e)=>a+e.met,0)>=10},
+  {n:'Follow-through',d:'Log 5 meeting results',icn:'check',bg:'bg-c',ok:logged>=5},
   {n:'Hunter',d:'Log 5 new opportunities',icn:'target',bg:'bg-o',ok:allDeals.length>=6},
   {n:'Deal maker',d:'Close a deal',icn:'deal',bg:'bg-g',ok:allDeals.some(d=>d.status==='Closed')},
   {n:'Finisher',d:'Complete 25 to-dos',icn:'list',bg:'bg-v',ok:doneTodos>=25},
@@ -175,9 +179,114 @@ function game(){
 }
 function todos(){const c=(D.todos||[]).map(t=>({...t,claude:true,done:!!U.ctodo[t.id]?.done,doneAt:U.ctodo[t.id]?.updated}));
  return [...c,...(U.todos||[]).filter(t=>!t.deleted)].sort((a,b)=>(a.done-b.done)||((a.due||'9')<(b.due||'9')?-1:(a.due||'9')>(b.due||'9')?1:0))}
-function eventsOn(date){const ev=(D.calendar?.events||[]).filter(e=>e.date===date).map(e=>({...e,kind:'event'}));
+function eventsOn(date){const ms=meetings().filter(m=>m.date===date&&m.status!=='cancelled');
+ const ev=(D.calendar?.events||[]).filter(e=>e.date===date&&!ms.some(m=>m.time===e.time&&(e.title||'').toLowerCase().includes((m.person||'#').split(' ')[0].toLowerCase()))).map(e=>({...e,kind:'event'}));
+ ev.push(...ms.map(m=>({id:m.id,title:mName(m),time:m.time,where:m.place,notes:agendaL(m).length?agendaL(m).length+' agenda points':'',kind:'meeting'})));
  const pend=(U.cal_requests||[]).filter(r=>!r.deleted&&r.date===date&&!(D.cal_done||[]).includes(r.id)).map(r=>({...r,kind:'pending'}));
  return [...ev,...pend].sort((a,b)=>(a.time||'')<(b.time||'')?-1:1)}
+
+/* ================= meetings & alerts ================= */
+function meetings(){const m={};(D.meetings||[]).forEach(x=>m[x.id]={...x,src:'claude'});(U.meetings||[]).forEach(x=>{m[x.id]={...(m[x.id]||{}),...x}});
+ return Object.values(m).filter(x=>!x.deleted&&x.date).sort((a,b)=>(a.date+(a.time||''))<(b.date+(b.time||''))?-1:1)}
+const mStart=m=>new Date(`${m.date}T${m.time||'09:00'}:00+04:00`);
+function mState(m){const now=Date.now(),s=mStart(m).getTime(),e=s+(m.duration||60)*6e4;
+ if(m.status==='cancelled')return 'cancelled';if(m.status==='done')return 'done';if(now<s)return 'upcoming';if(now<e)return 'now';return 'needs'}
+function untilTxt(m){const d=mStart(m)-Date.now();if(d<=0)return 'now';const mi=Math.round(d/6e4);if(mi<60)return `in ${mi} min`;const h=Math.floor(mi/60);const dd=daysBetween(nowD().date,m.date);
+ if(h<12||dd===0)return `in ${h}h${mi%60?' '+(mi%60)+'m':''}`;return dd===1?'tomorrow':`in ${dd} days`}
+const mName=m=>m.title||('Meeting with '+(m.person||'someone'));
+const agendaL=m=>(Array.isArray(m.agenda)?m.agenda:String(m.agenda||'').split('\n')).map(s=>String(s).replace(/^[-•*\d.)\s]+/,'').trim()).filter(Boolean);
+const mapUrl=p=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(p+(/dubai/i.test(p)?'':', Dubai'));
+const allDeals=()=>[...(D.deals||[]),...(U.deals||[]).filter(d=>!d.deleted)];
+const dealName=id=>id?(allDeals().find(d=>d.id===id)||{}).name:'';
+function followups(){return meetings().filter(m=>m.status==='done'&&m.followup&&!m.followDone).sort((a,b)=>a.followup<b.followup?-1:1)}
+function upsertMeet(id,rec){U.meetings=U.meetings||[];const ex=U.meetings.find(x=>x.id===id);if(ex)Object.assign(ex,rec);else U.meetings.push({id,...rec})}
+function inCal(m){const s=(D.meeting_sync||{})[m.id];return !!s&&s>=(m.updated||'')}
+function meetCard(m,big){const st=mState(m),ag=agendaL(m),note=(D.meeting_notes||{})[m.id],dn=dealName(m.deal);
+ const lbl={upcoming:untilTxt(m),now:'Happening now',needs:'Log the result',done:m.mood?m.mood:'Done',cancelled:'Cancelled'}[st];
+ const pc={upcoming:'b',now:'g',needs:'w',done:'g',cancelled:'r'}[st];
+ return `<div class="meet ${st} ${big?'big':''}">
+  <div class="mt"><div class="when"><b>${esc(m.time||'—')}</b><small>${fd(m.date,{weekday:'short',day:'numeric',month:'short'})}</small></div>
+   <div class="who"><b>${esc(m.person||mName(m))}</b><small>${esc(m.company||(m.person?'Meeting':''))}</small></div>
+   <span class="pill ${pc}">${lbl}</span></div>
+  <div class="meta">${m.place?`<a href="${mapUrl(m.place)}" target="_blank" rel="noopener noreferrer">${ic('pin')}${esc(m.place)}</a>`:''}${m.goal?`<span>${ic('target')}${esc(m.goal)}</span>`:''}${dn?`<span>${ic('deal')}${esc(dn)}</span>`:''}${st==='upcoming'?`<span>${ic('cal')}${inCal(m)?'In Google Calendar':'Adding to calendar…'}</span>`:''}</div>
+  ${big&&ag.length&&st!=='done'?`<div class="agenda"><div class="lab">Agenda</div>${ag.map(a=>`<div class="ag">${ic('chev')}<span>${esc(a)}</span></div>`).join('')}</div>`:''}
+  ${big&&!ag.length&&(st==='upcoming'||st==='now')?`<button class="addag" data-editmeet="${m.id}">${ic('plus')}Add the agenda — what do you want from this meeting?</button>`:''}
+  ${note?.prep&&st!=='done'&&st!=='cancelled'?`<div class="note"><b>${ic('spark')}Claude’s prep</b>${esc(note.prep)}</div>`:''}
+  ${st==='done'?`${m.outcome?`<div class="sm" style="margin-top:8px">${esc(m.outcome)}</div>`:''}${(m.next||[]).length?`<div class="agenda"><div class="lab">Next steps</div>${m.next.map(a=>`<div class="ag">${ic('chev')}<span>${esc(a)}</span></div>`).join('')}</div>`:''}${m.followup?`<div class="xs faint" style="margin-top:6px">${m.followDone?'Followed up ✓':'Follow up '+fd(m.followup)}</div>`:''}${note?.after?`<div class="note"><b>${ic('spark')}Claude</b>${esc(note.after)}</div>`:''}`:''}
+  ${big||st==='needs'?`<div class="mbtns">${st==='needs'||st==='now'?`<button class="btn2 pri" data-result="${m.id}">${ic('check')} Log result</button>`:''}${st==='done'||st==='cancelled'?`<button class="btn2" data-result="${m.id}">${ic('edit')} Update result</button>`:`<button class="btn2" data-editmeet="${m.id}">${ic('edit')} Edit</button>`}</div>`:`<button class="mopen" data-${st==='done'||st==='cancelled'?'result':'editmeet'}="${m.id}" aria-label="Open">${ic('chev')}</button>`}
+ </div>`}
+const fuRow=m=>{const left=daysBetween(nowD().date,m.followup);return `<div class="row"><div class="ico ${left<0?'bg-r':left===0?'bg-o':'bg-a'}">${ic('bell')}</div><div class="tx"><b>${esc(m.person||mName(m))}</b><div>${left<0?`${-left}d overdue`:left===0?'Today':fd(m.followup,{weekday:'short',day:'numeric',month:'short'})} · ${esc(String((m.next||[])[0]||m.outcome||mName(m)).slice(0,90))}</div></div><button class="pill g" data-fudone="${m.id}">${ic('check')}Done</button></div>`};
+function alerts(kinds){return (D.alerts||[]).filter(a=>!(U.seen||{})[a.id]&&(!kinds||kinds.includes(a.type))).slice(0,4)}
+function alertRow(a){return `<div class="alert ${a.level||''}"><div class="ai ${a.level==='hot'?'bg-o':a.type==='milestone'?'bg-a':a.type==='app'?'bg-grad':'bg-v'}">${ic(a.level==='hot'?'flame':a.type==='milestone'?'trophy':a.type==='meeting'?'users':'spark')}</div><div class="tx"><b>${esc(a.title)}</b>${a.text?`<div>${esc(a.text)}</div>`:''}${a.url?`<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a>`:''}</div><button class="x" data-seen="${a.id}" aria-label="Dismiss">${ic('x')}</button></div>`}
+function isViral(p,r){const v=r.map(x=>x.views||0).filter(Boolean).sort((a,b)=>a-b);const med=v.length?v[Math.floor(v.length/2)]:0;return p.viral||((p.views||0)>=1000&&(p.views||0)>=5*Math.max(med,50))}
+function parseMeet(t){const r={},n=nowD(),lw=' '+t.toLowerCase()+' ';
+ if(/\btomorrow\b/.test(lw))r.date=addDays(n.date,1);else if(/\btoday\b|\btonight\b/.test(lw))r.date=n.date;
+ else{const W=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];const wi=W.findIndex(w=>new RegExp('\\b('+w+'|'+w.slice(0,3)+')\\b').test(lw));
+  if(wi>=0){const cur=new Date(n.date+'T12:00:00Z').getUTCDay();r.date=addDays(n.date,(wi-cur+7)%7||7)}
+  const M=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];let dm=lw.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/),day,mon;
+  if(dm){day=+dm[1];mon=M.indexOf(dm[2])+1}else{dm=lw.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b/);if(dm){day=+dm[2];mon=M.indexOf(dm[1])+1}}
+  if(mon){const y=+n.date.slice(0,4);let iso=`${y}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;if(iso<n.date)iso=(y+1)+iso.slice(4);r.date=iso}}
+ const tm=lw.match(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?\s?m\b\.?|p\.?\s?m\b\.?)/)||lw.match(/\b(\d{1,2}):(\d{2})\b/);
+ if(tm){let h=+tm[1];const mi=+(tm[2]||0),ap=(tm[3]||'').replace(/[.\s]/g,'');if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;if(h<24)r.time=`${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`}
+ const stop='(?=\\s+(?:at|in|on|tomorrow|today|tonight|about|regarding|to discuss)\\b|\\s*[,.;]|\\s*$)';
+ const w=t.match(new RegExp('\\bwith\\s+(.+?)'+stop,'i'));if(w)r.person=w[1].trim();
+ const ab=t.match(/\b(?:about|regarding|to discuss)\s+(.+)$/i);if(ab)r.agenda=ab[1].trim();
+ const at=t.match(new RegExp('\\b(?:at|in)\\s+([A-Za-z][^,;]*?)'+stop.replace('at|in|','with|'),'i'));if(at&&!/^(the )?(morning|evening|afternoon|night)$/i.test(at[1]))r.place=at[1].trim();
+ if(!r.place){t.split(/[,;]/).map(s=>s.trim()).some(seg=>{let c=seg.split(/\bwith\b/i)[0].trim();if(/\b(meeting|tomorrow|today|tonight|have|i)\b/i.test(c)&&!/^[A-Z]/.test(c))return false;
+   c=c.replace(/\b(tomorrow|today|tonight|\d{1,2}([:.]\d{2})?\s*([ap]\.?\s?m\.?)?)\b/gi,'').trim();if(/^[A-Z][\w'&-]*(\s+[\w'&-]+)*$/.test(c)&&c!==r.person){r.place=c;return true}return false})}
+ return r}
+function openMeeting(id,pre){const m=id?{...(meetings().find(x=>x.id===id)||{})}:{date:addDays(nowD().date,1),time:'',duration:60,...(pre||{})};const deals=allDeals();
+ const qd=[[nowD().date,'Today'],[addDays(nowD().date,1),'Tomorrow'],[addDays(nowD().date,2),fd(addDays(nowD().date,2),{weekday:'short'})],[addDays(nowD().date,3),fd(addDays(nowD().date,3),{weekday:'short'})]];
+ sheet(head(id?'Edit meeting':'New meeting','users','bg-o')+`<form id="mf">
+  ${id?'':`<div class="fld"><label>Quick add — type it the way you’d say it</label><div class="addline"><input class="inp" id="mq" placeholder="tomorrow 2pm Daire Dubai with Rasul Hosseini" enterkeyhint="go"><button type="button" data-act="mparse" aria-label="Fill in">${ic('spark')}</button></div></div>`}
+  <div class="two"><div class="fld"><label>With whom</label><input class="inp" name="person" value="${esc(m.person||'')}" required placeholder="Name"></div><div class="fld"><label>Company</label><input class="inp" name="company" value="${esc(m.company||'')}" placeholder="optional"></div></div>
+  <div class="fld"><label>Day</label><div class="opts qd">${qd.map(([d,l])=>`<button type="button" class="opt ${m.date===d?'on':''}" data-qd="${d}">${l}</button>`).join('')}</div></div>
+  <div class="two"><div class="fld"><label>Date</label><input class="inp" type="date" name="date" value="${esc(m.date||'')}" required></div><div class="fld"><label>Time</label><input class="inp" type="time" name="time" value="${esc(m.time||'')}" required></div></div>
+  <div class="fld"><label>Place</label><input class="inp" name="place" value="${esc(m.place||'')}" placeholder="Office, café, or Zoom"></div>
+  <div class="fld"><label>How long</label>${optBtns('dur',[30,60,90,120],m.duration||60,v=>v<60?v+' min':(v/60)+'h')}</div>
+  <div class="fld"><label>Goal — what do you want to walk out with?</label><input class="inp" name="goal" value="${esc(m.goal||'')}" placeholder="e.g. Agree price and start date"></div>
+  <div class="fld"><label>Agenda — one point per line</label><textarea class="inp" name="agenda" style="min-height:96px" placeholder="Introduce my services&#10;Understand their budget&#10;Ask about timeline">${esc(agendaL(m).join('\n'))}</textarea></div>
+  ${deals.length?`<div class="fld"><label>Related business</label><select class="inp" name="deal"><option value="">— none —</option>${deals.map(d=>`<option value="${esc(d.id)}" ${m.deal===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select></div>`:''}
+  <div class="xs faint" style="margin-bottom:12px;line-height:1.6">Claude adds it to your Google Calendar with a reminder, lists it in your morning briefing, sends a heads-up before it starts, and asks you afterwards how it went.</div>
+  <div class="btnrow">${id?`<button type="button" class="btn2 del" data-delmeet="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="submit" class="btn2 pri">${id?'Save':'Add meeting'}</button></div></form>`);
+ wireOpts();
+ $$('#mf [data-qd]').forEach(b=>b.onclick=()=>{$$('#mf [data-qd]').forEach(x=>x.classList.remove('on'));b.classList.add('on');$('#mf').date.value=b.dataset.qd});
+ const q=$('#mq');if(q)q.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();fillParsed()}};
+ $('#mf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString();
+  const rec={person:f.person.value.trim(),company:f.company.value.trim(),date:f.date.value,time:f.time.value,place:f.place.value.trim(),duration:+($('#mf [data-name="dur"] .opt.on')?.dataset.v||60),goal:f.goal.value.trim(),agenda:f.agenda.value.trim(),deal:f.deal?.value||'',updated:now};
+  if(!rec.person||!rec.date)return;rec.title='Meeting with '+rec.person+(rec.company?' · '+rec.company:'');
+  if(id){rec.status=m.status==='cancelled'?'planned':(m.status||'planned');upsertMeet(id,rec)}else{U.meetings=U.meetings||[];U.meetings.push({id:'m-'+uid(),status:'planned',created:now,...rec})}
+  queueSave();closeSheet();location.hash='business';rerender();toast(id?'Meeting saved':'Meeting added · +15 XP when you log the result')}}
+function fillParsed(){const q=$('#mq');if(!q||!q.value.trim())return;const r=parseMeet(q.value),f=$('#mf');let n=0;
+ ['person','date','time','place'].forEach(k=>{if(r[k]){f[k].value=r[k];n++}});if(r.agenda){f.agenda.value=r.agenda;n++}
+ $$('#mf [data-qd]').forEach(x=>x.classList.toggle('on',x.dataset.qd===f.date.value));toast(n?'Filled in — check and save':'Could not read that — fill the fields below')}
+function openResult(id){const m=meetings().find(x=>x.id===id);if(!m)return;const ag=agendaL(m);
+ sheet(head('How did it go?','check','bg-g')+`<div class="sm muted" style="margin:-4px 0 14px">${esc(mName(m))} · ${fd(m.date,{weekday:'short',day:'numeric',month:'short'})} ${esc(m.time||'')}${m.place?' · '+esc(m.place):''}</div><form id="rf">
+  <div class="fld"><label>Did it happen?</label>${optBtns('hap',['Yes','Moved','Cancelled'],m.status==='cancelled'?'Cancelled':'Yes')}</div>
+  <div class="fld"><label>How did it go?</label>${optBtns('mood',['Great','Good','OK','Bad'],m.mood||'Good')}</div>
+  ${ag.length?`<div class="fld"><label>Agenda — tick what you covered</label>${ag.map((a,i)=>`<label class="chk" style="margin-bottom:7px"><input type="checkbox" name="ag_${i}" ${(m.covered||[]).includes(i)?'checked':''}> ${esc(a)}</label>`).join('')}</div>`:''}
+  <div class="fld"><label>Result — what was agreed?</label><textarea class="inp" name="outcome" placeholder="Decisions, price, dates, their concerns…">${esc(m.outcome||'')}</textarea></div>
+  <div class="fld"><label>Next steps — one per line</label><textarea class="inp" name="next" placeholder="Send proposal&#10;Share portfolio">${esc((m.next||[]).join('\n'))}</textarea>
+   <label class="chk" style="margin-top:8px"><input type="checkbox" name="mk" ${m.loggedAt?'':'checked'}> Add next steps to my to-do list</label></div>
+  <div class="fld"><label>Follow up with ${esc(m.person||'them')}</label>${optBtns('fu',['none','1','3','7','14'],m.loggedAt?(m.followup?'':'none'):'3',v=>v==='none'?'Not needed':v==='1'?'Tomorrow':v+' days')}</div>
+  <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="submit" class="btn2 pri">Save result</button></div></form>`);
+ wireOpts();
+ $('#rf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),g=nm=>$(`#rf [data-name="${nm}"] .opt.on`)?.dataset.v;const hap=g('hap');
+  if(hap==='Moved'){closeSheet();openMeeting(id);toast('Pick the new date and time');return}
+  const next=f.next.value.split('\n').map(s=>s.trim()).filter(Boolean),fu=g('fu');
+  const rec={status:hap==='Cancelled'?'cancelled':'done',mood:hap==='Cancelled'?'':g('mood'),outcome:f.outcome.value.trim(),next,covered:ag.map((_,i)=>i).filter(i=>f['ag_'+i]?.checked),updated:now};
+  if(fu==='none')rec.followup='';else if(fu)rec.followup=addDays(nowD().date,+fu);else rec.followup=m.followup||'';
+  if(!m.loggedAt)rec.loggedAt=now;upsertMeet(id,rec);
+  if(f.mk.checked&&rec.status==='done'){next.forEach(t=>U.todos.push({id:uid(),text:t,cat:'Business',due:rec.followup||'',note:'From '+mName(m),done:false,updated:now}));
+   if(rec.followup)U.todos.push({id:uid(),text:'Follow up with '+(m.person||'them'),cat:'Business',due:rec.followup,note:mName(m),done:false,updated:now})}
+  queueSave();closeSheet();rerender();toast(rec.status==='done'?(m.loggedAt?'Result updated':'Result saved · +15 XP'):'Marked as cancelled')}}
+function openIdea(){const F=(U.feedback||[]).filter(x=>!x.deleted).slice().reverse(),st=D.feedback_status||{};
+ sheet(head('Improve this app','bulb','bg-a')+`<div class="sm muted" style="margin:-4px 0 12px">Tell Claude what to change, add or remove. Claude reads this every day and updates the app.</div>
+  <form id="if"><div class="fld"><textarea class="inp" name="t" required style="min-height:90px" placeholder="e.g. Show my meetings on the calendar in orange. Add a button to call the person."></textarea></div>
+  <div class="btnrow"><button type="button" class="btn2" data-act="close">Close</button><button type="submit" class="btn2 pri">Send to Claude</button></div></form>
+  ${F.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Your ideas</div>${F.map(x=>`<div class="row"><div class="ico ${st[x.id]?.state==='done'?'bg-g':'bg-a'}">${ic(st[x.id]?.state==='done'?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${st[x.id]?esc(st[x.id].note||st[x.id].state):'Waiting for Claude'}</div></div></div>`).join('')}`:''}
+  ${(D.changelog||[]).length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">What’s new</div>${D.changelog.slice(0,6).map(c=>`<div class="row"><div class="ico bg-grad">${ic('spark')}</div><div class="tx"><b>${fd(c.date,{day:'numeric',month:'short'})}</b><div>${(c.items||[]).map(esc).join(' · ')}</div></div></div>`).join('')}`:''}`);
+ $('#if').onsubmit=e=>{e.preventDefault();const t=e.target.t.value.trim();if(!t)return;const now=new Date().toISOString();U.feedback=U.feedback||[];U.feedback.push({id:uid(),text:t,created:now,updated:now});queueSave();closeSheet();toast('Sent · Claude will work on it')}}
 
 /* ================= nav ================= */
 const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'},{id:'business',l:'Business',i:'brief'}];
@@ -215,12 +324,13 @@ function renderToday(G){
  const done=Q.filter(q=>q.ok).length;
  const k=cur?KIND[cur.kind]||KIND.life:KIND.life;
  const tonight=eventsOn(n.date).filter(e=>toMin(e.time)>=17*60);
+ const MM=meetings(),nm=MM.find(m=>['upcoming','now'].includes(mState(m))&&daysBetween(n.date,m.date)<=1),needs=MM.filter(m=>mState(m)==='needs'),fuDue=followups().filter(m=>m.followup<=n.date);
  const brBlock=(title,arr,i,bg,emptyT)=>`<div style="margin-bottom:10px"><div class="xs faint" style="font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px">${title} · ${arr?.length||0}</div>${arr?.length?arr.map(x=>brRow(x,i,bg)).join(''):empty(emptyT,'check')}</div>`;
  $('#p-today').innerHTML=`
  <div class="banner ${TOKEN?'hidden':''}" id="banner">${ic('key')}<span>Your check-ins and to-dos are saved on this device only. Connect saving so Claude sees them.</span><button data-act="settings">Connect</button></div>
  <div class="g3">
   <div class="card hero s2">
-   <div class="me"><div class="avatar">${ring((G.xp-G.cur)/(G.nxt-G.cur),74,5,'url(#warm)')}<div class="face">BA</div><div class="lv">LV ${G.level}</div></div>
+   <div class="me"><div class="avatar">${ring((G.xp-G.cur)/(G.nxt-G.cur),74,5,'url(#warm)')}<div class="face">${D.photo?`<img src="${D.photo}" alt="Borna">`:'BA'}</div><div class="lv">LV ${G.level}</div></div>
     <div><div class="xs faint" style="font-weight:700">${greet}</div><h2>Borna Ahadi</h2><div class="title"><span class="pill v">${ic('star')}${G.title}</span><span class="pill w">${ic('flame')}${G.streak}-day streak</span></div></div></div>
    <div class="xpline"><div class="lbl"><span>${ic('bolt')} ${G.xp} XP</span><span>${G.nxt-G.xp} XP to level ${G.level+1}</span></div><div class="bar"><i style="width:${Math.round((G.xp-G.cur)/(G.nxt-G.cur)*100)}%;background:var(--grad-warm)"></i></div></div>
    <div class="chips">
@@ -237,6 +347,10 @@ function renderToday(G){
    ${cur&&next?`<div class="sm faint" style="margin-top:8px">Then ${esc(next.start)} · ${esc(next.block)}</div>`:''}
    <div class="dayline"><div class="bar"><i style="width:${Math.round(dayPct*100)}%"></i></div><div class="marks"><span>${S[0]?.start||''}</span><span>${Math.round(dayPct*100)}% of your day</span><span>${S[S.length-1]?.end||''}</span></div></div>
   </div>
+  ${needs.map(m=>`<div class="s3"><button class="cin warm" data-result="${m.id}"><div class="qi bg-o">${ic('users')}</div><div><b>How did the meeting with ${esc(m.person||'')} go?</b><small>Log the result and next steps — Claude will follow up for you</small></div><span class="go">${ic('chev')}</span></button></div>`).join('')}
+  ${nm?`<div class="card s3 nextm"><div class="ch"><div class="ic bg-o">${ic('users')}</div><h3>${mState(nm)==='now'?'Meeting now':'Next meeting'}</h3><span class="aside">${esc(untilTxt(nm))}</span></div>${meetCard(nm,true)}</div>`:''}
+  ${alerts().length?`<div class="s3 alerts">${alerts().map(alertRow).join('')}</div>`:''}
+  ${fuDue.length?card('Follow up today','bell','bg-a',fuDue.map(fuRow).join(''),`${fuDue.length}`,'s3'):''}
   <div class="s3"><button class="cin" data-act="checkin"><div class="qi bg-grad">${ic(ci?'check':'moon')}</div><div><b>${ci?'Today’s check-in saved — tap to update':'Log your day'}</b><small>${ci?`${hrs(te?totalH(te):0)} studied · score ${ci.score||'—'}/10`:'Study hours, gym, meetings, new business — takes 1 minute'}</small></div><span class="go">${ic('chev')}</span></button></div>
   ${card("Today's quests",'target','bg-grad',Q.map(q=>`<div class="quest ${q.ok?'done':''}" data-act="${q.i==='list'?'tasks':'checkin'}"><div class="qi ${q.bg}">${ic(q.i)}</div><div><b>${q.n}</b><small>${q.s}</small></div><span class="xp">+${q.xp} XP</span><span class="ok">${q.ok?ic('check'):''}</span></div>`).join(''),`${done}/${Q.length} done`)}
   ${card('To-do','list','bg-p',`<div class="addline"><input class="inp" id="qadd" placeholder="Add a task…" enterkeyhint="done"><button data-act="qadd" aria-label="Add">${ic('plus')}</button></div>${openT.slice(0,5).map(todoRow).join('')||empty('All clear','check')}${openT.length>5?`<a href="#tasks" class="xs faint" style="display:block;margin-top:8px;font-weight:700">+${openT.length-5} more →</a>`:''}`,`${openT.length} open`)}
@@ -250,7 +364,7 @@ function renderToday(G){
  const q=$('#qadd');if(q)q.onkeydown=e=>{if(e.key==='Enter'){quickAdd()}};
 }
 function routineRows(arr){return arr.map(s=>{const k=KIND[s.kind]||KIND.life;return `<div class="row"><div class="ico ${k[0]}" style="opacity:.8">${ic(k[1])}</div><div class="tx"><b>${s.start} · ${esc(s.block)}</b>${s.what?`<div>${esc(s.what)}</div>`:''}</div></div>`}).join('')}
-function evRow(e){return `<div class="row"><div class="ico ${e.kind==='pending'?'bg-a':'bg-grad'}">${ic(e.kind==='pending'?'clock':'cal')}</div><div class="tx"><b>${esc(e.time||'All day')} · ${esc(e.title)}</b><div>${e.kind==='pending'?'Adding to Google Calendar…':esc(e.where||e.notes||'')}</div></div></div>`}
+function evRow(e){return `<div class="row" ${e.kind==='meeting'?`data-editmeet="${e.id}"`:''}><div class="ico ${e.kind==='pending'?'bg-a':e.kind==='meeting'?'bg-o':'bg-grad'}">${ic(e.kind==='pending'?'clock':e.kind==='meeting'?'users':'cal')}</div><div class="tx"><b>${esc(e.time||'All day')} · ${esc(e.title)}</b><div>${e.kind==='pending'?'Adding to Google Calendar…':esc(e.where||e.notes||'')}</div></div></div>`}
 function timeline(){const n=nowD();return `<div class="tl">${(D.schedule||[]).map(s=>{const a=toMin(s.start),b=toMin(s.end);const st=n.mins>=a&&n.mins<b?'now':n.mins>=b?'past':'';const k=KIND[s.kind]||KIND.life;
  return `<div class="it ${st}"><div class="t">${s.start}</div><div class="dot" style="background:${k[2]}"></div><div class="b"><b>${esc(s.block)}</b>${st==='now'?'<span class="nowtag">NOW</span>':''}${s.what?`<div>${esc(s.what)}</div>`:''}</div></div>`}).join('')}</div>`}
 
@@ -298,7 +412,7 @@ function renderCalendar(){
   <div class="card s2">
    <div class="ch"><div class="ic bg-grad">${ic('cal')}</div><h3>This week</h3><button class="pill v" data-act="event">${ic('plus')}Add event</button></div>
    ${days.map(d=>{const ev=eventsOn(d),isT=d===n.date,open=showRoutine[d];return `<div class="day ${isT?'today':''}"><h4><span class="dd">${fd(d,{day:'numeric'})}<small>${fd(d,{weekday:'short'}).toUpperCase()}</small></span>${isT?'Today':fd(d,{weekday:'long'})} <span class="xs faint">${ev.length?ev.length+' event'+(ev.length>1?'s':''):'routine day'}</span></h4>
-    ${ev.map(e=>`<div class="ev ${e.kind==='pending'?'pending':''}"><span class="tm">${esc(e.time||'All day')}</span><div><b>${esc(e.title)}</b><small>${e.kind==='pending'?'⏳ Claude will add this to Google Calendar':esc([e.end?'until '+e.end:'',e.where||'',e.notes||''].filter(Boolean).join(' · '))}</small></div></div>`).join('')}
+    ${ev.map(e=>`<div class="ev ${e.kind==='pending'?'pending':''} ${e.kind==='meeting'?'mtg':''}" ${e.kind==='meeting'?`data-editmeet="${e.id}"`:''}><span class="tm">${esc(e.time||'All day')}</span><div><b>${esc(e.title)}</b><small>${e.kind==='pending'?'⏳ Claude will add this to Google Calendar':esc([e.end?'until '+e.end:'',e.where||'',e.notes||''].filter(Boolean).join(' · '))}</small></div></div>`).join('')}
     <button class="routine-toggle" data-rt="${d}">${ic(open?'down':'chev')}${open?'Hide':'Show'} daily routine (${S.length} blocks)</button>
     ${open?S.map(s=>`<div class="ev routine"><span class="tm">${s.start}</span><div><b>${esc(s.block)}</b></div></div>`).join(''):''}</div>`}).join('')}
   </div>
@@ -322,10 +436,14 @@ function renderSocial(){
  const best=S.flatMap(s=>s.recent||[]).sort((a,b)=>(b.views||b.likes||0)-(a.views||a.likes||0))[0];
  const counts={all:S.length};S.forEach(s=>counts[s.platform]=(counts[s.platform]||0)+1);
  const shown=S.filter(s=>filter==='all'||s.platform===filter);
+ const v30=S.reduce((a,s)=>a+(s.views30||0),0);
+ const top=S.filter(s=>s.platform!=='facebook').flatMap(s=>(s.recent||[]).map(p=>({...p,acct:s.name,pf:s.platform,hot:isViral(p,s.recent||[])}))).sort((a,b)=>(b.views||0)-(a.views||0)).slice(0,5);
+ const tmax=Math.max(1,...top.map(p=>p.views||0));
  $('#p-social').innerHTML=`<div class="pt">Social growth <span>${S.length} accounts · 3 platforms</span></div>
+ ${alerts(['viral','milestone','social']).length?`<div class="alerts" style="margin-bottom:14px">${alerts(['viral','milestone','social']).map(alertRow).join('')}</div>`:''}
  <div class="stats" style="margin-bottom:14px">
   ${stat(fmt(tot),'Followers','users')}
-  ${stat(fmt(allViews),'Views · recent posts','eye','<div class="d faint">last 10 per account</div>')}
+  ${v30?stat(fmt(v30),'Views · 30 days','eye','<div class="d faint">Instagram, all content</div>'):stat(fmt(allViews),'Views · recent posts','eye','<div class="d faint">last 10 per account</div>')}
   ${stat(fmt(eng),'Engagements','heart','<div class="d faint">likes + comments + shares</div>')}
   ${stat(best?fmt(best.views||best.likes):'—','Best post','trophy',best?`<div class="d" style="color:var(--amber)">${esc(best.title).slice(0,26)}</div>`:'','var(--amber)')}
  </div>
@@ -333,6 +451,7 @@ function renderSocial(){
   ${card('Followers by account','users','bg-grad','<div class="chartbox sm"><canvas id="c-fol"></canvas></div><div class="legend" id="lg-fol"></div>')}
   ${card('Views by account','eye','bg-p','<div class="chartbox sm"><canvas id="c-views"></canvas></div><div class="xs faint" style="margin-top:6px">Instagram & YouTube, last 10 posts. Facebook shows reactions.</div>')}
  </div>
+ ${card('Top posts right now','trophy','bg-a',top.map((p,i)=>`<a class="toppost" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer"><span class="rk ${i===0?'gold':''}">${i+1}</span><div class="tt"><b>${esc(p.title)}</b><small>${AB[p.pf]} · ${esc(p.acct)} · ${fd(p.date)}${p.hot?' · <span class="fire">viral</span>':''}${p.vd?` · <span class="up">+${fmt(p.vd)} today</span>`:''}</small><div class="vbar" style="width:${Math.max(3,Math.round((p.views||0)/tmax*100))}%"></div></div><b class="vv">${fmt(p.views||0)}</b></a>`).join('')||empty('No posts yet'),'by views','s3 mb')}
  <div class="filters">${[['all','All','chart'],['instagram','Instagram','instagram'],['youtube','YouTube','youtube'],['facebook','Facebook','facebook']].map(([k,l,i])=>`<button data-f="${k}" class="${filter===k?'on':''}">${ic(i)}${l} <span class="xs" style="opacity:.8">${counts[k]||0}</span></button>`).join('')}</div>
  <div class="g2">${shown.map(acctCard).join('')}</div>`;
 }
@@ -344,16 +463,16 @@ function acctCard(s){
  const last=r.map(x=>x.date).sort().pop(),gap=last?daysBetween(last,nowD().date):null;
  if(s.limited)return `<div class="card acct"><div class="head ${p.bg}"><div class="pav">${ic(s.platform)}</div><div><b>${esc(s.name)}</b><small>${esc(s.topic)}</small></div></div><div class="tip">${ic('shield')}<span>${esc(s.tip)}</span></div></div>`;
  return `<div class="card acct">
-  <div class="head ${p.bg}"><div class="pav">${ic(s.platform)}</div><div style="min-width:0"><b>${esc(s.name)}</b><small>${p.n} · ${esc(s.topic||'')}</small></div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
+  <div class="head ${p.bg}"><div class="pav">${s.avatar?`<img src="${s.avatar}" alt="">`:ic(s.platform)}</div><div style="min-width:0"><b>${esc(s.name)}</b><small>${p.n} · ${esc(s.topic||'')}</small></div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a></div>
   <div class="stats">
    ${stat(fmt(s.followers),s.platform==='youtube'?'Subs':'Followers','users',deltaTxt(s.history))}
    ${s.platform==='youtube'?stat(fmt(s.total_views),'All views','eye'):stat(fmt(tv),isFB?'Reactions':'Views','eye','<div class="d faint">last '+r.length+'</div>')}
-   ${stat(fmt(avg),isFB?'Avg react.':'Avg views','chart')}
+   ${s.views30?stat(fmt(s.views30),'Views 30d','chart'):stat(fmt(avg),isFB?'Avg react.':'Avg views','chart')}
    ${stat(gap==null?'—':gap+'d','Last post','clock',gap>4?'<div class="d down">post soon</div>':'<div class="d up">active</div>',gap>4?'var(--red)':'')}
   </div>
   <div class="posts">${r.slice(0,4).map(x=>`<a class="post" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">
    ${x.thumb?`<div class="th" data-bg="${esc(x.thumb)}"></div>`:`<div class="pi">${ic(x.type==='Carousel'?'book':x.type==='Post'?'edit':'play')}</div>`}
-   <div class="tt"><b class="${x===bestP?'best':''}">${x===bestP?'★ ':''}${esc(x.title)}</b><small>${fd(x.date)} · ${esc(x.type||'')}</small><div class="vbar" style="width:${Math.max(2,Math.round((x[vKey]||0)/max*100))}%;${isFB?'background:var(--fb)':''}"></div></div>
+   <div class="tt"><b class="${x===bestP?'best':''}">${x===bestP?'★ ':''}${esc(x.title)}</b><small>${fd(x.date)} · ${esc(x.type||'')}${!isFB&&isViral(x,r)?' · <span class="fire">viral</span>':''}${x.vd?` · <span class="up">+${fmt(x.vd)}</span>`:''}</small><div class="vbar" style="width:${Math.max(2,Math.round((x[vKey]||0)/max*100))}%;${isFB?'background:var(--fb)':''}"></div></div>
    <div class="m">${isFB?'':`<span>${ic('eye')}${fmt(x.views||0)}</span>`}<span>${ic('heart')}${fmt(x.likes||0)}</span><span>${ic('msg')}${x.comments||0}</span></div></a>`).join('')||empty('No posts yet')}</div>
   ${!isFB?`<div class="xs faint" style="margin-top:6px">Engagement rate ${er}</div>`:''}
   ${s.tip?`<div class="tip">${ic('bulb')}<span>${esc(s.tip)}</span></div>`:''}
@@ -412,18 +531,33 @@ function renderGrowth(G){
 const STATUS=['Idea','In progress','Waiting on them','Closed'],SCLS={'Idea':'v','In progress':'b','Waiting on them':'w','Closed':'g'};
 function renderBusiness(){
  const n=nowD(),mine=(U.deals||[]).filter(d=>!d.deleted).sort((a,b)=>(b.updated||'')<(a.updated||'')?-1:1),U2=D.upcoming||[],notes=D.deal_notes||{};
- const all=[...(D.deals||[]),...mine];const cnt=s=>all.filter(d=>d.status===s).length;
- $('#p-business').innerHTML=`<div class="pt">Business <span>${all.length} deals & opportunities</span></div>
- <div class="stats" style="margin-bottom:14px">${STATUS.map((s,i)=>stat(cnt(s),s,['bulb','bolt','clock','check'][i])).join('')}</div>
+ const all=[...(D.deals||[]),...mine];const M=meetings();
+ const up=M.filter(m=>['upcoming','now'].includes(mState(m))),needs=M.filter(m=>mState(m)==='needs'),hist=M.filter(m=>['done','cancelled'].includes(mState(m))).reverse(),fu=followups();
+ const nextM=up[0],wk=M.filter(m=>m.date>=n.date&&m.date<=addDays(n.date,6)&&m.status!=='cancelled').length;
+ const other=U2.filter(u=>!M.some(m=>m.date===u.date&&(u.title||'').toLowerCase().includes((m.person||'#').split(' ')[0].toLowerCase())));
+ const cntM=id=>M.filter(m=>m.deal===id).length;
+ $('#p-business').innerHTML=`<div class="pt">Business <span>meetings · follow-ups · deals</span></div>
+ <div class="bizbar"><button class="bigadd" data-act="meet">${ic('users')}New meeting</button><button class="bigadd alt" data-act="deal">${ic('deal')}New business</button></div>
+ <div class="stats" style="margin-bottom:14px">
+  ${stat(wk,'Meetings · 7 days','users')}
+  ${stat(needs.length,'Results to log','edit',needs.length?'<div class="d down">tap below</div>':'<div class="d up">all logged</div>',needs.length?'var(--orange)':'')}
+  ${stat(fu.filter(m=>m.followup<=n.date).length,'Follow-ups due','bell',`<div class="d faint">${fu.length} open</div>`)}
+  ${stat(all.filter(d=>d.status!=='Closed').length,'Open deals','deal',`<div class="d faint">${all.filter(d=>d.status==='Closed').length} closed</div>`)}
+ </div>
  <div class="g3">
-  <div class="card s2">
-   <div class="ch"><div class="ic bg-g">${ic('deal')}</div><h3>My deals & opportunities</h3><button class="pill g" data-act="deal">${ic('plus')}Add business</button></div>
+  ${needs.length?`<div class="card s3 hot"><div class="ch"><div class="ic bg-o">${ic('alert')}</div><h3>Log the result</h3><span class="aside">${needs.length} waiting</span></div>${needs.map(m=>meetCard(m,true)).join('')}</div>`:''}
+  <div class="card s2"><div class="ch"><div class="ic bg-o">${ic('users')}</div><h3>${nextM&&mState(nextM)==='now'?'Meeting now':'Next meeting'}</h3>${nextM?`<span class="aside">${esc(untilTxt(nextM))}</span>`:''}</div>
+   ${nextM?meetCard(nextM,true):`<button class="cin" data-act="meet" style="margin:0"><div class="qi bg-o">${ic('plus')}</div><div><b>Add a meeting</b><small>Person, place, time and agenda — Claude reminds you and follows up</small></div></button>`}</div>
+  ${card('Follow-ups','bell','bg-a',fu.map(fuRow).join('')||empty('After a meeting, set a follow-up date and it shows here','bell'),fu.length?fu.length+' open':'')}
+  ${card('Coming up','cal','bg-c',(up.slice(1).map(m=>meetCard(m)).join('')+other.map(m=>`<div class="row"><div class="ico bg-c">${ic('cal')}</div><div class="tx"><b>${esc(m.title)}</b><div>${fd(m.date,{weekday:'short',day:'numeric',month:'short'})}${m.time?' · '+esc(m.time):''}${m.where?' · '+esc(m.where):''} · from Google Calendar</div></div></div>`).join(''))||empty('Nothing else planned'),`${up.length+other.length} planned`,'s2')}
+  ${card('Meeting history','book','bg-v',hist.slice(0,8).map(m=>meetCard(m)).join('')||empty('Results you log appear here','book'),hist.length?hist.length+' meetings':'')}
+  <div class="card s3">
+   <div class="ch"><div class="ic bg-g">${ic('deal')}</div><h3>My deals & opportunities</h3><button class="pill g" data-act="deal">${ic('plus')}Add</button></div>
    ${mine.length?mine.map(d=>{const left=d.due?daysBetween(n.date,d.due):null;const nt=notes[d.id];return `<div class="dealmini" data-editdeal="${d.id}"><div class="top"><b>${esc(d.name)}</b><span class="pill ${SCLS[d.status]||'v'}">${esc(d.status)}</span></div>
     ${d.desc?`<p>${esc(d.desc)}</p>`:''}
-    <div class="meta">${d.with?`<span>${ic('users')}${esc(d.with)}</span>`:''}${d.value?`<span>${ic('money')}${esc(d.value)}</span>`:''}${d.next?`<span>${ic('chev')}${esc(d.next)}</span>`:''}${d.due?`<span style="${left<0?'color:var(--red)':''}">${ic('cal')}${left<0?'overdue':left===0?'today':fd(d.due)}</span>`:''}</div>
+    <div class="meta">${d.with?`<span>${ic('users')}${esc(d.with)}</span>`:''}${cntM(d.id)?`<span>${ic('cal')}${cntM(d.id)} meeting${cntM(d.id)>1?'s':''}</span>`:''}${d.value?`<span>${ic('money')}${esc(d.value)}</span>`:''}${d.next?`<span>${ic('chev')}${esc(d.next)}</span>`:''}${d.due?`<span style="${left<0?'color:var(--red)':''}">${ic('cal')}${left<0?'overdue':left===0?'today':fd(d.due)}</span>`:''}</div>
     ${nt?`<div class="note"><b>${ic('spark')}Claude</b>${esc(nt.text)}</div>`:`<div class="xs faint" style="margin-top:8px">Claude will research this and suggest next steps at the next refresh.</div>`}</div>`}).join(''):`<button class="cin" data-act="deal" style="margin:0"><div class="qi bg-g">${ic('plus')}</div><div><b>Add your first business</b><small>Explain the deal and Claude will research it and plan next steps</small></div></button>`}
   </div>
-  ${card('Upcoming meetings','cal','bg-c',U2.length?U2.map(m=>`<div class="row"><div class="ico bg-c">${ic('users')}</div><div class="tx"><b>${esc(m.title)}</b><div>${fd(m.date,{weekday:'short',day:'numeric',month:'short'})}${m.time?' · '+esc(m.time):''}${m.where?' · '+esc(m.where):''}</div></div></div>`).join(''):empty('No meetings this week'),'next 7 days')}
   ${(D.deals||[]).map(d=>dealCard(d,n)).join('')}
  </div>`;
 }
@@ -447,14 +581,16 @@ function closeSheet(){$('#scrim').classList.remove('on');$('#sheet').classList.r
 $('#scrim').onclick=closeSheet;
 const head=(t,i,bg)=>`<h2><span class="ic ${bg}">${ic(i)}</span>${t}<button data-act="close" aria-label="Close">${ic('x')}</button></h2>`;
 function openActions(){sheet(head('Add','plus','bg-grad')+`<div class="actions">
+ <button class="action" data-act="meet"><span class="qi bg-o">${ic('users')}</span><b>New meeting</b><small>Who, where, when, agenda</small></button>
  <button class="action" data-act="checkin"><span class="qi bg-v">${ic('moon')}</span><b>Log my day</b><small>Hours, gym, meetings</small></button>
  <button class="action" data-act="newtask"><span class="qi bg-p">${ic('list')}</span><b>New to-do</b><small>Task with category & date</small></button>
  <button class="action" data-act="deal"><span class="qi bg-g">${ic('deal')}</span><b>New business</b><small>Deal or opportunity</small></button>
- <button class="action" data-act="event"><span class="qi bg-c">${ic('cal')}</span><b>New event</b><small>Claude adds it to Google Calendar</small></button></div>`)}
+ <button class="action" data-act="event"><span class="qi bg-c">${ic('cal')}</span><b>New event</b><small>Claude adds it to Google Calendar</small></button>
+ <button class="action" data-act="idea"><span class="qi bg-a">${ic('bulb')}</span><b>Improve the app</b><small>Tell Claude what to change</small></button></div>`)}
 const optBtns=(name,vals,cur,lab=v=>v)=>`<div class="opts" data-name="${name}">${vals.map(v=>`<button type="button" class="opt ${String(cur)===String(v)?'on':''}" data-v="${v}">${lab(v)}</button>`).join('')}</div>`;
 function openCheckin(date){
  const n=nowD();date=date||n.date;const c=U.checkins[date]||{};const st=c.study||{};
- const mt=eventsOn(date).filter(e=>e.kind==='event');
+ const mt=eventsOn(date).filter(e=>e.kind==='event'||e.kind==='meeting');
  const H=[0,0.5,1,1.5,2,3,4];
  sheet(head('Log my day','moon','bg-grad')+`<form id="cf">
   <div class="fld"><label>Day</label>${optBtns('date',[addDays(n.date,-1),n.date],date,v=>v===n.date?'Today':'Yesterday')}</div>
@@ -515,6 +651,7 @@ function openSettings(){sheet(head('Settings','gear','bg-v')+`
   <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--violet);font-weight:700">GitHub → new fine-grained token</a></li>
   <li>Name: <b>HQ app</b> · Expiration: 1 year</li><li>Repository access: <b>Only select repositories → hq</b></li><li>Permissions → Repository → <b>Contents: Read and write</b></li><li>Generate, copy, paste below</li></ol>
   <input class="inp" id="tokin" placeholder="github_pat_…" autocomplete="off"><div class="btnrow"><button class="btn2 pri" data-act="savetok">Connect</button></div></div>`}
+ <button class="cin" data-act="idea" style="margin-top:6px"><div class="qi bg-a">${ic('bulb')}</div><div><b>Improve this app</b><small>Ideas, what’s new, and what Claude changed</small></div><span class="go">${ic('chev')}</span></button>
  <div class="btnrow" style="margin-top:14px">${TOKEN?'<button class="btn2" data-act="forget">Disconnect this device</button>':''}<button class="btn2" data-act="lock">${ic('lock')} Lock</button></div>`)}
 async function saveToken(){const t=($('#tokin')?.value||'').trim();if(!t)return;TOKEN=t;
  try{const r=await fetch('https://api.github.com/repos/'+REPO,{headers:{Authorization:'Bearer '+t}});const j=await r.json();if(!r.ok||!j.permissions?.push)throw new Error('This key cannot write to the hq repo');
@@ -523,9 +660,15 @@ async function saveToken(){const t=($('#tokin')?.value||'').trim();if(!t)return;
  catch(e){TOKEN=null;toast(e.message||'Could not connect')}}
 
 /* ================= events ================= */
-document.addEventListener('click',e=>{const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt]');if(!a)return;
+document.addEventListener('click',e=>{const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone]');if(!a)return;
  const d=a.dataset;
  if(d.tog){toggleTodo(d.tog);return}
+ const now=new Date().toISOString();
+ if(d.seen){U.seen=U.seen||{};U.seen[d.seen]={updated:now};queueSave();rerender();return}
+ if(d.result){openResult(d.result);return}
+ if(d.editmeet){openMeeting(d.editmeet);return}
+ if(d.delmeet){upsertMeet(d.delmeet,{deleted:true,status:'cancelled',updated:now});queueSave();closeSheet();rerender();toast('Meeting removed');return}
+ if(d.fudone){upsertMeet(d.fudone,{followDone:true,updated:now});queueSave();rerender();toast('Follow-up done ✓');return}
  if(d.deltodo){delTodo(d.deltodo);closeSheet();return}
  if(d.deldeal){const x=U.deals.find(z=>z.id===d.deldeal);if(x){x.deleted=true;x.updated=new Date().toISOString();queueSave();closeSheet();rerender();toast('Deleted')}return}
  if(d.editdeal){openDeal(d.editdeal);return}
@@ -533,7 +676,7 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act],[data
  if(d.tf){tfilter=d.tf;rerender();return}
  if(d.f){filter=d.f;renderSocial();draw('social');return}
  if(d.rt){showRoutine[d.rt]=!showRoutine[d.rt];renderCalendar();return}
- switch(d.act){case 'close':closeSheet();break;case 'checkin':openCheckin();break;case 'newtask':openTodo();break;case 'deal':openDeal();break;case 'event':openEvent();break;
+ switch(d.act){case 'close':closeSheet();break;case 'checkin':openCheckin();break;case 'newtask':openTodo();break;case 'deal':openDeal();break;case 'event':openEvent();break;case 'meet':openMeeting();break;case 'mparse':fillParsed();break;case 'idea':openIdea();break;
   case 'settings':openSettings();break;case 'savetok':saveToken();break;case 'forget':ls.del('hq.tok');TOKEN=null;closeSheet();rerender();setSync('local');toast('Disconnected on this device');break;
   case 'lock':ls.del(KEY);location.hash='';location.reload();break;case 'qadd':quickAdd();break;case 'tadd':addTodoFrom('#tadd');break;case 'tasks':location.hash='tasks';break}
 });
@@ -562,6 +705,6 @@ function draw(pg){killCharts();
  }
 }
 window.addEventListener('load',()=>{if(D)draw(curPage())});
-setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();window.scrollTo(0,y)}},60000);
+setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
 })();
