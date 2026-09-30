@@ -317,7 +317,7 @@ function checkPlace(manual){if(!navigator.geolocation||geoBusy)return;if(!manual
   if(m&&m.x.name!==cp){if(cp)logVisit(cp,'leave','gps');ch=logVisit(m.x.name,'arrive','gps');if(ch)toast(`You're at ${m.x.name}`+(/gym/i.test(m.x.name)?' · gym timer started':''))}
   else if(!m&&cp){ch=logVisit(cp,'leave','gps');if(ch)toast(/gym/i.test(cp)?`Gym logged · ${gymMin(nowD().date)} min today`:`Left ${cp}`)}
   else if(manual)toast(m?`You're at ${m.x.name}`:'Not at a saved place');
-  if(ch||manual)rerender()},e=>{geoBusy=false;if(manual)toast(e.code===1?'Location is blocked — allow it for this site in Safari settings':'Could not get your location')},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
+  if(ch||manual)rerender()},e=>{geoBusy=false;if(manual)toast(e.code===1?'Location is blocked — allow it for this site in Safari settings':'Could not get your location')},{enableHighAccuracy:true,timeout:15000,maximumAge:manual?0:60000})}
 function savePlaceHere(name){name=(name||'').trim();if(!name)return;if(!navigator.geolocation){toast('No location on this device');return}
  toast('Finding you…');navigator.geolocation.getCurrentPosition(p=>{ls.set('hq.geo','on');const now=new Date().toISOString();U.places=U.places||[];
   const ex=U.places.find(x=>!x.deleted&&x.name.toLowerCase()===name.toLowerCase());
