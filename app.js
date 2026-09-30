@@ -4,6 +4,8 @@ const TZ='Asia/Dubai', KEY='hq.pw', REPO='bornaxahadi/hq', API='https://api.gith
 
 /* ================= icons ================= */
 const P={
+ mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/>',
+ folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
  phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -97,10 +99,10 @@ async function ghGet(path){const r=await fetch(API+path+'?ref=main&t='+Date.now(
  if(r.status===404)return null;if(!r.ok)throw new Error('GitHub '+r.status);const j=await r.json();return{sha:j.sha,json:JSON.parse(atob(j.content.replace(/\s/g,'')))}}
 async function ghPut(path,text,sha,msg){const r=await fetch(API+path,{method:'PUT',headers:{Authorization:'Bearer '+TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json'},
  body:JSON.stringify({message:msg,content:btoa(text),branch:'main',...(sha?{sha}:{})})});if(!r.ok){const e=new Error('GitHub '+r.status);e.status=r.status;throw e}return (await r.json()).content.sha}
-const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],updated:null});
+const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],places:[],visits:[],inbox:[],projects:[],updated:null});
 function mergeArr(a=[],b=[]){const m={};[...a,...b].forEach(x=>{if(!x||!x.id)return;const o=m[x.id];if(!o||(x.updated||'')>(o.updated||''))m[x.id]=x});return Object.values(m)}
 function mergeObj(a={},b={},f='updated'){const m={...a};Object.entries(b).forEach(([k,v])=>{if(!m[k]||(v[f]||'')>(m[k][f]||''))m[k]=v});return m}
-function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),updated:new Date().toISOString()}}
+function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),places:mergeArr(r.places,l.places),visits:mergeArr(r.visits,l.visits).sort((a,b)=>a.at<b.at?-1:1).slice(-400),inbox:mergeArr(r.inbox,l.inbox),projects:mergeArr(r.projects,l.projects),updated:new Date().toISOString()}}
 async function loadUser(){
  let remote=null;
  try{ if(TOKEN){const g=await ghGet('user.enc');if(g){userSalt=g.json.salt;remote=await dec(g.json)}} else {const j=await pagesJSON('user.enc');if(j){userSalt=j.salt;remote=await dec(j)}} }catch(e){console.warn(e)}
@@ -127,8 +129,8 @@ function setSync(s){syncState=s;const el=$('#sync');if(!el)return;el.className='
 
 /* ================= unlock ================= */
 async function unlock(p,rem){PW=p;for(const k in keyCache)delete keyCache[k];const blob=await pagesJSON('data.enc');if(!blob)throw new Error('No data yet');D=await dec(blob);
- rem?ls.set(KEY,p):ls.del(KEY);await loadToken();await loadUser();
- $('#lock').classList.add('hidden');$('#app').classList.remove('hidden');render();setSync(TOKEN?'ok':'local')}
+ rem?ls.set(KEY,p):ls.del(KEY);await loadToken();await loadUser();hashHook();
+ $('#lock').classList.add('hidden');$('#app').classList.remove('hidden');render();setSync(TOKEN?'ok':'local');checkPlace()}
 $('#lockform').addEventListener('submit',async e=>{e.preventDefault();const b=$('#unlock');b.disabled=true;b.textContent='Unlocking…';$('#err').textContent='';
  try{await unlock($('#pw').value,$('#rem').checked)}catch(err){PW=null;$('#err').textContent=err.name==='OperationError'?'Wrong password.':(err.message||'Something went wrong.')}b.disabled=false;b.textContent='Unlock'});
 async function reload(){try{D=await dec(await pagesJSON('data.enc'));await loadUser();render();toast('Updated '+ago(D.updated))}catch(e){toast('Could not reload')}}
@@ -142,6 +144,8 @@ function entries(){
  Object.entries(U?.checkins||{}).forEach(([d,c])=>{const w=(c.words||'').split(/[,،\n]/).map(s=>s.trim()).filter(Boolean);
   m[d]={date:d,hours:{ai:+c.study?.ai||0,arabic:+c.study?.arabic||0,cloud:+c.study?.cloud||0,other:+c.study?.other||0},gym:(c.gymMin||0)>0,gymMin:c.gymMin||0,
    met:(c.meetings||[]).filter(x=>x.attended).length,opps:(c.opportunity||'').trim()?1:0,words:w.length,score:+c.score||0,win:c.win||'',blocker:c.blocker||'',ai:c.aiNote||'',wordsText:w.join(', '),src:'app'}});
+ const gd={};(U?.visits||[]).forEach(v=>{if(!v.deleted&&/gym/i.test(v.place||''))gd[dubaiDate(v.at)]=1});
+ Object.keys(gd).forEach(d=>{const g=gymMin(d);if(g<20)return;if(m[d]){if(!m[d].gym){m[d].gym=true;m[d].gymMin=g}}else m[d]={date:d,hours:{ai:0,arabic:0,cloud:0,other:0},gym:true,gymMin:g,met:0,opps:0,words:0,score:0,win:'',blocker:'',ai:'',wordsText:'',src:'auto'}});
  return Object.values(m).sort((a,b)=>a.date<b.date?-1:1);
 }
 const totalH=e=>SUBJ.reduce((a,s)=>a+(e.hours[s.k]||0),0);
@@ -288,19 +292,122 @@ function openIdea(){const F=(U.feedback||[]).filter(x=>!x.deleted).slice().rever
   ${(D.changelog||[]).length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">What’s new</div>${D.changelog.slice(0,6).map(c=>`<div class="row"><div class="ico bg-grad">${ic('spark')}</div><div class="tx"><b>${fd(c.date,{day:'numeric',month:'short'})}</b><div>${(c.items||[]).map(esc).join(' · ')}</div></div></div>`).join('')}`:''}`);
  $('#if').onsubmit=e=>{e.preventDefault();const t=e.target.t.value.trim();if(!t)return;const now=new Date().toISOString();U.feedback=U.feedback||[];U.feedback.push({id:uid(),text:t,created:now,updated:now});queueSave();closeSheet();toast('Sent · Claude will work on it')}}
 
+/* ================= places & location ================= */
+const PLACE_ICON={Home:'sun',Gym:'gym',Office:'brief',Pool:'sun',Mosque:'star',Cafe:'msg'};
+let HERE=null,geoBusy=false,rec=null;
+function dist(a,b,c,d){const R=6371e3,t=Math.PI/180,x=(c-a)*t,y=(d-b)*t,h=Math.sin(x/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+const places=()=>(U?.places||[]).filter(p=>!p.deleted);
+function dubaiDate(iso){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(iso))}
+const tm=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+const lastVisit=()=>(U?.visits||[]).filter(v=>!v.deleted).slice().sort((a,b)=>a.at<b.at?-1:1).pop();
+function logVisit(place,type,src){U.visits=U.visits||[];const now=new Date().toISOString(),last=lastVisit();
+ if(last&&last.place===place&&last.type===type)return false;
+ U.visits.push({id:uid(),place,type,at:now,src,updated:now});if(U.visits.length>400)U.visits=U.visits.slice(-400);queueSave();return true}
+function visitsOn(date){return (U?.visits||[]).filter(v=>!v.deleted&&dubaiDate(v.at)===date).sort((a,b)=>a.at<b.at?-1:1)}
+function stays(date){const V=visitsOn(date),out=[];let cur=null;
+ V.forEach(v=>{if(v.type==='arrive'){if(cur)out.push({...cur,to:v.at});cur={place:v.place,from:v.at}}else if(v.type==='leave'&&cur&&cur.place===v.place){out.push({...cur,to:v.at});cur=null}});
+ if(cur)out.push({...cur,to:null});
+ return out.map(x=>({...x,min:Math.max(0,Math.round(((x.to?new Date(x.to):(date===nowD().date?new Date():new Date(x.from)))-new Date(x.from))/6e4))}))}
+function gymMin(date){return stays(date).filter(x=>/gym/i.test(x.place)).reduce((a,x)=>a+Math.min(x.min,240),0)}
+function curPlace(){const l=lastVisit();return l&&l.type==='arrive'?l.place:null}
+function checkPlace(manual){if(!navigator.geolocation||geoBusy)return;if(!manual&&(ls.get('hq.geo')!=='on'||!places().length))return;geoBusy=true;
+ navigator.geolocation.getCurrentPosition(p=>{geoBusy=false;ls.set('hq.geo','on');const a=p.coords.latitude,b=p.coords.longitude,acc=p.coords.accuracy;HERE={lat:a,lng:b,acc};
+  const m=places().map(x=>({x,d:dist(a,b,x.lat,x.lng)})).filter(o=>o.d<=(o.x.radius||150)+Math.min(acc,150)).sort((u,v)=>u.d-v.d)[0];
+  const cp=curPlace();let ch=false;
+  if(m&&m.x.name!==cp){if(cp)logVisit(cp,'leave','gps');ch=logVisit(m.x.name,'arrive','gps');if(ch)toast(`You're at ${m.x.name}`+(/gym/i.test(m.x.name)?' · gym timer started':''))}
+  else if(!m&&cp){ch=logVisit(cp,'leave','gps');if(ch)toast(/gym/i.test(cp)?`Gym logged · ${gymMin(nowD().date)} min today`:`Left ${cp}`)}
+  else if(manual)toast(m?`You're at ${m.x.name}`:'Not at a saved place');
+  if(ch||manual)rerender()},e=>{geoBusy=false;if(manual)toast(e.code===1?'Location is blocked — allow it for this site in Safari settings':'Could not get your location')},{enableHighAccuracy:true,timeout:15000,maximumAge:60000})}
+function savePlaceHere(name){name=(name||'').trim();if(!name)return;if(!navigator.geolocation){toast('No location on this device');return}
+ toast('Finding you…');navigator.geolocation.getCurrentPosition(p=>{ls.set('hq.geo','on');const now=new Date().toISOString();U.places=U.places||[];
+  const ex=U.places.find(x=>!x.deleted&&x.name.toLowerCase()===name.toLowerCase());
+  const r={name,lat:+p.coords.latitude.toFixed(6),lng:+p.coords.longitude.toFixed(6),radius:Math.max(120,Math.min(300,Math.round(p.coords.accuracy*1.5))),updated:now};
+  if(ex)Object.assign(ex,r);else U.places.push({id:uid(),...r});const cp=curPlace();if(cp&&cp!==name)logVisit(cp,'leave','gps');logVisit(name,'arrive','gps');queueSave();openPlaces();rerender();toast(name+' saved ✓')},
+  e=>toast(e.code===1?'Allow location for this site first':'Could not get your location'),{enableHighAccuracy:true,timeout:20000})}
+function hashHook(){const m=location.hash.slice(1).match(/^(at|left)=(.+)$/);if(!m)return false;const place=decodeURIComponent(m[2]),cp=curPlace();
+ if(m[1]==='at'){if(cp&&cp!==place)logVisit(cp,'leave','shortcut');logVisit(place,'arrive','shortcut')}else logVisit(place,'leave','shortcut');
+ history.replaceState(null,'',location.pathname+'#today');setTimeout(()=>toast(m[1]==='at'?`Arrived: ${place}`:`Left: ${place}`+(/gym/i.test(place)?` · ${gymMin(nowD().date)} min gym today`:'')),600);return true}
+function openPlaces(){const P=places(),n=nowD(),S=stays(n.date),base=location.origin+location.pathname;
+ sheet(head('My places','pin','bg-c')+`<div class="sm muted" style="margin:-4px 0 12px">HQ notices when you arrive at or leave your places and logs your gym time by itself.</div>
+ <div class="fld"><label>I'm here now — save this spot as</label><div class="opts">${['Home','Gym','Office','Pool'].map(x=>`<button type="button" class="opt" data-saveplace="${x}">${x}</button>`).join('')}</div>
+  <div class="addline" style="margin-top:8px"><input class="inp" id="plname" placeholder="Other name, e.g. Mosque, Café"><button type="button" data-act="saveplace" aria-label="Save">${ic('plus')}</button></div></div>
+ ${P.length?`<div class="fld"><label>Saved places</label>${P.map(p=>`<div class="row"><div class="ico bg-c">${ic(PLACE_ICON[p.name]||'pin')}</div><div class="tx"><b>${esc(p.name)}</b><div>within ${p.radius} m · <a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" rel="noopener noreferrer" style="color:var(--cyan)">map</a></div></div><button class="pill r" data-delplace="${p.id}" aria-label="Delete">${ic('trash')}</button></div>`).join('')}</div>`:''}
+ <div class="fld"><label>Today</label>${S.length?S.map(x=>`<div class="row"><div class="ico bg-grad">${ic(PLACE_ICON[x.place]||'pin')}</div><div class="tx"><b>${esc(x.place)}</b><div>${tm(x.from)} – ${x.to?tm(x.to):'now'} · ${x.min} min</div></div></div>`).join(''):empty('Nothing logged today','pin')}</div>
+ <div class="fld"><label>Automatic when HQ is closed (iPhone)</label><div class="sm muted" style="line-height:1.6">A website can only check your location while it is open. For fully automatic logging, add iPhone Shortcuts automations: <b>Shortcuts → Automation → New → Arrive</b> (pick the place) → <b>Run Immediately</b> → action <b>Open URLs</b> with the link below. Make a second one with <b>Leave</b>.</div>
+  ${P.map(p=>`<div class="code">${esc(base)}#at=${encodeURIComponent(p.name)}</div><div class="code">${esc(base)}#left=${encodeURIComponent(p.name)}</div>`).join('')||'<div class="xs faint" style="margin-top:6px">Save a place first — the links appear here.</div>'}</div>
+ <div class="btnrow"><button class="btn2" data-act="geooff">Stop location</button><button class="btn2 pri" data-act="close">Done</button></div>`)}
+function whereCard(){const P=places(),n=nowD(),S=stays(n.date),l=lastVisit(),here=l&&l.type==='arrive'&&dubaiDate(l.at)===n.date?l:null,g=gymMin(n.date);
+ if(!P.length)return card('Where you are','pin','bg-c',`<button class="cin" data-act="places" style="margin:0"><div class="qi bg-c">${ic('pin')}</div><div><b>Set up your places</b><small>Save Home and Gym once — then HQ logs your gym time automatically</small></div><span class="go">${ic('chev')}</span></button>`);
+ return card('Where you are','pin','bg-c',`<div class="here"><div class="qi bg-grad">${ic(here?(PLACE_ICON[here.place]||'pin'):'pin')}</div><div style="flex:1;min-width:0"><b>${here?esc(here.place):'On the move'}</b><small>${here?'since '+tm(here.at):'not at a saved place'}${g?` · gym ${g} min today`:''}</small></div><button class="pill v" data-act="geocheck">${ic('refresh')}Check</button></div>
+  ${S.length?`<div class="stays">${S.map(x=>`<span>${ic(PLACE_ICON[x.place]||'pin')}${esc(x.place)} ${tm(x.from)}${x.to?'–'+tm(x.to):''}</span>`).join('')}</div>`:''}`,`<button class="xs" data-act="places" style="font-weight:800;color:var(--cyan)">Places</button>`)}
+
+/* ================= talk to Claude ================= */
+function openTalk(pre){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-8).reverse(),st=D.inbox_status||{},SR=window.SpeechRecognition||window.webkitSpeechRecognition,lang=ls.get('hq.lang')||'en-US';
+ sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Claude picks it up at the next refresh (every 2 hours). Meetings and to-dos can be added right now.</div>
+  <div class="micwrap">${SR?`<button type="button" class="micbig" id="micbtn" aria-label="Start talking">${ic('mic')}</button><div class="xs faint" id="micst">Tap and speak</div><div class="opts" style="justify-content:center;margin-top:10px">${[['en-US','English'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="opt ${lang===l?'on':''}" data-lang="${l}">${n}</button>`).join('')}</div>`:`<div class="xs faint">Tip: tap the microphone key on your keyboard to dictate.</div>`}</div>
+  <form id="tk"><div class="fld"><textarea class="inp" name="t" id="tktext" style="min-height:96px" placeholder="e.g. Tomorrow 4pm meeting with Ali at Business Bay about the website">${esc(pre||'')}</textarea></div>
+  <div class="btnrow"><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button><button type="submit" class="btn2 pri">${ic('spark')} Send</button></div></form>
+  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.note||'Done'):'Waiting for Claude'}</div></div></div>`}).join('')}`:''}`);
+ const b=$('#micbtn');if(b)b.onclick=()=>{if(rec){try{rec.stop()}catch(e){}return}const R=new SR();rec=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=true;const pre0=$('#tktext').value.trim();
+  R.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('#tktext').value=(pre0?pre0+' ':'')+t};
+  R.onend=()=>{rec=null;b.classList.remove('on');const m=$('#micst');if(m)m.textContent='Tap to talk again'};
+  R.onerror=e=>{const m=$('#micst');if(m)m.textContent=e.error==='not-allowed'?'Allow the microphone for this site':'Could not hear you — try again'};
+  try{R.start();b.classList.add('on');$('#micst').textContent='Listening… tap to stop'}catch(e){rec=null}};
+ $$('#sheet [data-lang]').forEach(x=>x.onclick=()=>{ls.set('hq.lang',x.dataset.lang);$$('#sheet [data-lang]').forEach(y=>y.classList.toggle('on',y===x))});
+ $('#tk').onsubmit=e=>{e.preventDefault();sendTalk()}}
+function stopRec(){if(rec){try{rec.stop()}catch(e){}rec=null}}
+function sendTalk(){const t=($('#tktext')?.value||'').trim();if(!t)return;stopRec();const now=new Date().toISOString();U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now});queueSave();closeSheet();toast(TOKEN?'Sent to Claude ✓':'Saved here — connect saving in Settings so Claude receives it')}
+function talkAs(kind){const t=($('#tktext')?.value||'').trim();if(!t)return;stopRec();
+ if(kind==='todo'){addTodoFrom('#tktext');closeSheet();return}
+ openMeeting();const q=$('#mq');if(q){q.value=t;fillParsed()}}
+
+/* ================= projects ================= */
+const PST=['Active','Thinking','Paused','Done'],PSC={Active:'g',Thinking:'v',Paused:'w',Done:'b'},PBG={Active:'bg-g',Thinking:'bg-v',Paused:'bg-a',Done:'bg-b'},PIC={Active:'rocket',Thinking:'bulb',Paused:'clock',Done:'check'};
+const AREAS=['Business','Social','Learning','Tech','Personal'];
+function projects(){const m={};(D.projects||[]).forEach(p=>m[p.id]={src:'Claude',...p});(U.projects||[]).forEach(p=>m[p.id]={...(m[p.id]||{}),...p});return Object.values(m).filter(p=>!p.deleted)}
+function projCard(p,nt){const pr=Math.max(0,Math.min(100,+p.progress||0)),st=p.status||'Active';
+ return `<div class="proj" data-editproj="${p.id}"><div class="top"><span class="pe ${PBG[st]}">${ic(p.icon||'folder')}</span><div class="tt"><b>${esc(p.name)}</b><small>${esc([p.area,p.src==='ChatGPT'?'from ChatGPT':p.src==='Claude'?'tracked by Claude':''].filter(Boolean).join(' · '))}</small></div><span class="pill ${PSC[st]}">${esc(st)}</span></div>
+  ${p.desc?`<p>${esc(p.desc)}</p>`:''}
+  <div class="bar" style="margin-top:9px"><i style="width:${pr}%"></i></div>
+  <div class="meta"><span>${pr}%</span>${p.next?`<span>${ic('chev')}${esc(p.next)}</span>`:''}${p.due?`<span>${ic('cal')}${fd(p.due)}</span>`:''}${p.link?`<a href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">${ic('share')}Open</a>`:''}</div>
+  ${nt?`<div class="note"><b>${ic('spark')}Claude</b>${esc(nt.text||nt)}</div>`:''}</div>`}
+function renderProjects(){const P=projects(),notes=D.project_notes||{},by=x=>P.filter(p=>(p.status||'Active')===x);
+ $('#p-projects').innerHTML=`<div class="pt">Projects <span>what you're building and thinking about</span></div>
+ <div class="bizbar"><button class="bigadd alt2" data-act="project">${ic('plus')}New project</button><button class="bigadd alt3" data-act="talk">${ic('mic')}Talk to Claude</button></div>
+ <div class="stats" style="margin-bottom:14px">${PST.map(x=>stat(by(x).length,x,PIC[x])).join('')}</div>
+ <div class="g3">${PST.filter(x=>by(x).length).map(x=>`<div class="card s3"><div class="ch"><div class="ic ${PBG[x]}">${ic(PIC[x])}</div><h3>${x}</h3><span class="aside">${by(x).length}</span></div><div class="projs">${by(x).map(p=>projCard(p,notes[p.id])).join('')}</div></div>`).join('')||`<div class="s3">${empty('Add your first project','folder')}</div>`}
+  ${card('Where projects come from','share','bg-grad',`<div class="row"><div class="ico bg-grad">${ic('spark')}</div><div class="tx"><b>Claude</b><div>Claude keeps the projects from your Claude chats, memory and this assistant up to date here.</div></div></div>
+   <div class="row"><div class="ico bg-g">${ic('msg')}</div><div class="tx"><b>ChatGPT</b><div>ChatGPT can't be connected directly. In ChatGPT ask: “List all my projects and ideas with status and next step”, copy the answer, and paste it into Talk to Claude — Claude adds them here.</div></div></div>
+   <div class="row"><div class="ico bg-p">${ic('edit')}</div><div class="tx"><b>You</b><div>Tap “New project”, or tap any project to update its status, next step and progress.</div></div></div>`,'','s3')}
+ </div>`}
+function openProject(id){const p=id?{...(projects().find(x=>x.id===id)||{})}:{status:'Active',area:'Business',progress:0};
+ sheet(head(id?'Edit project':'New project','folder','bg-v')+`<form id="pf">
+  <div class="fld"><label>Name</label><input class="inp" name="name" value="${esc(p.name||'')}" required placeholder="e.g. AI automation agency"></div>
+  <div class="fld"><label>Status</label>${optBtns('status',PST,p.status||'Active')}</div>
+  <div class="fld"><label>Area</label>${optBtns('area',AREAS,p.area||'Business')}</div>
+  <div class="fld"><label>What is it?</label><textarea class="inp" name="desc" placeholder="The idea, who it's for, how it makes money…">${esc(p.desc||'')}</textarea></div>
+  <div class="fld"><label>Next step</label><input class="inp" name="next" value="${esc(p.next||'')}" placeholder="e.g. Build a landing page"></div>
+  <div class="fld"><label>Progress</label>${optBtns('progress',[0,10,25,50,75,90,100],+p.progress||0,v=>v+'%')}</div>
+  <div class="two"><div class="fld"><label>Target date</label><input class="inp" type="date" name="due" value="${esc(p.due||'')}"></div><div class="fld"><label>Link (optional)</label><input class="inp" name="link" value="${esc(p.link||'')}" placeholder="https://"></div></div>
+  <div class="btnrow">${id?`<button type="button" class="btn2 del" data-delproj="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="submit" class="btn2 pri">${id?'Save':'Add project'}</button></div></form>`);
+ wireOpts();$('#pf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),g=n=>$(`#pf [data-name="${n}"] .opt.on`)?.dataset.v;
+  const r={name:f.name.value.trim(),status:g('status')||'Active',area:g('area')||'',desc:f.desc.value.trim(),next:f.next.value.trim(),progress:+(g('progress')||0),due:f.due.value,link:f.link.value.trim(),updated:now};if(!r.name)return;
+  U.projects=U.projects||[];const ex=U.projects.find(x=>x.id===id);if(ex)Object.assign(ex,r);else if(id)U.projects.push({id,...r});else U.projects.push({id:'p-'+uid(),src:'Me',created:now,...r});
+  queueSave();closeSheet();location.hash='projects';rerender();toast(id?'Project saved':'Project added')}}
+
 /* ================= nav ================= */
-const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'},{id:'business',l:'Business',i:'brief'}];
+const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'business',l:'Business',i:'brief'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'projects',l:'Projects',i:'folder'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'}];
 $('#bottom').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}<span>${p.l}</span></button>`).join('');
 $('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');
 $$('[data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
 $('#refresh').innerHTML=ic('refresh');$('#settings').innerHTML=ic('gear');$('#fab').innerHTML=ic('plus');
-$('#refresh').onclick=reload;$('#settings').onclick=openSettings;$('#fab').onclick=openActions;
+$('#refresh').onclick=reload;if($('#mic')){$('#mic').innerHTML=ic('mic');$('#mic').onclick=()=>openTalk()}$('#settings').onclick=openSettings;$('#fab').onclick=openActions;
 $('#foot').innerHTML=ic('shield')+' Encrypted · only you can open this · Claude refreshes it through the day';
 function curPage(){const id=(location.hash||'#today').slice(1);return PAGES.find(p=>p.id===id)?id:'today'}
 function show(){const pg=curPage();$$('section.page').forEach(s=>s.classList.toggle('on',s.id==='p-'+pg));$$('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===pg));window.scrollTo(0,0);draw(pg)}
-window.addEventListener('hashchange',()=>D&&show());
+window.addEventListener('hashchange',()=>{if(!D)return;if(hashHook())render(true);else show()});
 function render(keep){$('#updated').innerHTML=`${fd(nowD().date,{weekday:'short',day:'numeric',month:'short'})} · updated ${ago(D.updated)} <span id="sync" class="sync"></span>`;setSync(syncState);
- const G=game();renderToday(G);renderTasks();renderCalendar();renderSocial();renderGrowth(G);renderBusiness();
+ const G=game();renderToday(G);renderTasks();renderCalendar();renderSocial();renderGrowth(G);renderBusiness();renderProjects();
  if(keep){const y=scrollY;draw(curPage());window.scrollTo(0,y)}else show()}
 const rerender=()=>render(true);
 
@@ -318,7 +425,7 @@ function renderToday(G){
  const T=todos(),openT=T.filter(x=>!x.done),doneToday=T.filter(x=>x.done&&(x.doneAt||'').slice(0,10)===n.date).length;
  const Q=[{n:'1h+ of AI',s:'Study or build with AI',i:'ai',bg:'bg-v',xp:20,ok:te&&te.hours.ai>=1},
   {n:'30 min Arabic',s:'Shadow at the pool',i:'ar',bg:'bg-a',xp:10,ok:te&&te.hours.arabic>=0.5},
-  {n:'Gym',s:'20:00 – 22:00',i:'gym',bg:'bg-g',xp:40,ok:te&&te.gym},
+  {n:'Gym',s:gymMin(n.date)?gymMin(n.date)+' min logged by location':'20:00 – 22:00',i:'gym',bg:'bg-g',xp:40,ok:te&&te.gym},
   {n:'Finish 3 to-dos',s:`${doneToday}/3 done today`,i:'list',bg:'bg-p',xp:15,ok:doneToday>=3},
   {n:'Daily check-in',s:'Log hours, meetings, deals',i:'moon',bg:'bg-c',xp:10,ok:!!ci}];
  const done=Q.filter(q=>q.ok).length;
@@ -354,6 +461,7 @@ function renderToday(G){
   <div class="s3"><button class="cin" data-act="checkin"><div class="qi bg-grad">${ic(ci?'check':'moon')}</div><div><b>${ci?'Today’s check-in saved — tap to update':'Log your day'}</b><small>${ci?`${hrs(te?totalH(te):0)} studied · score ${ci.score||'—'}/10`:'Study hours, gym, meetings, new business — takes 1 minute'}</small></div><span class="go">${ic('chev')}</span></button></div>
   ${card("Today's quests",'target','bg-grad',Q.map(q=>`<div class="quest ${q.ok?'done':''}" data-act="${q.i==='list'?'tasks':'checkin'}"><div class="qi ${q.bg}">${ic(q.i)}</div><div><b>${q.n}</b><small>${q.s}</small></div><span class="xp">+${q.xp} XP</span><span class="ok">${q.ok?ic('check'):''}</span></div>`).join(''),`${done}/${Q.length} done`)}
   ${card('To-do','list','bg-p',`<div class="addline"><input class="inp" id="qadd" placeholder="Add a task…" enterkeyhint="done"><button data-act="qadd" aria-label="Add">${ic('plus')}</button></div>${openT.slice(0,5).map(todoRow).join('')||empty('All clear','check')}${openT.length>5?`<a href="#tasks" class="xs faint" style="display:block;margin-top:8px;font-weight:700">+${openT.length-5} more →</a>`:''}`,`${openT.length} open`)}
+  ${whereCard()}
   ${card('Tonight','moon','bg-v',(tonight.length?tonight.map(evRow).join(''):'')+routineRows(S.filter(s=>toMin(s.start)>=17*60)),'from 17:00')}
   ${card('Morning briefing','mail','bg-b',brBlock('Important',br.important,'alert','bg-r','Nothing legal or financial')+brBlock('Friends & personal',br.friends,'heart','bg-p','No personal messages')+brBlock('Drafts for your OK',br.drafts,'edit','bg-v','No drafts waiting')+(br.note?`<div class="xs faint">${esc(br.note)}</div>`:''),t.date&&t.date!==n.date?'from '+fd(t.date):'today')}
   <div class="grid">
@@ -577,16 +685,19 @@ function dealCard(d,n){
 
 /* ================= SHEETS ================= */
 function sheet(html){$('#sheet').innerHTML='<div class="grab"></div>'+html;$('#scrim').classList.add('on');$('#sheet').classList.add('on');$('#sheet').scrollTop=0}
-function closeSheet(){$('#scrim').classList.remove('on');$('#sheet').classList.remove('on')}
+function closeSheet(){stopRec();$('#scrim').classList.remove('on');$('#sheet').classList.remove('on')}
 $('#scrim').onclick=closeSheet;
 const head=(t,i,bg)=>`<h2><span class="ic ${bg}">${ic(i)}</span>${t}<button data-act="close" aria-label="Close">${ic('x')}</button></h2>`;
 function openActions(){sheet(head('Add','plus','bg-grad')+`<div class="actions">
+ <button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to Claude</b><small>Say it — Claude does it</small></button>
  <button class="action" data-act="meet"><span class="qi bg-o">${ic('users')}</span><b>New meeting</b><small>Who, where, when, agenda</small></button>
  <button class="action" data-act="checkin"><span class="qi bg-v">${ic('moon')}</span><b>Log my day</b><small>Hours, gym, meetings</small></button>
  <button class="action" data-act="newtask"><span class="qi bg-p">${ic('list')}</span><b>New to-do</b><small>Task with category & date</small></button>
  <button class="action" data-act="deal"><span class="qi bg-g">${ic('deal')}</span><b>New business</b><small>Deal or opportunity</small></button>
  <button class="action" data-act="event"><span class="qi bg-c">${ic('cal')}</span><b>New event</b><small>Claude adds it to Google Calendar</small></button>
- <button class="action" data-act="idea"><span class="qi bg-a">${ic('bulb')}</span><b>Improve the app</b><small>Tell Claude what to change</small></button></div>`)}
+ <button class="action" data-act="idea"><span class="qi bg-a">${ic('bulb')}</span><b>Improve the app</b><small>Tell Claude what to change</small></button>
+ <button class="action" data-act="project"><span class="qi bg-v">${ic('folder')}</span><b>New project</b><small>Idea or work in progress</small></button>
+ <button class="action" data-act="places"><span class="qi bg-c">${ic('pin')}</span><b>My places</b><small>Home, gym — auto tracking</small></button></div>`)}
 const optBtns=(name,vals,cur,lab=v=>v)=>`<div class="opts" data-name="${name}">${vals.map(v=>`<button type="button" class="opt ${String(cur)===String(v)?'on':''}" data-v="${v}">${lab(v)}</button>`).join('')}</div>`;
 function openCheckin(date){
  const n=nowD();date=date||n.date;const c=U.checkins[date]||{};const st=c.study||{};
@@ -597,7 +708,7 @@ function openCheckin(date){
   <div class="fld"><label>How long did you study?</label>${SUBJ.map(s=>`<div class="subj"><span class="qi ${s.bg}">${ic(s.i)}</span><span class="nm">${s.n}</span>${optBtns('h_'+s.k,H,st[s.k]||0,v=>v===0?'0':v===4?'4+':v+'h')}</div>`).join('')}</div>
   <div class="fld"><label>What did you learn in AI? (optional)</label><input class="inp" name="aiNote" value="${esc(c.aiNote||'')}" placeholder="e.g. built an email filter with Claude"></div>
   <div class="fld"><label>New Arabic words (comma separated)</label><input class="inp" name="words" value="${esc(c.words||'')}" placeholder="shukran – thanks, yalla – let's go"></div>
-  <div class="fld"><label>Gym</label>${optBtns('gym',[0,30,60,90,120],c.gymMin||0,v=>v?v+' min':'No')}</div>
+  <div class="fld"><label>Gym</label>${optBtns('gym',[0,30,60,90,120],c.gymMin||[0,30,60,90,120].reduce((a,v)=>Math.abs(v-gymMin(date))<Math.abs(a-gymMin(date))?v:a,0),v=>v?v+' min':'No')}</div>
   <div class="fld"><label>Meetings</label>${mt.map((m,i)=>`<label class="chk" style="margin-bottom:8px"><input type="checkbox" name="m_${i}" data-title="${esc(m.title)}" ${(c.meetings||[]).find(x=>x.title===m.title&&x.attended)?'checked':''}> Attended: ${esc(m.time||'')} ${esc(m.title)}</label>`).join('')}
    <input class="inp" name="otherMeet" value="${esc((c.meetings||[]).filter(x=>x.other).map(x=>x.title).join(', '))}" placeholder="Other meetings you attended (who / where)"></div>
   <div class="fld"><label>New business opportunity?</label><textarea class="inp" name="opportunity" placeholder="Who, what, how big, next step…">${esc(c.opportunity||'')}</textarea>
@@ -651,6 +762,7 @@ function openSettings(){sheet(head('Settings','gear','bg-v')+`
   <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:var(--violet);font-weight:700">GitHub → new fine-grained token</a></li>
   <li>Name: <b>HQ app</b> · Expiration: 1 year</li><li>Repository access: <b>Only select repositories → hq</b></li><li>Permissions → Repository → <b>Contents: Read and write</b></li><li>Generate, copy, paste below</li></ol>
   <input class="inp" id="tokin" placeholder="github_pat_…" autocomplete="off"><div class="btnrow"><button class="btn2 pri" data-act="savetok">Connect</button></div></div>`}
+ <button class="cin" data-act="places" style="margin-top:6px"><div class="qi bg-c">${ic('pin')}</div><div><b>My places & location</b><small>Home, gym, office — automatic gym logging</small></div><span class="go">${ic('chev')}</span></button>
  <button class="cin" data-act="idea" style="margin-top:6px"><div class="qi bg-a">${ic('bulb')}</div><div><b>Improve this app</b><small>Ideas, what’s new, and what Claude changed</small></div><span class="go">${ic('chev')}</span></button>
  <div class="btnrow" style="margin-top:14px">${TOKEN?'<button class="btn2" data-act="forget">Disconnect this device</button>':''}<button class="btn2" data-act="lock">${ic('lock')} Lock</button></div>`)}
 async function saveToken(){const t=($('#tokin')?.value||'').trim();if(!t)return;TOKEN=t;
@@ -660,12 +772,16 @@ async function saveToken(){const t=($('#tokin')?.value||'').trim();if(!t)return;
  catch(e){TOKEN=null;toast(e.message||'Could not connect')}}
 
 /* ================= events ================= */
-document.addEventListener('click',e=>{const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone]');if(!a)return;
+document.addEventListener('click',e=>{const lk=e.target.closest('a[href]');if(lk&&!lk.dataset.act&&lk.closest('[data-editproj]'))return;const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone],[data-saveplace],[data-delplace],[data-editproj],[data-delproj]');if(!a)return;
  const d=a.dataset;
  if(d.tog){toggleTodo(d.tog);return}
  const now=new Date().toISOString();
  if(d.seen){U.seen=U.seen||{};U.seen[d.seen]={updated:now};queueSave();rerender();return}
  if(d.result){openResult(d.result);return}
+ if(d.saveplace){savePlaceHere(d.saveplace);return}
+ if(d.delplace){const p=(U.places||[]).find(x=>x.id===d.delplace);if(p){p.deleted=true;p.updated=now;queueSave();openPlaces();rerender()}return}
+ if(d.editproj){openProject(d.editproj);return}
+ if(d.delproj){U.projects=U.projects||[];const ex=U.projects.find(x=>x.id===d.delproj);if(ex)Object.assign(ex,{deleted:true,updated:now});else U.projects.push({id:d.delproj,deleted:true,updated:now});queueSave();closeSheet();rerender();toast('Project removed');return}
  if(d.editmeet){openMeeting(d.editmeet);return}
  if(d.delmeet){upsertMeet(d.delmeet,{deleted:true,status:'cancelled',updated:now});queueSave();closeSheet();rerender();toast('Meeting removed');return}
  if(d.fudone){upsertMeet(d.fudone,{followDone:true,updated:now});queueSave();rerender();toast('Follow-up done ✓');return}
@@ -676,7 +792,7 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-act],[data
  if(d.tf){tfilter=d.tf;rerender();return}
  if(d.f){filter=d.f;renderSocial();draw('social');return}
  if(d.rt){showRoutine[d.rt]=!showRoutine[d.rt];renderCalendar();return}
- switch(d.act){case 'close':closeSheet();break;case 'checkin':openCheckin();break;case 'newtask':openTodo();break;case 'deal':openDeal();break;case 'event':openEvent();break;case 'meet':openMeeting();break;case 'mparse':fillParsed();break;case 'idea':openIdea();break;
+ switch(d.act){case 'close':closeSheet();break;case 'checkin':openCheckin();break;case 'newtask':openTodo();break;case 'deal':openDeal();break;case 'event':openEvent();break;case 'meet':openMeeting();break;case 'mparse':fillParsed();break;case 'idea':openIdea();break;case 'talk':openTalk();break;case 'places':openPlaces();break;case 'project':openProject();break;case 'saveplace':savePlaceHere($('#plname')?.value);break;case 'geocheck':checkPlace(true);break;case 'geooff':ls.del('hq.geo');closeSheet();toast('Location checks off on this device');break;case 'tkmeet':talkAs('meet');break;case 'tktodo':talkAs('todo');break;
   case 'settings':openSettings();break;case 'savetok':saveToken();break;case 'forget':ls.del('hq.tok');TOKEN=null;closeSheet();rerender();setSync('local');toast('Disconnected on this device');break;
   case 'lock':ls.del(KEY);location.hash='';location.reload();break;case 'qadd':quickAdd();break;case 'tadd':addTodoFrom('#tadd');break;case 'tasks':location.hash='tasks';break}
 });
@@ -707,4 +823,6 @@ function draw(pg){killCharts();
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
+setInterval(()=>{if(D&&document.visibilityState==='visible')checkPlace()},180000);document.addEventListener('visibilitychange',()=>{if(D&&document.visibilityState==='visible')checkPlace()});
 })();
+
