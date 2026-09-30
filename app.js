@@ -99,10 +99,10 @@ async function ghGet(path){const r=await fetch(API+path+'?ref=main&t='+Date.now(
  if(r.status===404)return null;if(!r.ok)throw new Error('GitHub '+r.status);const j=await r.json();return{sha:j.sha,json:JSON.parse(atob(j.content.replace(/\s/g,'')))}}
 async function ghPut(path,text,sha,msg){const r=await fetch(API+path,{method:'PUT',headers:{Authorization:'Bearer '+TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json'},
  body:JSON.stringify({message:msg,content:btoa(text),branch:'main',...(sha?{sha}:{})})});if(!r.ok){const e=new Error('GitHub '+r.status);e.status=r.status;throw e}return (await r.json()).content.sha}
-const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],places:[],visits:[],inbox:[],projects:[],updated:null});
+const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],places:[],visits:[],inbox:[],projects:[],people:[],pipe:[],txns:[],costs:[],kv:{},updated:null});
 function mergeArr(a=[],b=[]){const m={};[...a,...b].forEach(x=>{if(!x||!x.id)return;const o=m[x.id];if(!o||(x.updated||'')>(o.updated||''))m[x.id]=x});return Object.values(m)}
 function mergeObj(a={},b={},f='updated'){const m={...a};Object.entries(b).forEach(([k,v])=>{if(!m[k]||(v[f]||'')>(m[k][f]||''))m[k]=v});return m}
-function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),places:mergeArr(r.places,l.places),visits:mergeArr(r.visits,l.visits).sort((a,b)=>a.at<b.at?-1:1).slice(-400),inbox:mergeArr(r.inbox,l.inbox),projects:mergeArr(r.projects,l.projects),updated:new Date().toISOString()}}
+function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),places:mergeArr(r.places,l.places),visits:mergeArr(r.visits,l.visits).sort((a,b)=>a.at<b.at?-1:1).slice(-400),inbox:mergeArr(r.inbox,l.inbox),projects:mergeArr(r.projects,l.projects),people:mergeArr(r.people,l.people),pipe:mergeArr(r.pipe,l.pipe),txns:mergeArr(r.txns,l.txns),costs:mergeArr(r.costs,l.costs),kv:mergeObj(r.kv,l.kv),updated:new Date().toISOString()}}
 async function loadUser(){
  let remote=null;
  try{ if(TOKEN){const g=await ghGet('user.enc');if(g){userSalt=g.json.salt;remote=await dec(g.json)}} else {const j=await pagesJSON('user.enc');if(j){userSalt=j.salt;remote=await dec(j)}} }catch(e){console.warn(e)}
@@ -243,7 +243,7 @@ function openMeeting(id,pre){const m=id?{...(meetings().find(x=>x.id===id)||{})}
  const qd=[[nowD().date,'Today'],[addDays(nowD().date,1),'Tomorrow'],[addDays(nowD().date,2),fd(addDays(nowD().date,2),{weekday:'short'})],[addDays(nowD().date,3),fd(addDays(nowD().date,3),{weekday:'short'})]];
  sheet(head(id?'Edit meeting':'New meeting','users','bg-o')+`<form id="mf">
   ${id?'':`<div class="fld"><label>Quick add — type it the way you’d say it</label><div class="addline"><input class="inp" id="mq" placeholder="tomorrow 2pm Daire Dubai with Rasul Hosseini" enterkeyhint="go"><button type="button" data-act="mparse" aria-label="Fill in">${ic('spark')}</button></div></div>`}
-  <div class="two"><div class="fld"><label>With whom</label><input class="inp" name="person" value="${esc(m.person||'')}" required placeholder="Name"></div><div class="fld"><label>Company</label><input class="inp" name="company" value="${esc(m.company||'')}" placeholder="optional"></div></div>
+  <div class="two"><div class="fld"><label>With whom</label><input class="inp" name="person" list="plist" value="${esc(m.person||'')}" required placeholder="Name"><datalist id="plist">${people().map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist></div><div class="fld"><label>Company</label><input class="inp" name="company" value="${esc(m.company||'')}" placeholder="optional"></div></div>
   <div class="fld"><label>Day</label><div class="opts qd">${qd.map(([d,l])=>`<button type="button" class="opt ${m.date===d?'on':''}" data-qd="${d}">${l}</button>`).join('')}</div></div>
   <div class="two"><div class="fld"><label>Date</label><input class="inp" type="date" name="date" value="${esc(m.date||'')}" required></div><div class="fld"><label>Time</label><input class="inp" type="time" name="time" value="${esc(m.time||'')}" required></div></div>
   <div class="fld"><label>Place</label><input class="inp" name="place" value="${esc(m.place||'')}" placeholder="Office, café, or Zoom"></div>
@@ -258,7 +258,7 @@ function openMeeting(id,pre){const m=id?{...(meetings().find(x=>x.id===id)||{})}
  const q=$('#mq');if(q)q.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();fillParsed()}};
  $('#mf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString();
   const rec={person:f.person.value.trim(),company:f.company.value.trim(),date:f.date.value,time:f.time.value,place:f.place.value.trim(),duration:+($('#mf [data-name="dur"] .opt.on')?.dataset.v||60),goal:f.goal.value.trim(),agenda:f.agenda.value.trim(),deal:f.deal?.value||'',updated:now};
-  if(!rec.person||!rec.date)return;rec.title='Meeting with '+rec.person+(rec.company?' · '+rec.company:'');
+  if(!rec.person||!rec.date)return;{const lp=rec.person.toLowerCase(),pm=people().find(p=>p.name.toLowerCase()===lp||(p.aka||'').toLowerCase()===lp||short(p.name).toLowerCase()===lp);rec.personId=pm?pm.id:(m.personId||'')}rec.title='Meeting with '+rec.person+(rec.company?' · '+rec.company:'');
   if(id){rec.status=m.status==='cancelled'?'planned':(m.status||'planned');upsertMeet(id,rec)}else{U.meetings=U.meetings||[];U.meetings.push({id:'m-'+uid(),status:'planned',created:now,...rec})}
   queueSave();closeSheet();location.hash='business';rerender();toast(id?'Meeting saved':'Meeting added · +15 XP when you log the result')}}
 function fillParsed(){const q=$('#mq');if(!q||!q.value.trim())return;const r=parseMeet(q.value),f=$('#mf');let n=0;
@@ -395,19 +395,155 @@ function openProject(id){const p=id?{...(projects().find(x=>x.id===id)||{})}:{st
   U.projects=U.projects||[];const ex=U.projects.find(x=>x.id===id);if(ex)Object.assign(ex,r);else if(id)U.projects.push({id,...r});else U.projects.push({id:'p-'+uid(),src:'Me',created:now,...r});
   queueSave();closeSheet();location.hash='projects';rerender();toast(id?'Project saved':'Project added')}}
 
+/* ================= people ================= */
+const REL={partner:['Partner','g'],team:['Team','b'],friend:['Friend','v'],buyer:['Buyer','w'],seller:['Seller','w'],client:['Client','b'],careful:['Careful','r']};
+function people(){const m={};(D.people||[]).forEach(p=>m[p.id]={...p,src:'claude'});(U?.people||[]).forEach(p=>m[p.id]={...(m[p.id]||{}),...p});return Object.values(m).filter(p=>!p.deleted&&p.name).sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name))}
+const personById=id=>people().find(p=>p.id===id);
+const initials=n=>String(n||'?').replace(/^(Mr|Dr|Mrs)\.?\s+/i,'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const PCOL=['#8b5cf6','#06b6d4','#ec4899','#f59e0b','#10b981','#f97316','#3b82f6','#ef4444'];
+const short=n=>String(n||'').replace(/^(Mr|Dr|Mrs)\.?\s+/i,'').split(/\s+/)[0];
+function avatar(p,size=44){const c=PCOL[[...(p.id||p.name||'x')].reduce((a,ch)=>a+ch.charCodeAt(0),0)%8];return p.photo?`<span class="av" style="width:${size}px;height:${size}px"><img src="${p.photo}" alt=""></span>`:`<span class="av" style="width:${size}px;height:${size}px;background:${c};font-size:${Math.round(size*.36)}px">${esc(initials(p.name))}</span>`}
+const digits=s=>String(s||'').replace(/[^\d+]/g,'');
+function waNum(s){let d=digits(s).replace(/^\+/,'');if(d.startsWith('00'))d=d.slice(2);else if(d.startsWith('0'))d='971'+d.slice(1);return d}
+function contactBtns(p){return `<div class="cbtns">${p.phone?`<a href="tel:${digits(p.phone)}">${ic('phone')}Call</a><a href="https://wa.me/${waNum(p.phone)}" target="_blank" rel="noopener noreferrer">${ic('msg')}WhatsApp</a>`:''}${p.email?`<a href="mailto:${esc(p.email)}">${ic('mail')}Email</a>`:''}${!p.phone?`<button data-editperson="${p.id}">${ic('plus')}Add number</button>`:''}</div>`}
+function dealsOf(pid){return pipeline().filter(d=>(d.people||[]).includes(pid))}
+function meetingsOf(pid,p){const f=short(p.name).toLowerCase()||'#';return meetings().filter(m=>m.personId===pid||(m.person||'').toLowerCase().includes(f))}
+function personCard(p){const R=REL[p.rel]||REL.friend,ds=dealsOf(p.id).filter(d=>!['Won','Lost'].includes(d.stage));
+ return `<div class="person" data-person="${p.id}">${avatar(p,46)}<div class="pt2"><b>${esc(p.name)}${p.aka?` <small>· ${esc(p.aka)}</small>`:''}</b><small>${esc(p.role||'')}</small><div class="ptags"><span class="pill ${R[1]}">${R[0]}</span>${ds.slice(0,2).map(d=>`<span class="pill">${ic('deal')}${esc(d.name)}</span>`).join('')}${p.phone?'':'<span class="pill faint">no number</span>'}</div></div>${ic('chev')}</div>`}
+let pfilter='all';
+function renderPeople(){const P=people(),F=[['all','All'],['partner','Partners'],['team','Team'],['friend','Friends'],['buyer','Buyers & sellers'],['client','Clients'],['careful','Careful']];
+ const shown=P.filter(p=>pfilter==='all'||p.rel===pfilter||(pfilter==='buyer'&&p.rel==='seller'));
+ $('#p-people').innerHTML=`<div class="pt">People <span>${P.length} contacts · your business circle</span></div>
+ <div class="addline"><input class="inp" id="psearch" placeholder="Search a name…"><button data-act="newperson" aria-label="Add contact">${ic('plus')}</button></div>
+ <div class="filters">${F.filter(([k])=>k==='all'||P.some(p=>p.rel===k||(k==='buyer'&&p.rel==='seller'))).map(([k,l])=>`<button data-pf="${k}" class="${pfilter===k?'on':''}">${l}</button>`).join('')}</div>
+ <div class="card"><div class="plist">${shown.map(personCard).join('')||empty('Nobody here yet','users')}</div></div>
+ <div class="xs faint" style="margin:10px 4px">Tap a person to call or WhatsApp, add their photo and number, and see your deals and meetings with them.</div>`;
+ const s=$('#psearch');if(s)s.oninput=()=>{const q=s.value.toLowerCase();$$('#p-people .person').forEach(el=>el.style.display=el.innerText.toLowerCase().includes(q)?'':'none')}}
+function openPerson(id){const p=personById(id);if(!p)return;const R=REL[p.rel]||REL.friend,ds=dealsOf(id),ms=meetingsOf(id,p);
+ sheet(head(esc(p.name),'users','bg-v')+`<div class="phead">${avatar(p,72)}<div style="min-width:0"><div class="sm">${esc(p.role||'')}</div><div class="ptags" style="margin-top:6px"><span class="pill ${R[1]}">${R[0]}</span>${p.aka?`<span class="pill">${esc(p.aka)}</span>`:''}${p.from?`<span class="pill">${ic('pin')}${esc(p.from)}</span>`:''}${p.age?`<span class="pill">~${esc(p.age)}</span>`:''}</div></div></div>
+ ${contactBtns(p)}
+ ${p.phone||p.email?`<div class="xs faint" style="margin:8px 0">${[p.phone,p.phone2,p.email].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+ ${p.notes?`<div class="note" style="margin-top:12px"><b>${ic('book')}Notes</b>${esc(p.notes)}</div>`:''}
+ ${ds.length?`<div class="fld" style="margin-top:14px"><label>Deals</label>${ds.map(d=>`<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)}</b><div>${esc(d.stage)} · ${aed(d.value)}${d.next?' · '+esc(d.next):''}</div></div></div>`).join('')}</div>`:''}
+ ${ms.length?`<div class="fld"><label>Meetings</label>${ms.slice(-4).reverse().map(m=>`<div class="row" data-editmeet="${m.id}"><div class="ico bg-o">${ic('users')}</div><div class="tx"><b>${fd(m.date,{weekday:'short',day:'numeric',month:'short'})} ${esc(m.time||'')}</b><div>${esc(m.place||'')}${m.outcome?' · '+esc(m.outcome):''}</div></div></div>`).join('')}</div>`:''}
+ <div class="btnrow"><button class="btn2" data-meetwith="${id}">${ic('cal')} Meeting</button><button class="btn2 pri" data-editperson="${id}">${ic('edit')} Edit</button></div>`)}
+function openPersonEdit(id){const p=id?{...(personById(id)||{})}:{rel:'friend'};
+ sheet(head(id?'Edit contact':'New contact','users','bg-v')+`<form id="pef">
+  <div class="phead" style="margin-bottom:10px"><span id="pephoto">${avatar(p,72)}</span><label class="btn2" style="flex:0 0 auto;padding:10px 14px;cursor:pointer">${ic('plus')} Photo<input type="file" accept="image/*" id="pefile" hidden></label></div>
+  <div class="two"><div class="fld"><label>Name</label><input class="inp" name="name" value="${esc(p.name||'')}" required></div><div class="fld"><label>Also called</label><input class="inp" name="aka" value="${esc(p.aka||'')}"></div></div>
+  <div class="fld"><label>Role / what you do together</label><input class="inp" name="role" value="${esc(p.role||'')}"></div>
+  <div class="fld"><label>Relationship</label>${optBtns('rel',Object.keys(REL),p.rel||'friend',k=>REL[k][0])}</div>
+  <div class="two"><div class="fld"><label>Phone</label><input class="inp" name="phone" type="tel" value="${esc(p.phone||'')}" placeholder="+971…"></div><div class="fld"><label>Email</label><input class="inp" name="email" type="email" value="${esc(p.email||'')}"></div></div>
+  <div class="two"><div class="fld"><label>From</label><input class="inp" name="from" value="${esc(p.from||'')}"></div><div class="fld"><label>Age</label><input class="inp" name="age" value="${esc(p.age||'')}"></div></div>
+  <div class="fld"><label>Notes</label><textarea class="inp" name="notes">${esc(p.notes||'')}</textarea></div>
+  <div class="btnrow">${id?`<button type="button" class="btn2 del" data-delperson="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="submit" class="btn2 pri">Save</button></div></form>`);
+ wireOpts();let photo=null;
+ $('#pefile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),S=160,z=Math.min(im.width,im.height);c.width=c.height=S;c.getContext('2d').drawImage(im,(im.width-z)/2,(im.height-z)/2,z,z,0,0,S,S);photo=c.toDataURL('image/jpeg',.8);$('#pephoto').innerHTML=avatar({...p,photo},72)};im.src=r.result};r.readAsDataURL(f)};
+ $('#pef').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString();const r={name:f.name.value.trim(),aka:f.aka.value.trim(),role:f.role.value.trim(),rel:$('#pef [data-name="rel"] .opt.on')?.dataset.v||'friend',phone:f.phone.value.trim(),email:f.email.value.trim(),from:f.from.value.trim(),age:f.age.value.trim(),notes:f.notes.value.trim(),updated:now};if(photo)r.photo=photo;if(!r.name)return;
+  U.people=U.people||[];const nid=id||'u-'+uid();const ex=U.people.find(x=>x.id===nid);if(ex)Object.assign(ex,r);else U.people.push({id:nid,...r});queueSave();closeSheet();location.hash='people';rerender();toast('Contact saved')}}
+
+/* ================= money ================= */
+const RATE=()=>+(D.money?.rate)||3.6725;
+function aed(n){if(n==null||isNaN(n))return '—';const a=Math.abs(n),s=n<0?'−':'';return 'AED '+s+(a>=1e6?(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'M':a>=1e4?Math.round(a/1e3)+'K':Math.round(a).toLocaleString('en-US'))}
+const STAGES=['Lead','Negotiating','Documents','Closing','Won','Lost'],STC={Lead:'v',Negotiating:'b',Documents:'w',Closing:'g',Won:'g',Lost:'r'};
+function parseMoney(s){if(!s)return 0;const t=String(s).toLowerCase().replace(/,/g,'');const m=t.match(/([\d.]+)\s*(k|m)?/);if(!m)return 0;let v=+m[1]*(m[2]==='k'?1e3:m[2]==='m'?1e6:1);if(/usd|\$/.test(t))v*=RATE();return Math.round(v)}
+function overlay(){const o={};(U?.pipe||[]).forEach(x=>o[x.id]=x);return o}
+function pipeline(){const o=overlay();
+ const c=(D.pipeline||[]).map(d=>({...d,...(o[d.id]||{}),src:'claude'}));
+ const SM={'Idea':'Lead','In progress':'Negotiating','Waiting on them':'Documents','Closed':'Won'};
+ const u=(U?.deals||[]).filter(d=>!d.deleted).map(d=>({...d,stage:d.stage||SM[d.status]||'Lead',value:+d.amount||parseMoney(d.value),prob:d.prob??25,people:d.people||[],src:'me'}));
+ return [...c,...u].filter(d=>!d.deleted)}
+function moneyCalc(){const M=D.money||{},o=overlay(),uc={};(U?.costs||[]).forEach(x=>uc[x.id]=x);
+ const costs=[...(M.costs||[]).map(c=>({...c,...(uc[c.id]||{})})),...(U?.costs||[]).filter(x=>!(M.costs||[]).some(c=>c.id===x.id))].filter(c=>!c.deleted&&c.name);
+ const inc=M.income||[],monthlyCost=costs.reduce((a,c)=>a+(+c.amount||0),0),monthlyIn=inc.reduce((a,c)=>a+(+c.amount||0),0);
+ const P=pipeline(),open=P.filter(d=>!['Won','Lost'].includes(d.stage));
+ const rec=(M.receivables||[]).map(r=>({...r,...(o[r.id]||{})})).filter(r=>!r.deleted);
+ const openRec=rec.filter(r=>!r.done);
+ const potential=open.reduce((a,d)=>a+(+d.value||0),0)+openRec.reduce((a,r)=>a+(+r.yours||0),0);
+ const expected=open.reduce((a,d)=>a+(+d.value||0)*(+d.prob||0)/100,0)+openRec.reduce((a,r)=>a+(+r.yours||0)*(+r.prob||0)/100,0);
+ const txns=[...(M.history||[]).map(t=>({...t,src:'claude'})),...(U?.txns||[]).filter(t=>!t.deleted)].sort((a,b)=>String(a.date)<String(b.date)?1:-1);
+ const cash=U?.kv?.cash?.v,burn=monthlyCost-monthlyIn,runway=cash!=null&&burn>0?cash/burn:null;
+ const yr=nowD().date.slice(0,4),earnedYear=txns.filter(t=>t.type!=='out'&&String(t.date).startsWith(yr)).reduce((a,t)=>a+(+t.amount||0),0);
+ return{costs,inc,monthlyCost,monthlyIn,burn,P,open,rec,openRec,potential,expected,txns,cash,runway,earnedYear}}
+function dealRow(d){const ps=(d.people||[]).map(personById).filter(Boolean),n=nowD().date;return `<div class="deal" data-pipe="${d.id}"><div class="top"><b>${esc(d.name)}</b><span class="pill ${STC[d.stage]||'v'}">${esc(d.stage)}</span></div>
+  <div class="dv"><span class="big">${aed(d.value)}</span>${d.valueNote?`<small>${esc(d.valueNote)}</small>`:''}</div>
+  <div class="prob"><div class="bar"><i style="width:${d.prob||0}%"></i></div><small>${d.prob||0}% chance · expected ${aed((d.value||0)*(d.prob||0)/100)}</small></div>
+  ${ps.length?`<div class="avs">${ps.map(p=>avatar(p,26)).join('')}<small>${ps.map(p=>esc(short(p.name))).join(', ')}</small></div>`:''}
+  ${d.next?`<div class="nx">${ic('chev')}<span>${esc(d.next)}${d.due?` · <b style="${d.due<n?'color:var(--red)':''}">${d.due<n?'overdue':fd(d.due)}</b>`:''}</span></div>`:''}</div>`}
+function renderMoney(){const m=moneyCalc(),target=D.money?.target||25000;
+ $('#p-money').innerHTML=`<div class="pt">Money <span>AED · you and Claude keep it current</span></div>
+ <div class="g3">
+  <div class="card s3 moneyhero"><div class="mrow">
+   <button data-act="setcash"><small>Cash on hand</small><b>${m.cash!=null?aed(m.cash):'Tap to set'}</b><em>${m.runway!=null?m.runway.toFixed(1)+' months runway':'bank + cash now'}</em></button>
+   <div><small>Monthly need</small><b>${aed(m.monthlyCost)}</b><em>target ${aed(target)}</em></div>
+   <div><small>Regular income</small><b>${aed(m.monthlyIn)}</b><em class="${m.burn>0?'dn':'upc'}">${m.burn>0?'gap '+aed(m.burn)+'/mo':'costs covered'}</em></div>
+   <div><small>Expected from deals</small><b>${aed(m.expected)}</b><em>of ${aed(m.potential)} possible</em></div></div>
+   <div class="xs faint" style="margin-top:10px">Expected = what each deal pays × its chance of closing. Tap any deal to update its stage, chance or next step.</div></div>
+  <div class="card s2"><div class="ch"><div class="ic bg-g">${ic('deal')}</div><h3>Deals pipeline</h3><button class="pill g" data-act="newpipe">${ic('plus')}Add</button></div>
+   <div class="chartbox sm"><canvas id="c-pipe"></canvas></div>
+   <div class="deals">${m.open.slice().sort((a,b)=>(b.value*b.prob)-(a.value*a.prob)).map(dealRow).join('')||empty('No open deals','deal')}</div></div>
+  <div class="grid">
+   ${card('Money owed to you','money','bg-a',m.rec.map(r=>{const p=personById(r.who);return `<div class="row" data-rec="${r.id}"><div class="ico ${r.done?'bg-g':'bg-a'}">${ic(r.done?'check':'clock')}</div><div class="tx"><b>${p?esc(p.name)+' · ':''}${esc(r.label)}</b><div>${r.done?'Received ✓':`Owes ${aed(r.total)} · your share ${aed(r.yours)} · ${r.prob??25}% chance`}</div></div></div>`}).join('')||empty('Nothing owed','money'))}
+   ${card('Every month','cal','bg-p',m.costs.map(c=>`<div class="row" data-cost="${c.id}"><div class="ico bg-p">${ic('down')}</div><div class="tx"><b>${esc(c.name)}</b><div>${aed(c.amount)} / month</div></div></div>`).join('')+m.inc.map(c=>`<div class="row"><div class="ico bg-g">${ic('bolt')}</div><div class="tx"><b>${esc(c.name)}</b><div>+${aed(c.amount)} / month${c.note?' · '+esc(c.note):''}</div></div></div>`).join('')+`<button class="addag" data-act="newcost">${ic('plus')}Add a monthly cost</button>`)}
+  </div>
+  ${card('Income & spending','book','bg-v',`<div class="mstat">Earned in ${nowD().date.slice(0,4)}: <b>${aed(m.earnedYear)}</b></div>`+m.txns.slice(0,12).map(t=>`<div class="row" ${t.src!=='claude'?`data-txn="${t.id}"`:''}><div class="ico ${t.type==='out'?'bg-r':'bg-g'}">${ic(t.type==='out'?'down':'bolt')}</div><div class="tx"><b>${t.type==='out'?'−':'+'}${aed(t.amount)} · ${esc(t.label)}</b><div>${esc(fd(String(t.date).length===7?t.date+'-15':t.date,{day:'numeric',month:'short',year:'numeric'}))}</div></div></div>`).join('')+`<div class="btnrow"><button class="btn2" data-act="txnout">${ic('down')} I spent</button><button class="btn2 pri" data-act="txnin">${ic('plus')} I received</button></div>`,'','s3')}
+ </div>`}
+function moneyToday(){const m=moneyCalc();
+ return card('Money & deals','money','bg-g',`<div class="mmini"><div><small>Expected</small><b>${aed(m.expected)}</b></div><div><small>Monthly need</small><b>${aed(m.monthlyCost)}</b></div><div><small>${m.runway!=null?'Runway':'Owed to you'}</small><b>${m.runway!=null?m.runway.toFixed(1)+' mo':aed(m.openRec.reduce((a,r)=>a+(+r.yours||0),0))}</b></div></div>`+m.open.slice().sort((a,b)=>(a.due||'9')<(b.due||'9')?-1:1).slice(0,3).map(d=>`<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)} · ${aed(d.value)}</b><div>${esc(d.next||d.stage)}${d.due?' · '+fd(d.due):''}</div></div></div>`).join(''),`<a href="#money" class="xs" style="font-weight:800;color:var(--green)">Open →</a>`)}
+function openPipe(id){const d=id?{...(pipeline().find(x=>x.id===id)||{})}:{stage:'Lead',prob:25,people:[]};const P=people(),sel=new Set(d.people||[]);
+ sheet(head(id?'Deal':'New deal','deal','bg-g')+`<form id="dpf">
+  <div class="fld"><label>Deal</label><input class="inp" name="name" value="${esc(d.name||'')}" required placeholder="e.g. EN590 to a Fujairah buyer"></div>
+  <div class="fld"><label>Stage</label>${optBtns('stage',STAGES,d.stage||'Lead')}</div>
+  <div class="two"><div class="fld"><label>You earn (AED)</label><input class="inp" name="value" inputmode="numeric" value="${d.value?Math.round(d.value):''}" placeholder="30000"></div><div class="fld"><label>…or in USD</label><input class="inp" name="usd" inputmode="numeric" placeholder="converts to AED"></div></div>
+  ${d.valueNote?`<div class="xs faint" style="margin:-6px 0 10px">${esc(d.valueNote)}</div>`:''}
+  <div class="fld"><label>Chance it closes</label>${optBtns('prob',[5,10,20,30,40,50,60,75,90],d.prob??25,v=>v+'%')}</div>
+  <div class="fld"><label>People involved</label><div class="opts pick">${P.map(p=>`<button type="button" class="opt ${sel.has(p.id)?'on':''}" data-pid="${p.id}">${esc(short(p.name))}</button>`).join('')}</div></div>
+  <div class="fld"><label>Next step</label><input class="inp" name="next" value="${esc(d.next||'')}" placeholder="e.g. Buyer sends documents"></div>
+  <div class="two"><div class="fld"><label>Follow-up date</label><input class="inp" type="date" name="due" value="${esc(d.due||'')}"></div><div class="fld"><label>&nbsp;</label><div class="xs faint" style="padding-top:12px">Claude reminds you that day</div></div></div>
+  <div class="fld"><label>Details</label><textarea class="inp" name="desc">${esc(d.desc||d.notes||'')}</textarea></div>
+  ${(D.deal_notes||{})[id]?.text?`<div class="note"><b>${ic('spark')}Claude</b>${esc(D.deal_notes[id].text)}</div>`:''}
+  <div class="btnrow">${id?`<button type="button" class="btn2 del" data-delpipe="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="submit" class="btn2 pri">Save</button></div></form>`);
+ wireOpts();$$('#dpf .pick .opt').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+ $('#dpf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),g=n=>$(`#dpf [data-name="${n}"] .opt.on`)?.dataset.v;
+  let v=+String(f.value.value).replace(/[^\d.]/g,'')||0;const u=+String(f.usd.value).replace(/[^\d.]/g,'')||0;if(u)v=Math.round(u*RATE());
+  const r={name:f.name.value.trim(),stage:g('stage')||'Lead',prob:+(g('prob')||25),people:$$('#dpf .pick .opt.on').map(b=>b.dataset.pid),next:f.next.value.trim(),due:f.due.value,desc:f.desc.value.trim(),updated:now};if(!r.name)return;
+  const wasWon=d.stage==='Won';
+  if(id&&d.src==='claude'){U.pipe=U.pipe||[];const ex=U.pipe.find(x=>x.id===id),o={...r,value:v};if(ex)Object.assign(ex,o);else U.pipe.push({id,...o})}
+  else{const SM={Lead:'Idea',Negotiating:'In progress',Documents:'Waiting on them',Closing:'In progress',Won:'Closed',Lost:'Closed'};const o={...r,amount:v,value:v?aed(v):'',status:SM[r.stage],with:r.people.map(x=>personById(x)?.name).filter(Boolean).join(', ')};
+   const ex=(U.deals||[]).find(x=>x.id===id);if(ex)Object.assign(ex,o);else U.deals.push({id:'d-'+uid(),created:now,...o})}
+  if(r.stage==='Won'&&!wasWon&&v){U.txns=U.txns||[];U.txns.push({id:uid(),type:'in',amount:v,label:r.name,date:nowD().date,deal:id||'',updated:now});toast('Deal won · added to income')}else toast('Deal saved');
+  queueSave();closeSheet();rerender()}}
+function openRec(id){const r=moneyCalc().rec.find(x=>x.id===id);if(!r)return;const p=personById(r.who);
+ sheet(head('Money owed','money','bg-a')+`<div class="sm" style="margin-bottom:6px"><b>${p?esc(p.name):''}</b> · ${esc(r.label)}</div><div class="sm muted">Owes ${aed(r.total)} · your share ${aed(r.yours)}${r.note?' · '+esc(r.note):''}</div>
+ <div class="fld" style="margin-top:14px"><label>Chance you get paid</label>${optBtns('prob',[5,10,25,50,75,90],r.prob??25,v=>v+'%')}</div>
+ <div class="btnrow"><button class="btn2" data-recsave="${id}">Save</button><button class="btn2 pri" data-recpaid="${id}">${ic('check')} It's paid</button></div>`);wireOpts()}
+function openCash(){sheet(head('Cash on hand','money','bg-g')+`<div class="sm muted" style="margin:-4px 0 12px">How much can you use right now (bank + cash)? Encrypted — only you see it. HQ then shows how many months you're covered.</div><form id="cf2"><div class="fld"><input class="inp" name="v" inputmode="numeric" value="${U.kv?.cash?.v??''}" placeholder="AED"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button class="btn2 pri">Save</button></div></form>`);
+ $('#cf2').onsubmit=e=>{e.preventDefault();const v=+String(e.target.v.value).replace(/[^\d.]/g,'');U.kv=U.kv||{};U.kv.cash={v,updated:new Date().toISOString()};queueSave();closeSheet();rerender();toast('Saved')}}
+function openCost(id){const c=id?moneyCalc().costs.find(x=>x.id===id)||{}:{};
+ sheet(head(id?'Monthly cost':'New monthly cost','money','bg-p')+`<form id="cof"><div class="fld"><label>What</label><input class="inp" name="n" value="${esc(c.name||'')}" required placeholder="e.g. School fees"></div><div class="fld"><label>AED per month</label><input class="inp" name="a" inputmode="numeric" value="${c.amount||''}" required></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 del" data-delcost="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button class="btn2 pri">Save</button></div></form>`);
+ $('#cof').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),r={name:f.n.value.trim(),amount:+String(f.a.value).replace(/[^\d.]/g,''),updated:now};U.costs=U.costs||[];const nid=id||'uc-'+uid();const ex=U.costs.find(x=>x.id===nid);if(ex)Object.assign(ex,r);else U.costs.push({id:nid,...r});queueSave();closeSheet();rerender();toast('Saved')}}
+function openTxn(type,id){const t=id?(U.txns||[]).find(x=>x.id===id)||{}:{type,date:nowD().date};
+ sheet(head(t.type==='out'?'Money spent':'Money received','money',t.type==='out'?'bg-r':'bg-g')+`<form id="txf"><div class="two"><div class="fld"><label>AED</label><input class="inp" name="a" inputmode="numeric" value="${t.amount||''}" required></div><div class="fld"><label>Date</label><input class="inp" type="date" name="d" value="${esc(t.date||'')}"></div></div><div class="fld"><label>For</label><input class="inp" name="l" value="${esc(t.label||'')}" placeholder="${t.type==='out'?'e.g. Car service':'e.g. Mojeh – September'}"></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 del" data-deltxn="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button class="btn2 pri">Save</button></div></form>`);
+ $('#txf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),r={type:t.type,amount:+String(f.a.value).replace(/[^\d.]/g,''),date:f.d.value||nowD().date,label:f.l.value.trim(),updated:now};U.txns=U.txns||[];if(id)Object.assign(t,r);else U.txns.push({id:uid(),...r});queueSave();closeSheet();rerender();toast('Saved')}}
+function openMore(){sheet(head('More','list','bg-grad')+`<div class="actions">${PAGES.filter(p=>!MAIN.includes(p.id)).map(p=>`<button class="action" data-go="${p.id}"><span class="qi bg-v">${ic(p.i)}</span><b>${p.l}</b></button>`).join('')}<button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to Claude</b></button><button class="action" data-act="settings"><span class="qi bg-c">${ic('gear')}</span><b>Settings</b></button></div>`)}
+function ovSet(id,o){U.pipe=U.pipe||[];const ex=U.pipe.find(x=>x.id===id);if(ex)Object.assign(ex,o);else U.pipe.push({id,...o})}
+
 /* ================= nav ================= */
-const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'business',l:'Business',i:'brief'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'projects',l:'Projects',i:'folder'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'}];
-$('#bottom').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}<span>${p.l}</span></button>`).join('');
+const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'business',l:'Business',i:'brief'},{id:'money',l:'Money',i:'money'},{id:'people',l:'People',i:'users'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'projects',l:'Projects',i:'folder'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'}];
+const MAIN=['today','business','money','people'];
+$('#bottom').innerHTML=PAGES.filter(p=>MAIN.includes(p.id)).map(p=>`<button data-p="${p.id}">${ic(p.i)}<span>${p.l}</span></button>`).join('')+`<button id="morebtn" data-act="more">${ic('list')}<span>More</span></button>`;
 $('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');
 $$('[data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
 $('#refresh').innerHTML=ic('refresh');$('#settings').innerHTML=ic('gear');$('#fab').innerHTML=ic('plus');
 $('#refresh').onclick=reload;if($('#mic')){$('#mic').innerHTML=ic('mic');$('#mic').onclick=()=>openTalk()}$('#settings').onclick=openSettings;$('#fab').onclick=openActions;
 $('#foot').innerHTML=ic('shield')+' Encrypted · only you can open this · Claude refreshes it through the day';
 function curPage(){const id=(location.hash||'#today').slice(1);return PAGES.find(p=>p.id===id)?id:'today'}
-function show(){const pg=curPage();$$('section.page').forEach(s=>s.classList.toggle('on',s.id==='p-'+pg));$$('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===pg));window.scrollTo(0,0);draw(pg)}
+function show(){const pg=curPage();$$('section.page').forEach(s=>s.classList.toggle('on',s.id==='p-'+pg));$$('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===pg));$('#morebtn')?.classList.toggle('on',!MAIN.includes(pg));window.scrollTo(0,0);draw(pg)}
 window.addEventListener('hashchange',()=>{if(!D)return;if(hashHook())render(true);else show()});
 function render(keep){$('#updated').innerHTML=`${fd(nowD().date,{weekday:'short',day:'numeric',month:'short'})} · updated ${ago(D.updated)} <span id="sync" class="sync"></span>`;setSync(syncState);
- const G=game();renderToday(G);renderTasks();renderCalendar();renderSocial();renderGrowth(G);renderBusiness();renderProjects();
+ const G=game();renderToday(G);renderTasks();renderCalendar();renderSocial();renderGrowth(G);renderBusiness();renderProjects();renderMoney();renderPeople();
  if(keep){const y=scrollY;draw(curPage());window.scrollTo(0,y)}else show()}
 const rerender=()=>render(true);
 
@@ -461,6 +597,7 @@ function renderToday(G){
   <div class="s3"><button class="cin" data-act="checkin"><div class="qi bg-grad">${ic(ci?'check':'moon')}</div><div><b>${ci?'Today’s check-in saved — tap to update':'Log your day'}</b><small>${ci?`${hrs(te?totalH(te):0)} studied · score ${ci.score||'—'}/10`:'Study hours, gym, meetings, new business — takes 1 minute'}</small></div><span class="go">${ic('chev')}</span></button></div>
   ${card("Today's quests",'target','bg-grad',Q.map(q=>`<div class="quest ${q.ok?'done':''}" data-act="${q.i==='list'?'tasks':'checkin'}"><div class="qi ${q.bg}">${ic(q.i)}</div><div><b>${q.n}</b><small>${q.s}</small></div><span class="xp">+${q.xp} XP</span><span class="ok">${q.ok?ic('check'):''}</span></div>`).join(''),`${done}/${Q.length} done`)}
   ${card('To-do','list','bg-p',`<div class="addline"><input class="inp" id="qadd" placeholder="Add a task…" enterkeyhint="done"><button data-act="qadd" aria-label="Add">${ic('plus')}</button></div>${openT.slice(0,5).map(todoRow).join('')||empty('All clear','check')}${openT.length>5?`<a href="#tasks" class="xs faint" style="display:block;margin-top:8px;font-weight:700">+${openT.length-5} more →</a>`:''}`,`${openT.length} open`)}
+  ${moneyToday()}
   ${whereCard()}
   ${card('Tonight','moon','bg-v',(tonight.length?tonight.map(evRow).join(''):'')+routineRows(S.filter(s=>toMin(s.start)>=17*60)),'from 17:00')}
   ${card('Morning briefing','mail','bg-b',brBlock('Important',br.important,'alert','bg-r','Nothing legal or financial')+brBlock('Friends & personal',br.friends,'heart','bg-p','No personal messages')+brBlock('Drafts for your OK',br.drafts,'edit','bg-v','No drafts waiting')+(br.note?`<div class="xs faint">${esc(br.note)}</div>`:''),t.date&&t.date!==n.date?'from '+fd(t.date):'today')}
@@ -656,6 +793,7 @@ function renderBusiness(){
   ${needs.length?`<div class="card s3 hot"><div class="ch"><div class="ic bg-o">${ic('alert')}</div><h3>Log the result</h3><span class="aside">${needs.length} waiting</span></div>${needs.map(m=>meetCard(m,true)).join('')}</div>`:''}
   <div class="card s2"><div class="ch"><div class="ic bg-o">${ic('users')}</div><h3>${nextM&&mState(nextM)==='now'?'Meeting now':'Next meeting'}</h3>${nextM?`<span class="aside">${esc(untilTxt(nextM))}</span>`:''}</div>
    ${nextM?meetCard(nextM,true):`<button class="cin" data-act="meet" style="margin:0"><div class="qi bg-o">${ic('plus')}</div><div><b>Add a meeting</b><small>Person, place, time and agenda — Claude reminds you and follows up</small></div></button>`}</div>
+  ${card('Deals pipeline','deal','bg-g',pipeline().filter(d=>!['Won','Lost'].includes(d.stage)).map(d=>`<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)}</b><div>${esc(d.stage)} · ${aed(d.value)} · ${d.prob||0}%${d.next?' · '+esc(d.next):''}</div></div></div>`).join('')||empty('No open deals','deal'),`<a href="#money" class="xs" style="font-weight:800;color:var(--green)">Money →</a>`,'s3')}
   ${card('Follow-ups','bell','bg-a',fu.map(fuRow).join('')||empty('After a meeting, set a follow-up date and it shows here','bell'),fu.length?fu.length+' open':'')}
   ${card('Coming up','cal','bg-c',(up.slice(1).map(m=>meetCard(m)).join('')+other.map(m=>`<div class="row"><div class="ico bg-c">${ic('cal')}</div><div class="tx"><b>${esc(m.title)}</b><div>${fd(m.date,{weekday:'short',day:'numeric',month:'short'})}${m.time?' · '+esc(m.time):''}${m.where?' · '+esc(m.where):''} · from Google Calendar</div></div></div>`).join(''))||empty('Nothing else planned'),`${up.length+other.length} planned`,'s2')}
   ${card('Meeting history','book','bg-v',hist.slice(0,8).map(m=>meetCard(m)).join('')||empty('Results you log appear here','book'),hist.length?hist.length+' meetings':'')}
@@ -693,11 +831,13 @@ function openActions(){sheet(head('Add','plus','bg-grad')+`<div class="actions">
  <button class="action" data-act="meet"><span class="qi bg-o">${ic('users')}</span><b>New meeting</b><small>Who, where, when, agenda</small></button>
  <button class="action" data-act="checkin"><span class="qi bg-v">${ic('moon')}</span><b>Log my day</b><small>Hours, gym, meetings</small></button>
  <button class="action" data-act="newtask"><span class="qi bg-p">${ic('list')}</span><b>New to-do</b><small>Task with category & date</small></button>
- <button class="action" data-act="deal"><span class="qi bg-g">${ic('deal')}</span><b>New business</b><small>Deal or opportunity</small></button>
+ <button class="action" data-act="deal"><span class="qi bg-g">${ic('deal')}</span><b>New deal</b><small>What you earn + chance</small></button>
  <button class="action" data-act="event"><span class="qi bg-c">${ic('cal')}</span><b>New event</b><small>Claude adds it to Google Calendar</small></button>
  <button class="action" data-act="idea"><span class="qi bg-a">${ic('bulb')}</span><b>Improve the app</b><small>Tell Claude what to change</small></button>
  <button class="action" data-act="project"><span class="qi bg-v">${ic('folder')}</span><b>New project</b><small>Idea or work in progress</small></button>
- <button class="action" data-act="places"><span class="qi bg-c">${ic('pin')}</span><b>My places</b><small>Home, gym — auto tracking</small></button></div>`)}
+ <button class="action" data-act="places"><span class="qi bg-c">${ic('pin')}</span><b>My places</b><small>Home, gym — auto tracking</small></button>
+ <button class="action" data-act="newperson"><span class="qi bg-v">${ic('users')}</span><b>New contact</b><small>Name, number, photo</small></button>
+ <button class="action" data-act="txnin"><span class="qi bg-g">${ic('money')}</span><b>Money in / out</b><small>Log what you received</small></button></div>`)}
 const optBtns=(name,vals,cur,lab=v=>v)=>`<div class="opts" data-name="${name}">${vals.map(v=>`<button type="button" class="opt ${String(cur)===String(v)?'on':''}" data-v="${v}">${lab(v)}</button>`).join('')}</div>`;
 function openCheckin(date){
  const n=nowD();date=date||n.date;const c=U.checkins[date]||{};const st=c.study||{};
@@ -772,7 +912,7 @@ async function saveToken(){const t=($('#tokin')?.value||'').trim();if(!t)return;
  catch(e){TOKEN=null;toast(e.message||'Could not connect')}}
 
 /* ================= events ================= */
-document.addEventListener('click',e=>{const lk=e.target.closest('a[href]');if(lk&&!lk.dataset.act&&lk.closest('[data-editproj]'))return;const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone],[data-saveplace],[data-delplace],[data-editproj],[data-delproj]');if(!a)return;
+document.addEventListener('click',e=>{const lk=e.target.closest('a[href]');if(lk&&!lk.dataset.act&&lk.closest('[data-editproj]'))return;const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone],[data-saveplace],[data-delplace],[data-editproj],[data-delproj],[data-go],[data-person],[data-editperson],[data-delperson],[data-meetwith],[data-pipe],[data-delpipe],[data-rec],[data-recsave],[data-recpaid],[data-cost],[data-delcost],[data-txn],[data-deltxn],[data-pf]');if(!a)return;
  const d=a.dataset;
  if(d.tog){toggleTodo(d.tog);return}
  const now=new Date().toISOString();
@@ -781,18 +921,33 @@ document.addEventListener('click',e=>{const lk=e.target.closest('a[href]');if(lk
  if(d.saveplace){savePlaceHere(d.saveplace);return}
  if(d.delplace){const p=(U.places||[]).find(x=>x.id===d.delplace);if(p){p.deleted=true;p.updated=now;queueSave();openPlaces();rerender()}return}
  if(d.editproj){openProject(d.editproj);return}
+ if(d.go){closeSheet();location.hash=d.go;return}
+ if(d.pf){pfilter=d.pf;renderPeople();return}
+ if(d.person){openPerson(d.person);return}
+ if(d.editperson){openPersonEdit(d.editperson);return}
+ if(d.delperson){U.people=U.people||[];const ex=U.people.find(x=>x.id===d.delperson);if(ex)Object.assign(ex,{deleted:true,updated:now});else U.people.push({id:d.delperson,deleted:true,updated:now});queueSave();closeSheet();rerender();toast('Contact removed');return}
+ if(d.meetwith){const p=personById(d.meetwith);closeSheet();openMeeting(null,{person:p?.name||'',personId:d.meetwith});return}
+ if(d.pipe){openPipe(d.pipe);return}
+ if(d.delpipe){const x=pipeline().find(z=>z.id===d.delpipe);if(x&&x.src==='claude')ovSet(d.delpipe,{deleted:true,updated:now});else{const ex=(U.deals||[]).find(z=>z.id===d.delpipe);if(ex)Object.assign(ex,{deleted:true,updated:now})}queueSave();closeSheet();rerender();toast('Deal removed');return}
+ if(d.rec){openRec(d.rec);return}
+ if(d.recsave){ovSet(d.recsave,{prob:+($('#sheet [data-name="prob"] .opt.on')?.dataset.v||25),updated:now});queueSave();closeSheet();rerender();toast('Saved');return}
+ if(d.recpaid){const r=moneyCalc().rec.find(x=>x.id===d.recpaid);ovSet(d.recpaid,{done:true,updated:now});if(r){U.txns=U.txns||[];U.txns.push({id:uid(),type:'in',amount:+r.yours||0,label:r.label,date:nowD().date,updated:now})}queueSave();closeSheet();rerender();toast('Marked paid · added to income');return}
+ if(d.cost){openCost(d.cost);return}
+ if(d.delcost){U.costs=U.costs||[];const ex=U.costs.find(x=>x.id===d.delcost);if(ex)Object.assign(ex,{deleted:true,updated:now});else U.costs.push({id:d.delcost,deleted:true,updated:now});queueSave();closeSheet();rerender();return}
+ if(d.txn){openTxn(null,d.txn);return}
+ if(d.deltxn){const ex=(U.txns||[]).find(x=>x.id===d.deltxn);if(ex)Object.assign(ex,{deleted:true,updated:now});queueSave();closeSheet();rerender();return}
  if(d.delproj){U.projects=U.projects||[];const ex=U.projects.find(x=>x.id===d.delproj);if(ex)Object.assign(ex,{deleted:true,updated:now});else U.projects.push({id:d.delproj,deleted:true,updated:now});queueSave();closeSheet();rerender();toast('Project removed');return}
  if(d.editmeet){openMeeting(d.editmeet);return}
  if(d.delmeet){upsertMeet(d.delmeet,{deleted:true,status:'cancelled',updated:now});queueSave();closeSheet();rerender();toast('Meeting removed');return}
  if(d.fudone){upsertMeet(d.fudone,{followDone:true,updated:now});queueSave();rerender();toast('Follow-up done ✓');return}
  if(d.deltodo){delTodo(d.deltodo);closeSheet();return}
  if(d.deldeal){const x=U.deals.find(z=>z.id===d.deldeal);if(x){x.deleted=true;x.updated=new Date().toISOString();queueSave();closeSheet();rerender();toast('Deleted')}return}
- if(d.editdeal){openDeal(d.editdeal);return}
+ if(d.editdeal){openPipe(d.editdeal);return}
  if(d.editTodo!==undefined){if(d.editTodo)openTodo(d.editTodo);return}
  if(d.tf){tfilter=d.tf;rerender();return}
  if(d.f){filter=d.f;renderSocial();draw('social');return}
  if(d.rt){showRoutine[d.rt]=!showRoutine[d.rt];renderCalendar();return}
- switch(d.act){case 'close':closeSheet();break;case 'checkin':openCheckin();break;case 'newtask':openTodo();break;case 'deal':openDeal();break;case 'event':openEvent();break;case 'meet':openMeeting();break;case 'mparse':fillParsed();break;case 'idea':openIdea();break;case 'talk':openTalk();break;case 'places':openPlaces();break;case 'project':openProject();break;case 'saveplace':savePlaceHere($('#plname')?.value);break;case 'geocheck':checkPlace(true);break;case 'geooff':ls.del('hq.geo');closeSheet();toast('Location checks off on this device');break;case 'tkmeet':talkAs('meet');break;case 'tktodo':talkAs('todo');break;
+ switch(d.act){case 'close':closeSheet();break;case 'checkin':openCheckin();break;case 'newtask':openTodo();break;case 'deal':openPipe();break;case 'event':openEvent();break;case 'meet':openMeeting();break;case 'mparse':fillParsed();break;case 'idea':openIdea();break;case 'talk':openTalk();break;case 'places':openPlaces();break;case 'project':openProject();break;case 'newperson':openPersonEdit();break;case 'newpipe':openPipe();break;case 'setcash':openCash();break;case 'newcost':openCost();break;case 'txnin':openTxn('in');break;case 'txnout':openTxn('out');break;case 'more':openMore();break;case 'saveplace':savePlaceHere($('#plname')?.value);break;case 'geocheck':checkPlace(true);break;case 'geooff':ls.del('hq.geo');closeSheet();toast('Location checks off on this device');break;case 'tkmeet':talkAs('meet');break;case 'tktodo':talkAs('todo');break;
   case 'settings':openSettings();break;case 'savetok':saveToken();break;case 'forget':ls.del('hq.tok');TOKEN=null;closeSheet();rerender();setSync('local');toast('Disconnected on this device');break;
   case 'lock':ls.del(KEY);location.hash='';location.reload();break;case 'qadd':quickAdd();break;case 'tadd':addTodoFrom('#tadd');break;case 'tasks':location.hash='tasks';break}
 });
@@ -810,6 +965,8 @@ function draw(pg){killCharts();
   const vb=$('#c-views');if(vb)vb.parentElement.style.height=(S.length*30+40)+'px';
   mk('c-views',{type:'bar',data:{labels:S.map(s=>AB[s.platform]+' '+(s.name.length>10?s.name.slice(0,9)+'…':s.name)),datasets:[{data:V.map(v=>Math.max(v,1)),backgroundColor:S.map(s=>PL[s.platform]?.c||'#8b5cf6'),borderRadius:8,maxBarThickness:34}]},options:{indexAxis:'y',scales:{x:{type:'logarithmic',grid:{color:css('--line')},ticks:{maxRotation:0,autoSkip:false,callback:v=>[10,100,1000,10000].includes(v)?fmt(v):''}},y:{grid:{display:false}}}}});
  }
+ if(pg==='money'){const m=moneyCalc(),L=m.open.slice().sort((a,b)=>b.value-a.value);const el=$('#c-pipe');if(el)el.parentElement.style.height=(L.length*38+60)+'px';
+  mk('c-pipe',{type:'bar',data:{labels:L.map(d=>d.name.length>18?d.name.slice(0,17)+'…':d.name),datasets:[{label:'Expected',data:L.map(d=>Math.max(1,Math.round(d.value*d.prob/100))),backgroundColor:'#10b981',borderRadius:6,maxBarThickness:16},{label:'If it closes',data:L.map(d=>Math.max(1,d.value)),backgroundColor:'rgba(16,185,129,.28)',borderRadius:6,maxBarThickness:16}]},options:{indexAxis:'y',plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,boxHeight:10,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+aed(c.raw)}}},scales:{x:{type:'logarithmic',min:1000,grid:{color:css('--line')},ticks:{autoSkip:false,maxRotation:0,callback:v=>[1e3,1e4,1e5,1e6].includes(v)?aed(v).replace('AED ',''):''}},y:{grid:{display:false}}}}})}
  if(pg==='growth'){const G=game(),n=nowD(),month=n.date.slice(0,7),ML=G.L.filter(e=>e.date.startsWith(month)),st=ML.length?(ML[0].date>month+'-01'?ML[0].date:month+'-01'):n.date,el=Math.max(1,daysBetween(st,n.date)+1);
   const L=G.L.slice(-14);
   const pc=f=>Math.min(100,Math.round(ML.filter(f).length/el*100));
