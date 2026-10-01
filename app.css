@@ -722,3 +722,14 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 .mdel{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:20px}
 .stars{display:flex;gap:1px}.stars button{font-size:15px;color:var(--line2);padding:0 1px}.stars button.on{color:#fbbf24}
 .movienight{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;background:linear-gradient(120deg,color-mix(in srgb,#ec4899 18%,var(--card)),color-mix(in srgb,#6366f1 18%,var(--card)))}.movienight>div{flex:1}.mn-ic{font-size:30px}
+/* v17 */
+.askm{display:flex;align-items:center;gap:12px;background:linear-gradient(120deg,color-mix(in srgb,#f59e0b 20%,var(--card)),color-mix(in srgb,#ec4899 18%,var(--card)));cursor:pointer}.askm>div{flex:1;min-width:0}.am-ic{font-size:30px}.askm .btn2{flex:0 0 auto;padding:9px 16px}
+.mbig{width:100%;padding:14px;font-size:15px}
+.mphoto{display:grid;place-items:center;min-height:90px;border:2px dashed var(--line2);border-radius:14px;color:var(--muted);cursor:pointer;overflow:hidden}.mphoto img{max-height:180px;border-radius:10px}
+.rate-top{display:flex;gap:12px;align-items:center;margin-bottom:14px}.rate-top img,.rate-top>span{width:64px;height:96px;border-radius:10px;object-fit:cover;background:var(--card2);display:grid;place-items:center;font-size:30px}.rate-top b{font-size:17px}
+.bigstars{display:flex;gap:4px}.bigstars button{font-size:36px;color:var(--line2);transition:transform .15s}.bigstars button.on{color:#fbbf24;transform:scale(1.08)}
+.reacts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.reacts button{padding:10px 4px;border-radius:14px;border:1px solid var(--line2);background:var(--bg2);font-size:26px;display:flex;flex-direction:column;align-items:center;gap:3px}.reacts button small{font-size:10.5px;color:var(--muted);font-weight:700}.reacts button.on{border-color:var(--amber);background:color-mix(in srgb,var(--amber) 16%,var(--bg2))}
+.mtags{display:flex;flex-wrap:wrap;gap:6px}.mtags .tkc.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.tcols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.tcol{padding:10px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px;min-width:0}
+.mbadges{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.mbadges span{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid var(--line2);opacity:.4;filter:grayscale(1)}.mbadges span.on{opacity:1;filter:none;background:color-mix(in srgb,var(--amber) 16%,var(--card));border-color:var(--amber)}
+.mcard{cursor:pointer}.forT{font-size:11px;color:var(--pink);font-weight:800}

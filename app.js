@@ -1495,6 +1495,70 @@ const _renderToday16=renderToday;renderToday=function(G){_renderToday16(G);const
 const _answer16=answer;answer=function(t){const m=t.match(/^(?:i\s+)?(watched|watching|saw|played|playing)\s+(.+)/i);if(m){const g=/play/i.test(m[1]);addMedia({title:m[2].replace(/[.!]+$/,'').trim(),type:g?'game':'movie'});return[`${g?'🎮':'🎬'} Logged “${m[2].trim()}” in Watch & Play · +3 XP. Rate it there ⭐`]}
  if(/movie|film|what (should|to) (i )?watch|recommend|game to play/i.test(t)){const R=((D.media_recs||{}).items||[]).slice(0,3);return R.length?['🍿 Picks for you:',...R.map(r=>`• ${r.title}${r.year?' ('+r.year+')':''} — ${r.why||r.genre||''}`)]:['Log a few movies first — then I suggest new ones every evening.']}
  return _answer16(t)};
+
+/* ================= v17: movie diary — ask, photo, rate (me + Farnaz), taste profile, badges ================= */
+const REACT=[['😍','Loved it'],['🙂','Good'],['😐','OK'],['👎','Didn’t like']];
+const TAGS=['Great story','Acting','Action','Twist','Funny','Emotional','Visuals','Music','Too long','Boring','Confusing','Too violent'];
+function ymd(off){return addDays(nowD().date,off)}
+function askCard(where){const n=nowD(),morning=n.mins<16*60,L=media().filter(x=>!x.later),y=L.filter(x=>x.date===ymd(-1)),t=L.filter(x=>x.date===n.date),unrated=L.filter(x=>!x.rating).slice(0,1)[0];
+ if(unrated)return `<div class="card mb askm" data-x="mrate" data-id="${unrated.id}"><span class="am-ic">⭐</span><div><b>How was “${esc(unrated.title)}”?</b><div class="xs faint">Rate it${unrated.with==='farnaz'?' — you and Farnaz':''} · +2 XP</div></div><button class="btn2 pri" data-x="mrate" data-id="${unrated.id}">Rate</button></div>`;
+ const day=morning&&!y.length?-1:(!t.length?0:null);if(day===null)return '';
+ return `<div class="card mb askm"><span class="am-ic">🎬</span><div><b>What did you watch ${day===-1?'last night':'today'}?</b><div class="xs faint">Movie, series or game · add a photo · +3 XP</div></div><button class="btn2 pri" data-x="mlog" data-d="${day}">Add</button>${where==='today'&&day===-1?'':''}</div>`}
+function shrinkImg(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=240,s=W/im.width,c=document.createElement('canvas');c.width=W;c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};im.src=r.result};r.readAsDataURL(file)})}
+function openLog(day){day=+day||0;sheet(head('What did you watch?','film','bg-p')+`<form id="mlogf">
+ <div class="fld"><label>When</label><div class="seg3">${[[-1,'Yesterday'],[0,'Today']].map(([v,l])=>`<button type="button" class="${v===day?'on':''}" data-x="mpick" data-k="d" data-v="${v}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Type</label><div class="seg3">${Object.entries(MT).map(([k,v],i)=>`<button type="button" class="${i===0?'on':''}" data-x="mpick" data-k="k" data-v="${k}">${v[0]} ${v[1]}</button>`).join('')}</div></div>
+ <div class="fld"><label>Name</label><input class="inp" name="t" required placeholder="e.g. Ford v Ferrari" autocomplete="off"></div>
+ <div class="fld"><label>Who watched</label><div class="seg3">${[['me','🙋 Just me'],['farnaz','💑 With Farnaz'],['family','👨‍👩‍👧‍👧 Family']].map(([k,l],i)=>`<button type="button" class="${i===0?'on':''}" data-x="mpick" data-k="w" data-v="${k}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Photo / poster (optional)</label><label class="mphoto"><input type="file" name="ph" accept="image/*" hidden><span id="mphprev">📷 Tap to add a photo</span></label></div>
+ <input type="hidden" name="d" value="${day}"><input type="hidden" name="k" value="movie"><input type="hidden" name="w" value="me">
+ <button class="btn2 pri" style="width:100%">Next: rate it ⭐</button></form>`);
+ const f=$('#mlogf');let ph='';f.ph.onchange=async()=>{const fl=f.ph.files[0];if(!fl)return;ph=await shrinkImg(fl);$('#mphprev').innerHTML=`<img src="${ph}" alt="">`};
+ f.onsubmit=e=>{e.preventDefault();const x=addMedia({title:f.t.value.trim(),type:f.k.value,date:ymd(+f.d.value),with:f.w.value,photo:ph});xpFly(f.querySelector('.btn2'),'+3 XP');openRate(x.id)}}
+function openRate(id){const x=media().find(y=>y.id===id);if(!x)return;const two=x.with==='farnaz'||x.with==='family',sel=x.tags||[];
+ const starRow=(k,v)=>`<div class="bigstars" data-k="${k}">${[1,2,3,4,5].map(n=>`<button type="button" data-x="rstar" data-k="${k}" data-v="${n}" class="${n<=v?'on':''}">★</button>`).join('')}</div>`;
+ sheet(head('Rate it','star','bg-a')+`<div class="rate-top">${x.poster||x.photo?`<img src="${esc(x.photo||x.poster)}" alt="">`:`<span>${MT[x.type]?.[0]||'🎬'}</span>`}<div><b>${esc(x.title)}</b><div class="xs faint">${esc([x.year,x.genre].filter(Boolean).join(' · ')||'Looking it up online…')}</div></div></div>
+ <div class="fld"><label>Your rating</label>${starRow('rating',x.rating||0)}</div>
+ ${two?`<div class="fld"><label>Farnaz’s rating</label>${starRow('ratingF',x.ratingF||0)}</div>`:''}
+ <div class="fld"><label>How did it feel?</label><div class="reacts">${REACT.map(([e,l])=>`<button type="button" class="${x.react===e?'on':''}" data-x="rreact" data-v="${e}">${e}<small>${l}</small></button>`).join('')}</div></div>
+ <div class="fld"><label>What stood out</label><div class="mtags">${TAGS.map(t=>`<button type="button" class="tkc ${sel.includes(t)?'on':''}" data-x="rtag" data-v="${t}">${t}</button>`).join('')}</div></div>
+ <div class="fld"><label>Note (optional)</label><input class="inp" id="rnote" value="${esc(x.note||'')}" placeholder="One line — what you thought"></div>
+ <button type="button" class="btn2 pri" data-x="rsave" data-id="${id}" style="width:100%">Save · +2 XP</button>`);
+ window.__rd={id,rating:x.rating||0,ratingF:x.ratingF||0,react:x.react||'',tags:[...sel]}}
+document.addEventListener('click',async e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset;
+ if(d.x==='mlog'){e.stopPropagation();openLog(d.d);return}
+ if(d.x==='mrate'&&!a.closest('.stars')){e.stopPropagation();openRate(d.id);return}
+ if(d.x==='mpick'){a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));$('#mlogf')[d.k].value=d.v;return}
+ const R=window.__rd;if(!R)return;
+ if(d.x==='rstar'){R[d.k]=+d.v;a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.v<=+d.v));if(navigator.vibrate)navigator.vibrate(8);return}
+ if(d.x==='rreact'){R.react=d.v;a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));return}
+ if(d.x==='rtag'){const i=R.tags.indexOf(d.v);i<0?R.tags.push(d.v):R.tags.splice(i,1);a.classList.toggle('on');return}
+ if(d.x==='rsave'){const L=((U.kv.media||{}).v||[]).map(x=>x.id===R.id?{...x,rating:R.rating,ratingF:R.ratingF,react:R.react,tags:R.tags,note:($('#rnote')?.value||'').trim(),ratedAt:new Date().toISOString()}:x);saveMedia(L);
+  closeSheet();if(R.rating>=5)confetti(40);toast('Saved ⭐ +2 XP');window.__rd=null;const b=newBadge();if(b)setTimeout(()=>{confetti(80);toast('🏅 New badge: '+b)},600);rerender();if(curPage()==='fun')renderFun()}});
+/* taste profile */
+function taste(who){const k=who==='farnaz'?'ratingF':'rating',L=media().filter(x=>!x.later&&x[k]),g={};
+ L.forEach(x=>{const ws=((x.genre||'')+' '+(x.tags||[]).join(' ')).toLowerCase();['action','comedy','drama','thriller','crime','sci-fi','science fiction','horror','romance','animated','documentary','racing','war','biographical','fantasy','mystery'].forEach(t=>{if(ws.includes(t)){g[t]=g[t]||[0,0];g[t][0]+=x[k];g[t][1]++}})});
+ const E=Object.entries(g).map(([t,[s,c]])=>[t,s/c,c]);return{n:L.length,loves:E.filter(e=>e[1]>=4).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]),dislikes:E.filter(e=>e[1]<=2.5).sort((a,b)=>a[1]-b[1]).slice(0,3).map(e=>e[0]),top:L.filter(x=>x[k]>=5).slice(0,3).map(x=>x.title),low:L.filter(x=>x[k]<=2).slice(0,3).map(x=>x.title)}}
+const MBADGES=[['🍿 First night',L=>L.length>=1],['⭐ Critic',L=>L.filter(x=>x.rating).length>=10],['💑 Date night ×5',L=>L.filter(x=>x.with==='farnaz').length>=5],['🎞 Cinephile',L=>L.filter(x=>x.type==='movie').length>=30],['🔥 7-night streak',()=>mediaStats().st>=7],['🎮 Gamer',L=>L.filter(x=>x.type==='game').length>=5],['📝 Reviewer',L=>L.filter(x=>(x.tags||[]).length).length>=10]];
+function badgesNow(){const L=media().filter(x=>!x.later);return MBADGES.filter(([,f])=>f(L)).map(b=>b[0])}
+function newBadge(){const have=badgesNow(),seen=JSON.parse(ls.get('hq.mb')||'[]'),nw=have.find(b=>!seen.includes(b));ls.set('hq.mb',JSON.stringify(have));return nw}
+function tasteCard(){const me=taste('me'),fz=taste('farnaz'),P=D.media_profile||{},bs=badgesNow();
+ const col=(name,t,p)=>`<div class="tcol"><b>${name}</b>${(p&&p.loves||t.loves).length?`<div class="xs">❤️ ${esc((p&&p.loves||t.loves).join(', '))}</div>`:''}${(p&&p.dislikes||t.dislikes).length?`<div class="xs">👎 ${esc((p&&p.dislikes||t.dislikes).join(', '))}</div>`:''}${t.top.length?`<div class="xs faint">Top: ${esc(t.top.join(', '))}</div>`:''}${!t.n?'<div class="xs faint">Rate a few to learn</div>':''}</div>`;
+ return `<div class="card s3"><div class="ch"><div class="ic bg-p">${ic('heart')}</div><h3>Your taste</h3><span class="aside">${me.n} rated</span></div>
+ <div class="tcols">${col('🙋 Borna',me,P.me)}${col('💁‍♀️ Farnaz',fz,P.farnaz)}</div>${P.together?`<div class="note"><b>${ic('bulb')}Together</b>${esc(P.together)}</div>`:''}
+ <div class="mbadges">${MBADGES.map(([b])=>`<span class="${bs.includes(b)?'on':''}">${b}</span>`).join('')}</div></div>`}
+const _renderFun17=renderFun;renderFun=function(){_renderFun17();const el=$('#p-fun .g3');if(!el)return;
+ const madd=el.querySelector('#madd');if(madd){const x=document.createElement('div');x.className='s3';x.innerHTML=askCard('fun')||`<button class="btn2 pri mbig" data-x="mlog" data-d="0">🎬 Log a movie, series or game</button>`;madd.replaceWith(x)}
+ const recCardEl=[...el.querySelectorAll('.card')].find(c=>c.textContent.includes('Picked for you'));const t=document.createElement('div');t.innerHTML=tasteCard();(recCardEl||el.lastElementChild).after(t.firstElementChild);
+ el.querySelectorAll('.mcard').forEach((c,i)=>{const del=c.querySelector('[data-x="mdel"]');const id=del&&del.dataset.id;const x=media().find(y=>y.id===id);if(!x)return;c.dataset.x='mrate';c.dataset.id=id;
+  if(x.photo){const im=c.querySelector('.mp img');if(im)im.src=x.photo;else c.querySelector('.mp').insertAdjacentHTML('afterbegin',`<img src="${x.photo}" alt="">`)}
+  c.querySelector('small')?.insertAdjacentHTML('beforeend',`${x.with==='farnaz'?' · 💑':''}${x.react?' · '+x.react:''}`)})};
+/* Today: ask card (morning: last night · evening: tonight) */
+const _renderToday17=renderToday;renderToday=function(G){_renderToday17(G);const t=$('#p-today .v8top');if(!t)return;t.querySelectorAll('.movienight').forEach(x=>x.remove());const h=askCard('today');if(!h)return;const x=document.createElement('div');x.innerHTML=h;t.insertBefore(x.firstElementChild,t.children[1]||null)};
+const _habXP17=habXP;habXP=function(){return _habXP17()+media().filter(x=>x.rating).length*2};
+/* recs show who it's for */
+const _recCard17=recCard;recCard=function(r){return _recCard17(r).replace('<b>',`<b>${r.for==='together'?'<span class="forT">💑 For you two</span> ':''}`)};
+PAGEFN.fun=()=>renderFun();
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
