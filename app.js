@@ -1621,6 +1621,11 @@ const _openTalk19=openTalk;openTalk=function(pre){_openTalk19(pre);const b=$('#t
 document.addEventListener('click',e=>{const a=e.target.closest('[data-x="miclang"]');if(!a)return;ls.set('hq.lang',a.dataset.l);a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));if(mic19){micStop()}toast('Voice language: '+a.textContent)});
 const _sendTalk19=sendTalk;sendTalk=function(){micStop();return _sendTalk19()};
 const _closeSheet19=closeSheet;closeSheet=function(){micStop();return _closeSheet19.apply(this,arguments)};
+
+/* ================= v20: always open on Today ================= */
+(function(){if(location.hash&&location.hash!=='#today'&&!/[?&]keep=1/.test(location.search))history.replaceState(null,'',location.pathname+location.search+'#today');
+ let hid=0;document.addEventListener('visibilitychange',()=>{if(document.hidden){hid=Date.now();return}
+  if(hid&&Date.now()-hid>10*60*1000&&curPage()!=='today'){location.hash='#today';window.scrollTo(0,0)}hid=0})})();
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
