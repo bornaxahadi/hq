@@ -597,3 +597,29 @@ nav.bottom.scroller button svg{width:21px;height:21px}
 
 /* v10 */
 .wa-go{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;width:100%}
+/* v11 talk */
+.tk-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-2px -4px 10px;padding:2px 4px}
+.tk-chips::-webkit-scrollbar{display:none}
+.tkc{flex:none;display:inline-flex;align-items:center;gap:5px;padding:8px 11px;border-radius:99px;border:1px solid var(--line2);background:var(--bg2);font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap}
+.tkc svg{width:14px;height:14px;color:var(--violet)}
+.tk-thread{display:flex;flex-direction:column;gap:6px;max-height:46vh;overflow-y:auto;padding:4px 2px 8px;scroll-behavior:smooth}
+.bub{max-width:86%;padding:9px 12px;border-radius:16px;font-size:14px;line-height:1.4;word-wrap:break-word}
+.bub.me{align-self:flex-end;background:var(--grad);color:#fff;border-bottom-right-radius:5px}
+.bub.me small{display:block;font-size:10px;opacity:.75;margin-top:3px;text-align:right}
+.bub.c{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:5px}
+.bub.pend span{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--amber);font-weight:700}
+.bub.pend svg{width:13px;height:13px}
+.bub.wa{align-self:flex-start;display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--text);background:color-mix(in srgb,#25d366 16%,var(--card2));border:1px solid color-mix(in srgb,#25d366 45%,transparent)}
+.bub.wa svg{width:22px;height:22px;color:#25d366;flex:none}
+.bub.wa b{display:block;font-size:13.5px}.bub.wa small{display:block;font-size:12px;color:var(--muted)}
+.tk-empty{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;padding:18px 8px;color:var(--muted);font-size:13px}
+.tk-empty svg{width:28px;height:28px;color:var(--violet)}.tk-empty b{color:var(--text);font-size:15px}
+.tk-bar{display:flex;align-items:flex-end;gap:6px;margin-top:6px;position:sticky;bottom:0;background:var(--card);padding-top:6px}
+.tk-bar textarea{flex:1;min-height:46px;max-height:140px;resize:none;border-radius:22px;padding:12px 14px;font-size:16px;line-height:1.35}
+.tk-mic,.tk-send{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line2);background:var(--bg2);color:var(--text)}
+.tk-send{background:var(--grad);color:#fff;border:0}
+.tk-send svg{transform:rotate(-90deg)}
+.tk-mic.on{background:#ef4444;color:#fff;border-color:transparent;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{transform:scale(1.08)}}
+.tk-hint{font-size:12px;color:var(--muted);margin:6px 4px 0;min-height:16px}
+.tk-more{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.tk-more .btn2{flex:1 1 auto;margin:0;padding:9px 10px;font-size:12.5px}

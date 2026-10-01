@@ -1153,6 +1153,49 @@ function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|hi
 const _sendTalk10=sendTalk;sendTalk=function(){const t=($('#tktext')?.value||'').trim();const q=t?quickMsg(t):null;_sendTalk10();
  if(q)sheet(head('Ready to send','msg','bg-g')+`<div class="note" style="margin-bottom:12px"><b>${ic('msg')}To ${esc(q.name)}</b>${esc(q.text)}</div><a class="btn2 pri wa-go" href="${q.url}" target="_blank" rel="noopener">${ic('msg')} Open WhatsApp and send</a><div class="xs faint" style="margin-top:10px">WhatsApp opens with the message ready — just tap send. Claude also got your request and will reply here.</div>`)};
 
+/* ================= v11: new Talk to Claude — chat, instant actions ================= */
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let rec11=null;
+const TK_CHIPS=[['What’s next today?','sun'],['Any updates?','bell'],['Add a to-do: ','list'],['Send a WhatsApp to ','msg'],['Slept 7 hours','moon'],['I smoked 1 cigarette','flame']];
+function tkThread(){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-12),st=D.inbox_status||{};
+ if(!I.length)return `<div class="tk-empty">${ic('spark')}<b>Talk to me like a person.</b><span>“Meeting tomorrow 4pm with Ali at Business Bay” · “Remind me to call Yusuf” · “Send Farnaz good morning” · “What did I promise Emmanuel?”</span></div>`;
+ return I.map(x=>{const r=st[x.id],wa=(r&&r.wa&&safeWa(r.wa.url))?r.wa:(x.wa&&safeWa(x.wa.url)?x.wa:null);
+  const when=x.created?new Date(x.created).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'}):'';
+  const claude=r?`<div class="bub c">${esc(r.reply||r.note||'Done ✓')}</div>`:`<div class="bub c pend">${x.ack?esc(x.ack)+'<br>':''}<span>${ic('clock')} Claude finishes this by ${nextCheck()}</span></div>`;
+  return `<div class="bub me">${esc(x.text)}<small>${when}</small></div>${claude}${wa?`<a class="bub wa" href="${esc(safeWa(wa.url))}" target="_blank" rel="noopener">${ic('msg')}<span><b>${esc(wa.label||'Send on WhatsApp')}</b><small>${esc(decodeURIComponent((wa.url.split('text=')[1]||'')).slice(0,90))}</small></span></a>`:''}`}).join('')}
+function tkRefresh(){const t=$('#tk-thread');if(t){t.innerHTML=tkThread();t.scrollTop=t.scrollHeight}}
+openTalk=function(pre){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ sheet(head('Talk to Claude','spark','bg-grad')+`
+ <div class="tk-chips">${TK_CHIPS.map(([t,i])=>`<button type="button" class="tkc" data-x="tkchip" data-t="${esc(t)}">${ic(i)}${esc(t.replace(/[: ]+$/,''))}</button>`).join('')}</div>
+ <div class="tk-thread" id="tk-thread">${tkThread()}</div>
+ <form id="tk11" class="tk-bar"><textarea id="tktext" class="inp" rows="1" placeholder="Type or dictate…">${esc(pre||'')}</textarea>
+  <button type="button" class="tk-mic" id="tkmic" aria-label="Speak">${ic('mic')}</button><button type="submit" class="tk-send" aria-label="Send">${ic('chev')}</button></form>
+ <div class="tk-hint" id="tkhint">${IOS?'Tip: tap the 🎙 key on your iPhone keyboard to dictate — it understands you best (Persian too).':''}</div>
+ <div class="tk-more"><button type="button" class="btn2" data-x="asknow">${ic('msg')} Ask now (instant)</button><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button></div>`);
+ const ta=$('#tktext');tkRefresh();
+ ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(140,ta.scrollHeight)+'px'});
+ ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!IOS){e.preventDefault();sendTalk()}});
+ $('#tk11').onsubmit=e=>{e.preventDefault();sendTalk()};
+ $('#tkmic').onclick=()=>{
+  if(IOS||!SR){ta.focus();$('#tkhint').innerHTML='Tap the <b>🎙 microphone key</b> on your keyboard (bottom right), speak, then tap the send arrow.';return}
+  if(rec11){try{rec11.stop()}catch(e){}return}
+  const R=new SR();rec11=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=false;const pre0=ta.value.trim();
+  R.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;ta.value=(pre0?pre0+' ':'')+t};
+  R.onend=()=>{rec11=null;$('#tkmic')?.classList.remove('on')};R.onerror=()=>{rec11=null;$('#tkmic')?.classList.remove('on');$('#tkhint').textContent='Could not hear you — try again or type.'};
+  try{R.start();$('#tkmic').classList.add('on');$('#tkhint').textContent='Listening… tap the mic again to stop'}catch(e){rec11=null}};
+ if(!IOS)setTimeout(()=>ta.focus(),200)};
+sendTalk=function(){const ta=$('#tktext'),t=(ta?.value||'').trim();if(!t)return;if(rec11){try{rec11.stop()}catch(e){}}
+ const now=new Date().toISOString(),acks=[];let wa=null;
+ const h=quickHabits(t);if(h)acks.push(h.replace(/ · $/,''));
+ const q=quickMsg(t);if(q){wa={label:'Send to '+q.name+' on WhatsApp',url:q.url};acks.push('Message for '+q.name+' is ready below — tap to send.')}
+ const td=t.match(/^(?:add (?:a )?(?:to-?do|task)|to-?do|remind me(?: to)?)[:\s]+(.+)/i);if(td){U.todos.push({id:uid(),text:td[1].trim(),cat:/deal|client|meet|call|invoice|business/i.test(td[1])?'Business':'Personal',due:nowD().date,done:false,updated:now});acks.push('Added to your To-do ✓')}
+ const mm=/\b(meeting|meet)\b/i.test(t)&&typeof parseMeet==='function'?parseMeet(t):null;if(mm&&mm.date&&mm.time)acks.push(`Meeting noted for ${fd(mm.date)} ${mm.time} — Claude will add it to your calendar.`);
+ U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now,ack:acks.join(' · '),wa});queueSave();
+ ta.value='';ta.style.height='auto';tkRefresh();rerender();toast(acks.length?'Done ✓ — Claude got it too':(TOKEN?'Sent to Claude ✓':'Saved — connect saving in Settings'))};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="tkchip"]');if(!a)return;const t=a.dataset.t,ta=$('#tktext');if(!ta)return;
+ if(/^I smoked 1/.test(t)){setHab('cigs',(cigs(nowD().date)||0)+1);rerender();toast('Logged 1 cigarette');return}
+ ta.value=t;ta.focus();if(!/[: ]$/.test(t))sendTalk()});
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
