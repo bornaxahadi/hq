@@ -564,3 +564,9 @@ a.btn2{display:inline-flex;align-items:center;justify-content:center;gap:6px;tex
 @media(min-width:700px){.habs{grid-template-columns:repeat(5,1fr)}}
 .wkpct .ringbig{position:relative}.wkpct .ringbig svg{transform:rotate(-90deg)}.wkpct .c{position:absolute;inset:0;display:grid;place-items:center}.wkpct .c b{font:700 22px "Space Grotesk"}
 .fld label.tgl{text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);margin:0;font-weight:600}.fld label.tgl small{text-transform:none;letter-spacing:0;font-weight:500;display:block}
+
+.due.od{color:var(--red)}.due.td{color:var(--amber)}
+.dqa{display:flex;gap:6px;margin-top:7px}
+.dqa a{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:10px;font-weight:800;font-size:12px;background:var(--card2);border:1px solid var(--line2);min-height:32px}
+.dqa a.wa{background:#25d366;color:#fff;border-color:transparent}
+.dqa svg{width:13px;height:13px}
