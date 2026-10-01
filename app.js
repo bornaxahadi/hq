@@ -1353,6 +1353,70 @@ function ansShop(){const S=D.shop_summary||{},L=[];if(S.verdict)L.push('🛍 '+S
  (S.incoming||[]).forEach(o=>L.push(`📦 ${o.store}: ${o.what} · ${o.when}${o.cash?' · cash '+o.cash:''}`));(S.refunds||[]).forEach(r=>L.push('↩️ '+r));
  L.push(`This month so far: ${AEDf(SH?monthSum(nowD().date.slice(0,7)):S.month||0)}`);L.push('Open Shopping for photos of everything you bought.');return L}
 const _answer14=answer;answer=function(t){if(/shop|deliver|order|package|parcel|receiv|amazon|temu|shein|noon|bought|purchas|refund|return|subscription/i.test(t))return ansShop();return _answer14(t)};
+
+/* ================= v15: speed · bell · habits redesign · live cash · more game ================= */
+/* --- 1. Speed: re-render only the page you are on --- */
+const PAGEFN={today:()=>renderToday(game()),me:()=>renderMe(),business:()=>renderBusiness(),money:()=>renderMoney(),people:()=>renderPeople(),tasks:()=>renderTasks(),calendar:()=>renderCalendar(),projects:()=>renderProjects(),social:()=>renderSocial(),growth:()=>renderGrowth(game()),shop:()=>renderShop()};
+const DIRTY=new Set();let rafR=0;
+const _render15=render;render=function(keep){
+ if(!keep||!D){DIRTY.clear();_render15(keep);bellUpdate();return}
+ cancelAnimationFrame(rafR);rafR=requestAnimationFrame(()=>{const pg=curPage(),y=scrollY;
+  Object.keys(PAGEFN).forEach(k=>{if(k!==pg)DIRTY.add(k)});
+  try{(PAGEFN[pg]||(()=>_render15(true)))()}catch(e){console.warn(e);_render15(true)}
+  $('#updated').innerHTML=`${fd(nowD().date,{weekday:'short',day:'numeric',month:'short'})} · updated ${ago(D.updated)} <span id="sync" class="sync"></span>`;setSync(syncState);
+  draw(pg);window.scrollTo(0,y);bellUpdate()})};
+const _show15=show;show=function(){const pg=curPage();if(DIRTY.has(pg)){DIRTY.delete(pg);try{PAGEFN[pg]()}catch(e){console.warn(e)}}_show15()};
+
+/* --- 2. Notification bell (top right, red dot) --- */
+(function(){const r=$('#refresh');if(!r||$('#bell'))return;const b=document.createElement('button');b.className='iconbtn bell';b.id='bell';b.setAttribute('aria-label','Notifications');
+ b.innerHTML=ic('bell')+'<i class="dot" id="belldot"></i>';r.parentNode.insertBefore(b,r);b.onclick=openBell})();
+function bellUpdate(){const c=D&&U?alertsAll().length:0,dot=$('#belldot');if(dot){dot.textContent=c>9?'9+':c||'';dot.classList.toggle('on',c>0)}}
+function alertsAll(){return (D.alerts||[]).filter(a=>!(U.seen||{})[a.id])}
+function openBell(){const A=alertsAll();
+ sheet(head('Notifications','bell','bg-o')+(A.length?`<div class="bell-list">${A.map(a=>alertRow(a).replace('class="alert','class="alert bl')).join('')}</div><button type="button" class="btn2" data-x="bellall" style="width:100%;margin-top:10px">${ic('check')} Mark all as read</button>`:`<div class="tk-empty">${ic('check')}<b>You’re all caught up</b><span>New updates from Claude appear here with a red dot.</span></div>`)+`<button type="button" class="btn2 ghost" data-act="close" onclick="setTimeout(()=>document.getElementById('refresh').click(),50)" style="width:100%;margin-top:8px">${ic('refresh')} Check for updates now</button>`)}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="bellall"]');if(!a)return;const now=new Date().toISOString();U.seen=U.seen||{};alertsAll().forEach(x=>U.seen[x.id]={updated:now});queueSave();closeSheet();bellUpdate();toast('All read ✓')});
+document.addEventListener('click',e=>{const s=e.target.closest('#sheet [data-seen]');if(s)setTimeout(()=>{const l=$('#sheet .bell-list');if(l){const it=s.closest('.alert');it&&it.remove();if(!l.children.length)closeSheet()}bellUpdate()},30)},true);
+
+/* --- 3. Habits: new look, instant taps, combo + confetti --- */
+const HABX={gym:['🏋️','#10b981','#059669'],swim:['🏊','#06b6d4','#0284c7'],sleep:['😴','#8b5cf6','#6d28d9'],food:['🥗','#84cc16','#16a34a'],water:['💧','#38bdf8','#2563eb'],arabic:['🕌','#f59e0b','#d97706'],claude:['🤖','#a78bfa','#7c3aed'],post:['🎬','#fb7185','#e11d48'],family:['👨‍👩‍👧‍👧','#f472b6','#db2777']};
+const MOODE=['','😞','😕','😐','🙂','🤩'];
+habChips=function(d){const h=habDay(d);return `<div class="habs2">${HAB.map(x=>{const X=HABX[x.k]||['⭐','#8b5cf6','#6d28d9'],on=!!h[x.k],s=habStreak(x.k);
+ return `<button type="button" class="hab2 ${on?'on':''}" data-x="hab" data-k="${x.k}" style="--a:${X[1]};--b:${X[2]}"><span class="he">${X[0]}</span><b>${x.n}</b>${s>1?`<small>🔥${s}</small>`:''}<em class="hk">✓</em></button>`}).join('')}</div>`};
+moodRow=function(d){const h=habDay(d);return `<div class="mood2"><span>Mood</span>${[1,2,3,4,5].map(v=>`<button type="button" class="${+h.mood===v?'on':''}" data-x="mood" data-v="${v}" title="${MOOD[v]}">${MOODE[v]}</button>`).join('')}</div>
+ <div class="mood2"><span>Energy</span>${[1,2,3,4,5].map(v=>`<button type="button" class="en ${+h.energy>=v?'on':''}" data-x="energy" data-v="${v}">⚡</button>`).join('')}</div>`};
+habCard=function(){const n=nowD().date,c=habCount(n),p=c/HAB.length,R=26,C=2*Math.PI*R;
+ return `<div class="card mb habcard"><div class="hc-top"><div class="hc-ring"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="${R}" class="bg"/><circle cx="32" cy="32" r="${R}" class="fg" style="stroke-dasharray:${C};stroke-dashoffset:${C*(1-p)}"/></svg><b>${c}<small>/${HAB.length}</small></b></div>
+ <div class="hc-t"><h3>Daily habits</h3><div class="xs faint">${c===HAB.length?'Perfect day! 🏆 +25 XP bonus':c>=5?`Great — ${HAB.length-c} to a perfect day`:'Tap what you did · +5 XP each'}</div></div><a href="#me" class="pill g">${ic('chart')}Report</a></div>
+ ${habChips(n)}${moodRow(n)}</div>`};
+function xpFly(el,txt){const r=el.getBoundingClientRect(),f=document.createElement('div');f.className='xpfly';f.textContent=txt;f.style.left=(r.left+r.width/2)+'px';f.style.top=(r.top+window.scrollY)+'px';document.body.appendChild(f);setTimeout(()=>f.remove(),1100)}
+function confetti(n=70){const box=document.createElement('div');box.className='confetti';const cols=['#f472b6','#fbbf24','#34d399','#60a5fa','#a78bfa','#fb923c'];
+ for(let i=0;i<n;i++){const s=document.createElement('i');s.style.left=Math.random()*100+'vw';s.style.background=cols[i%cols.length];s.style.animationDelay=Math.random()*.4+'s';s.style.transform=`rotate(${Math.random()*360}deg)`;box.appendChild(s)}
+ document.body.appendChild(box);setTimeout(()=>box.remove(),2600);if(navigator.vibrate)navigator.vibrate([20,40,20])}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hab"],[data-x="mood"],[data-x="energy"]');if(!a)return;e.stopImmediatePropagation();const d=a.dataset,n=nowD().date;
+ if(d.x==='hab'){const on=!habDay(n)[d.k],before=habCount(n);a.classList.toggle('on',on);setHab(d.k,on?1:0);if(navigator.vibrate)navigator.vibrate(12);
+  if(on){xpFly(a,'+5 XP');const c=habCount(n);if(c===HAB.length&&before<c){setTimeout(()=>{confetti();toast('Perfect day! 🏆 +25 XP')},250)}else if(c===5&&before<5)toast('5 habits — streak alive 🔥')}
+  setTimeout(()=>rerender(),180);return}
+ setHab(d.x,+d.v);a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',d.x==='energy'?+b.dataset.v<=+d.v:b===a));setTimeout(()=>rerender(),180)},true);
+const _habXP15=habXP;habXP=function(){let x=_habXP15();Object.keys(U?.habits||{}).forEach(d=>{if(habCount(d)===HAB.length)x+=25});const ds=(U?.kv?.daily?.v)||{};x+=Object.keys(ds).length*10;return x};
+
+/* --- 4. Daily reward + level-up celebration --- */
+function dailyStreak(){const ds=(U?.kv?.daily?.v)||{};let s=0,d=nowD().date;if(!ds[d])d=addDays(d,-1);while(ds[d]&&s<999){s++;d=addDays(d,-1)}return s}
+function rewardCard(){const ds=(U?.kv?.daily?.v)||{},n=nowD().date,got=!!ds[n],st=dailyStreak();
+ return `<div class="card mb reward ${got?'got':''}"><div class="rw-ic">${got?'✅':'🎁'}</div><div class="rw-t"><b>${got?'Daily reward collected':'Daily reward ready!'}</b><div class="xs faint">${got?`Come back tomorrow · 🔥 ${st}-day login streak`:`Open HQ every day · +10 XP · streak ${st} day${st===1?'':'s'}`}</div></div>${got?'':`<button type="button" class="btn2 pri" data-x="claim">Claim</button>`}</div>`}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="claim"]');if(!a)return;const n=nowD().date;U.kv=U.kv||{};const v={...((U.kv.daily||{}).v||{})};v[n]=1;U.kv.daily={v,updated:new Date().toISOString()};queueSave();xpFly(a,'+10 XP');confetti(40);setTimeout(()=>rerender(),300)});
+let lastLv=+(ls.get('hq.lv')||0);function checkLevel(){if(!D||!U)return;const G=game();if(lastLv&&G.level>lastLv){setTimeout(()=>{confetti(120);sheet(`<div class="lvup"><div class="lvb">LV ${G.level}</div><h2>Level up!</h2><p>You are now <b>${esc(G.title)}</b>. Keep the streak going.</p><button class="btn2 pri" data-act="close" style="width:100%">Let’s go 🚀</button></div>`)},400)}lastLv=G.level;ls.set('hq.lv',String(G.level))}
+
+/* --- 5. Today: alerts go to the bell; add reward card --- */
+const _renderToday15=renderToday;renderToday=function(G){_renderToday15(G);const el=$('#p-today');if(!el)return;el.querySelectorAll('.alerts').forEach(x=>x.remove());
+ const t=el.querySelector('.v8top');if(t){const x=document.createElement('div');x.innerHTML=rewardCard();t.insertBefore(x.firstElementChild,t.firstChild)}checkLevel()};
+
+/* --- 6. Money: cash moves with every spend / income --- */
+function liveCash(){const c=U?.kv?.cash;if(!c||c.v==null)return null;const since=c.updated||'';let v=+c.v;
+ (U.txns||[]).filter(t=>!t.deleted&&(t.created||t.updated||'')>since).forEach(t=>{v+=(t.type==='out'?-1:1)*(+t.amount||0)});return Math.round(v*100)/100}
+const _moneyCalc15=moneyCalc;moneyCalc=function(){const m=_moneyCalc15(),c=liveCash();if(c!=null){m.cash=c;m.runway=m.burn>0?c/m.burn:null}return m};
+
+/* --- 7. Social: show how fresh the numbers are --- */
+const _renderSocial15=renderSocial;renderSocial=function(){_renderSocial15();const el=$('#p-social .pt');if(el&&D.social_updated&&!el.querySelector('.fresh'))el.insertAdjacentHTML('beforeend',`<span class="fresh">${ic('refresh')} checked ${ago(D.social_updated)}</span>`)};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
