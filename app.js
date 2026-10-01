@@ -99,10 +99,10 @@ async function ghGet(path){const r=await fetch(API+path+'?ref=main&t='+Date.now(
  if(r.status===404)return null;if(!r.ok)throw new Error('GitHub '+r.status);const j=await r.json();return{sha:j.sha,json:JSON.parse(atob(j.content.replace(/\s/g,'')))}}
 async function ghPut(path,text,sha,msg){const r=await fetch(API+path,{method:'PUT',headers:{Authorization:'Bearer '+TOKEN,Accept:'application/vnd.github+json','Content-Type':'application/json'},
  body:JSON.stringify({message:msg,content:btoa(text),branch:'main',...(sha?{sha}:{})})});if(!r.ok){const e=new Error('GitHub '+r.status);e.status=r.status;throw e}return (await r.json()).content.sha}
-const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],places:[],visits:[],inbox:[],projects:[],people:[],pipe:[],txns:[],costs:[],kv:{},updated:null});
+const emptyU=()=>({v:1,todos:[],ctodo:{},checkins:{},deals:[],cal_requests:[],meetings:[],seen:{},feedback:[],places:[],visits:[],inbox:[],projects:[],people:[],pipe:[],txns:[],costs:[],kv:{},habits:{},updated:null});
 function mergeArr(a=[],b=[]){const m={};[...a,...b].forEach(x=>{if(!x||!x.id)return;const o=m[x.id];if(!o||(x.updated||'')>(o.updated||''))m[x.id]=x});return Object.values(m)}
 function mergeObj(a={},b={},f='updated'){const m={...a};Object.entries(b).forEach(([k,v])=>{if(!m[k]||(v[f]||'')>(m[k][f]||''))m[k]=v});return m}
-function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),places:mergeArr(r.places,l.places),visits:mergeArr(r.visits,l.visits).sort((a,b)=>a.at<b.at?-1:1).slice(-400),inbox:mergeArr(r.inbox,l.inbox),projects:mergeArr(r.projects,l.projects),people:mergeArr(r.people,l.people),pipe:mergeArr(r.pipe,l.pipe),txns:mergeArr(r.txns,l.txns),costs:mergeArr(r.costs,l.costs),kv:mergeObj(r.kv,l.kv),updated:new Date().toISOString()}}
+function mergeU(r,l){r=r||emptyU();return{v:1,todos:mergeArr(r.todos,l.todos),ctodo:mergeObj(r.ctodo,l.ctodo),checkins:mergeObj(r.checkins,l.checkins,'savedAt'),deals:mergeArr(r.deals,l.deals),cal_requests:mergeArr(r.cal_requests,l.cal_requests),meetings:mergeArr(r.meetings,l.meetings),seen:mergeObj(r.seen,l.seen),feedback:mergeArr(r.feedback,l.feedback),places:mergeArr(r.places,l.places),visits:mergeArr(r.visits,l.visits).sort((a,b)=>a.at<b.at?-1:1).slice(-400),inbox:mergeArr(r.inbox,l.inbox),projects:mergeArr(r.projects,l.projects),people:mergeArr(r.people,l.people),pipe:mergeArr(r.pipe,l.pipe),txns:mergeArr(r.txns,l.txns),costs:mergeArr(r.costs,l.costs),kv:mergeObj(r.kv,l.kv),habits:mergeObj(r.habits,l.habits,'savedAt'),updated:new Date().toISOString()}}
 async function loadUser(){
  let remote=null;
  try{ if(TOKEN){const g=await ghGet('user.enc');if(g){userSalt=g.json.salt;remote=await dec(g.json)}} else {const j=await pagesJSON('user.enc');if(j){userSalt=j.salt;remote=await dec(j)}} }catch(e){console.warn(e)}
@@ -136,16 +136,16 @@ $('#lockform').addEventListener('submit',async e=>{e.preventDefault();const b=$(
 async function reload(){try{D=await dec(await pagesJSON('data.enc'));await loadUser();render();toast('Updated '+ago(D.updated))}catch(e){toast('Could not reload')}}
 
 /* ================= derived data ================= */
-const SUBJ=[{k:'ai',n:'AI',i:'ai',bg:'bg-v',c:'#8b5cf6'},{k:'arabic',n:'Arabic',i:'ar',bg:'bg-a',c:'#fbbf24'},{k:'cloud',n:'Cloud',i:'cloud',bg:'bg-b',c:'#60a5fa'},{k:'other',n:'Other',i:'book',bg:'bg-c',c:'#22d3ee'}];
+const SUBJ=[{k:'ai',n:'Claude AI',i:'ai',bg:'bg-v',c:'#8b5cf6'},{k:'arabic',n:'Arabic',i:'ar',bg:'bg-a',c:'#fbbf24'},{k:'content',n:'Content',i:'play',bg:'bg-b',c:'#60a5fa'},{k:'other',n:'Other',i:'book',bg:'bg-c',c:'#22d3ee'}];
 function entries(){
  const m={};
  (D.log||[]).forEach(e=>{const w=Array.isArray(e.arabic)?e.arabic.length:(e.arabic?String(e.arabic).split(',').length:0);
-  m[e.date]={date:e.date,hours:{ai:e.ai?1:0,arabic:w?0.5:0,cloud:0,other:0},gym:e.gym===true||(typeof e.gym==='string'&&!!e.gym&&!/^no/i.test(e.gym)),gymMin:0,met:0,opps:e.deals?1:0,words:w,score:+e.score||0,win:e.win||'',blocker:e.blocker||'',ai:e.ai||'',wordsText:Array.isArray(e.arabic)?e.arabic.join(', '):(e.arabic||''),src:'doc'}});
+  m[e.date]={date:e.date,hours:{ai:e.ai?1:0,arabic:w?0.5:0,content:0,other:0},gym:e.gym===true||(typeof e.gym==='string'&&!!e.gym&&!/^no/i.test(e.gym)),gymMin:0,met:0,opps:e.deals?1:0,words:w,score:+e.score||0,win:e.win||'',blocker:e.blocker||'',ai:e.ai||'',wordsText:Array.isArray(e.arabic)?e.arabic.join(', '):(e.arabic||''),src:'doc'}});
  Object.entries(U?.checkins||{}).forEach(([d,c])=>{const w=(c.words||'').split(/[,،\n]/).map(s=>s.trim()).filter(Boolean);
-  m[d]={date:d,hours:{ai:+c.study?.ai||0,arabic:+c.study?.arabic||0,cloud:+c.study?.cloud||0,other:+c.study?.other||0},gym:(c.gymMin||0)>0,gymMin:c.gymMin||0,
+  m[d]={date:d,hours:{ai:+c.study?.ai||0,arabic:+c.study?.arabic||0,content:+c.study?.content||0,other:+c.study?.other||0},gym:(c.gymMin||0)>0,gymMin:c.gymMin||0,
    met:(c.meetings||[]).filter(x=>x.attended).length,opps:(c.opportunity||'').trim()?1:0,words:w.length,score:+c.score||0,win:c.win||'',blocker:c.blocker||'',ai:c.aiNote||'',wordsText:w.join(', '),src:'app'}});
  const gd={};(U?.visits||[]).forEach(v=>{if(!v.deleted&&/gym/i.test(v.place||''))gd[dubaiDate(v.at)]=1});
- Object.keys(gd).forEach(d=>{const g=gymMin(d);if(g<20)return;if(m[d]){if(!m[d].gym){m[d].gym=true;m[d].gymMin=g}}else m[d]={date:d,hours:{ai:0,arabic:0,cloud:0,other:0},gym:true,gymMin:g,met:0,opps:0,words:0,score:0,win:'',blocker:'',ai:'',wordsText:'',src:'auto'}});
+ Object.keys(gd).forEach(d=>{const g=gymMin(d);if(g<20)return;if(m[d]){if(!m[d].gym){m[d].gym=true;m[d].gymMin=g}}else m[d]={date:d,hours:{ai:0,arabic:0,content:0,other:0},gym:true,gymMin:g,met:0,opps:0,words:0,score:0,win:'',blocker:'',ai:'',wordsText:'',src:'auto'}});
  return Object.values(m).sort((a,b)=>a.date<b.date?-1:1);
 }
 const totalH=e=>SUBJ.reduce((a,s)=>a+(e.hours[s.k]||0),0);
@@ -155,7 +155,7 @@ function game(){
  const L=entries(),today=nowD().date;
  const doneTodos=(U?.todos||[]).filter(t=>t.done&&!t.deleted).length+Object.values(U?.ctodo||{}).filter(x=>x.done).length;
  const logged=(U?.meetings||[]).filter(m=>m.loggedAt&&m.status==='done').length;
- const xp=L.reduce((a,e)=>a+dayXP(e),0)+doneTodos*5+logged*15;
+ const xp=L.reduce((a,e)=>a+dayXP(e),0)+doneTodos*5+logged*15+habXP();
  const level=Math.floor(Math.sqrt(xp/60))+1,cur=60*(level-1)**2,nxt=60*level**2;
  const streak=f=>{let s=0,prev=null;for(let i=L.length-1;i>=0;i--){if(prev&&daysBetween(L[i].date,prev)>1)break;if(f&&!f(L[i]))break;s++;prev=L[i].date}if(L.length&&daysBetween(L[L.length-1].date,today)>1)return 0;return s};
  const words=(D.arabic_words||[]).length||L.reduce((a,e)=>a+e.words,0);
@@ -169,7 +169,7 @@ function game(){
   {n:'AI 20h',d:'Study AI for 20 hours',icn:'ai',bg:'bg-v',ok:H.ai>=20},
   {n:'Iron will',d:'12 gym sessions',icn:'gym',bg:'bg-g',ok:L.filter(e=>e.gym).length>=12},
   {n:'Arabic 50',d:'Learn 50 words',icn:'ar',bg:'bg-c',ok:words>=50},
-  {n:'Cloud 10h',d:'10 hours of cloud',icn:'cloud',bg:'bg-b',ok:H.cloud>=10},
+  {n:'Healthy week',d:'7 days with 5+ habits',icn:'heart',bg:'bg-g',ok:healthyWeek()},
   {n:'Networker',d:'Attend 10 meetings',icn:'users',bg:'bg-a',ok:L.reduce((a,e)=>a+e.met,0)>=10},
   {n:'Follow-through',d:'Log 5 meeting results',icn:'check',bg:'bg-c',ok:logged>=5},
   {n:'Hunter',d:'Log 5 new opportunities',icn:'target',bg:'bg-o',ok:allDeals.length>=6},
@@ -343,11 +343,11 @@ function whereCard(){const P=places(),n=nowD(),S=stays(n.date),l=lastVisit(),her
 
 /* ================= talk to Claude ================= */
 function openTalk(pre){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-8).reverse(),st=D.inbox_status||{},SR=window.SpeechRecognition||window.webkitSpeechRecognition,lang=ls.get('hq.lang')||'en-US';
- sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Claude picks it up at the next refresh (every 2 hours). Meetings and to-dos can be added right now.</div>
+ sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app within the hour.</div>
   <div class="micwrap">${SR?`<button type="button" class="micbig" id="micbtn" aria-label="Start talking">${ic('mic')}</button><div class="xs faint" id="micst">Tap and speak</div><div class="opts" style="justify-content:center;margin-top:10px">${[['en-US','English'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="opt ${lang===l?'on':''}" data-lang="${l}">${n}</button>`).join('')}</div>`:`<div class="xs faint">Tip: tap the microphone key on your keyboard to dictate.</div>`}</div>
   <form id="tk"><div class="fld"><textarea class="inp" name="t" id="tktext" style="min-height:96px" placeholder="e.g. Tomorrow 4pm meeting with Ali at Business Bay about the website">${esc(pre||'')}</textarea></div>
-  <div class="btnrow"><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button><button type="submit" class="btn2 pri">${ic('spark')} Send</button></div></form>
-  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.note||'Done'):'Waiting for Claude'}</div></div></div>`}).join('')}`:''}`);
+  <div class="btnrow"><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button><button type="button" class="btn2" data-x="asknow">${ic('msg')} Ask now</button><button type="submit" class="btn2 pri">${ic('spark')} Send</button></div></form>
+  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.reply||r.note||'Done'):'Claude replies within the hour — you’ll get a notification'}</div></div></div>`}).join('')}`:''}`);
  const b=$('#micbtn');if(b)b.onclick=()=>{if(rec){try{rec.stop()}catch(e){}return}const R=new SR();rec=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=true;const pre0=$('#tktext').value.trim();
   R.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('#tktext').value=(pre0?pre0+' ':'')+t};
   R.onend=()=>{rec=null;b.classList.remove('on');const m=$('#micst');if(m)m.textContent='Tap to talk again'};
@@ -356,7 +356,7 @@ function openTalk(pre){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-8).rev
  $$('#sheet [data-lang]').forEach(x=>x.onclick=()=>{ls.set('hq.lang',x.dataset.lang);$$('#sheet [data-lang]').forEach(y=>y.classList.toggle('on',y===x))});
  $('#tk').onsubmit=e=>{e.preventDefault();sendTalk()}}
 function stopRec(){if(rec){try{rec.stop()}catch(e){}rec=null}}
-function sendTalk(){const t=($('#tktext')?.value||'').trim();if(!t)return;stopRec();const now=new Date().toISOString();U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now});queueSave();closeSheet();toast(TOKEN?'Sent to Claude ✓':'Saved here — connect saving in Settings so Claude receives it')}
+function sendTalk(){const t=($('#tktext')?.value||'').trim();if(!t)return;stopRec();const now=new Date().toISOString();U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now});queueSave();closeSheet();toast(quickHabits(t)+(TOKEN?'Sent to Claude ✓ — reply within the hour':'Saved here — connect saving in Settings so Claude receives it'))}
 function talkAs(kind){const t=($('#tktext')?.value||'').trim();if(!t)return;stopRec();
  if(kind==='todo'){addTodoFrom('#tktext');closeSheet();return}
  openMeeting();const q=$('#mq');if(q){q.value=t;fillParsed()}}
@@ -396,9 +396,10 @@ function openProject(id){const p=id?{...(projects().find(x=>x.id===id)||{})}:{st
   queueSave();closeSheet();location.hash='projects';rerender();toast(id?'Project saved':'Project added')}}
 
 /* ================= people ================= */
-const REL={partner:['Partner','g'],team:['Team','b'],friend:['Friend','v'],buyer:['Buyer','w'],seller:['Seller','w'],client:['Client','b'],careful:['Careful','r']};
+const REL={family:['Family','v'],partner:['Partner','g'],team:['Team','b'],friend:['Friend','v'],buyer:['Buyer','w'],seller:['Seller','w'],client:['Client','b'],careful:['Careful','r']};
 function people(){const m={};(D.people||[]).forEach(p=>m[p.id]={...p,src:'claude'});(U?.people||[]).forEach(p=>m[p.id]={...(m[p.id]||{}),...p});return Object.values(m).filter(p=>!p.deleted&&p.name).sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name))}
 const personById=id=>people().find(p=>p.id===id);
+const dueTag=due=>{if(!due)return '';const n=nowD().date;return due<n?' · <b class="due od">overdue</b>':due===n?' · <b class="due td">today</b>':' · '+fd(due)};
 const initials=n=>String(n||'?').replace(/^(Mr|Dr|Mrs)\.?\s+/i,'').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const PCOL=['#8b5cf6','#06b6d4','#ec4899','#f59e0b','#10b981','#f97316','#3b82f6','#ef4444'];
 const short=n=>String(n||'').replace(/^(Mr|Dr|Mrs)\.?\s+/i,'').split(/\s+/)[0];
@@ -411,9 +412,9 @@ function meetingsOf(pid,p){const f=short(p.name).toLowerCase()||'#';return meeti
 function personCard(p){const R=REL[p.rel]||REL.friend,ds=dealsOf(p.id).filter(d=>!['Won','Lost'].includes(d.stage));
  return `<div class="person" data-person="${p.id}">${avatar(p,46)}<div class="pt2"><b>${esc(p.name)}${p.aka?` <small>· ${esc(p.aka)}</small>`:''}</b><small>${esc(p.role||'')}</small><div class="ptags"><span class="pill ${R[1]}">${R[0]}</span>${ds.slice(0,2).map(d=>`<span class="pill">${ic('deal')}${esc(d.name)}</span>`).join('')}${p.phone?'':'<span class="pill faint">no number</span>'}</div></div>${ic('chev')}</div>`}
 let pfilter='all';
-function renderPeople(){const P=people(),F=[['all','All'],['partner','Partners'],['team','Team'],['friend','Friends'],['buyer','Buyers & sellers'],['client','Clients'],['careful','Careful']];
- const shown=P.filter(p=>pfilter==='all'||p.rel===pfilter||(pfilter==='buyer'&&p.rel==='seller'));
- $('#p-people').innerHTML=`<div class="pt">People <span>${P.length} contacts · your business circle</span></div>
+function renderPeople(){const P=people(),F=[['all','All'],['family','Family'],['partner','Partners'],['team','Team'],['friend','Friends'],['buyer','Buyers & sellers'],['client','Clients'],['careful','Careful']];
+ const shown=P.filter(p=>pfilter==='all'||p.rel===pfilter||(pfilter==='buyer'&&p.rel==='seller')).sort((a,b)=>(b.rel==='family')-(a.rel==='family'));
+ $('#p-people').innerHTML=`<div class="pt">People <span>${P.length} contacts · family & business circle</span></div>
  <div class="addline"><input class="inp" id="psearch" placeholder="Search a name…"><button data-act="newperson" aria-label="Add contact">${ic('plus')}</button></div>
  <div class="filters">${F.filter(([k])=>k==='all'||P.some(p=>p.rel===k||(k==='buyer'&&p.rel==='seller'))).map(([k,l])=>`<button data-pf="${k}" class="${pfilter===k?'on':''}">${l}</button>`).join('')}</div>
  <div class="card"><div class="plist">${shown.map(personCard).join('')||empty('Nobody here yet','users')}</div></div>
@@ -469,7 +470,7 @@ function dealRow(d){const ps=(d.people||[]).map(personById).filter(Boolean),n=no
   <div class="dv"><span class="big">${aed(d.value)}</span>${d.valueNote?`<small>${esc(d.valueNote)}</small>`:''}</div>
   <div class="prob"><div class="bar"><i style="width:${d.prob||0}%"></i></div><small>${d.prob||0}% chance · expected ${aed((d.value||0)*(d.prob||0)/100)}</small></div>
   ${ps.length?`<div class="avs">${ps.map(p=>avatar(p,26)).join('')}<small>${ps.map(p=>esc(short(p.name))).join(', ')}</small></div>`:''}
-  ${d.next?`<div class="nx">${ic('chev')}<span>${esc(d.next)}${d.due?` · <b style="${d.due<n?'color:var(--red)':''}">${d.due<n?'overdue':fd(d.due)}</b>`:''}</span></div>`:''}</div>`}
+  ${d.next?`<div class="nx">${ic('chev')}<span>${esc(d.next)}${d.due?(d.due<=n?dueTag(d.due):` · <b>${fd(d.due)}</b>`):''}</span></div>`:''}</div>`}
 function renderMoney(){const m=moneyCalc(),target=D.money?.target||25000;
  $('#p-money').innerHTML=`<div class="pt">Money <span>AED · you and Claude keep it current</span></div>
  <div class="g3">
@@ -484,12 +485,12 @@ function renderMoney(){const m=moneyCalc(),target=D.money?.target||25000;
    <div class="deals">${m.open.slice().sort((a,b)=>(b.value*b.prob)-(a.value*a.prob)).map(dealRow).join('')||empty('No open deals','deal')}</div></div>
   <div class="grid">
    ${card('Money owed to you','money','bg-a',m.rec.map(r=>{const p=personById(r.who);return `<div class="row" data-rec="${r.id}"><div class="ico ${r.done?'bg-g':'bg-a'}">${ic(r.done?'check':'clock')}</div><div class="tx"><b>${p?esc(p.name)+' · ':''}${esc(r.label)}</b><div>${r.done?'Received ✓':`Owes ${aed(r.total)} · your share ${aed(r.yours)} · ${r.prob??25}% chance`}</div></div></div>`}).join('')||empty('Nothing owed','money'))}
-   ${card('Every month','cal','bg-p',m.costs.map(c=>`<div class="row" data-cost="${c.id}"><div class="ico bg-p">${ic('down')}</div><div class="tx"><b>${esc(c.name)}</b><div>${aed(c.amount)} / month</div></div></div>`).join('')+m.inc.map(c=>`<div class="row"><div class="ico bg-g">${ic('bolt')}</div><div class="tx"><b>${esc(c.name)}</b><div>+${aed(c.amount)} / month${c.note?' · '+esc(c.note):''}</div></div></div>`).join('')+`<button class="addag" data-act="newcost">${ic('plus')}Add a monthly cost</button>`)}
+   ${card('Every month','cal','bg-p',m.costs.map(c=>`<div class="row" data-cost="${c.id}"><div class="ico bg-p">${ic('down')}</div><div class="tx"><b>${esc(c.name)}</b><div>${aed(c.amount)} / month${c.paidUntil?` · <span style="color:var(--green);font-weight:700">paid until ${fd(c.paidUntil)}</span>`:''}</div></div></div>`).join('')+m.inc.map(c=>`<div class="row"><div class="ico bg-g">${ic('bolt')}</div><div class="tx"><b>${esc(c.name)}</b><div>+${aed(c.amount)} / month${c.note?' · '+esc(c.note):''}</div></div></div>`).join('')+`<button class="addag" data-act="newcost">${ic('plus')}Add a monthly cost</button>`)}
   </div>
   ${card('Income & spending','book','bg-v',`<div class="mstat">Earned in ${nowD().date.slice(0,4)}: <b>${aed(m.earnedYear)}</b></div>`+m.txns.slice(0,12).map(t=>`<div class="row" ${t.src!=='claude'?`data-txn="${t.id}"`:''}><div class="ico ${t.type==='out'?'bg-r':'bg-g'}">${ic(t.type==='out'?'down':'bolt')}</div><div class="tx"><b>${t.type==='out'?'−':'+'}${aed(t.amount)} · ${esc(t.label)}</b><div>${esc(fd(String(t.date).length===7?t.date+'-15':t.date,{day:'numeric',month:'short',year:'numeric'}))}</div></div></div>`).join('')+`<div class="btnrow"><button class="btn2" data-act="txnout">${ic('down')} I spent</button><button class="btn2 pri" data-act="txnin">${ic('plus')} I received</button></div>`,'','s3')}
  </div>`}
 function moneyToday(){const m=moneyCalc();
- return card('Money & deals','money','bg-g',`<div class="mmini"><div><small>Expected</small><b>${aed(m.expected)}</b></div><div><small>Monthly need</small><b>${aed(m.monthlyCost)}</b></div><div><small>${m.runway!=null?'Runway':'Owed to you'}</small><b>${m.runway!=null?m.runway.toFixed(1)+' mo':aed(m.openRec.reduce((a,r)=>a+(+r.yours||0),0))}</b></div></div>`+m.open.slice().sort((a,b)=>(a.due||'9')<(b.due||'9')?-1:1).slice(0,3).map(d=>`<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)} · ${aed(d.value)}</b><div>${esc(d.next||d.stage)}${d.due?' · '+fd(d.due):''}</div></div></div>`).join(''),`<a href="#money" class="xs" style="font-weight:800;color:var(--green)">Open →</a>`)}
+ return card('Money & deals','money','bg-g',`<div class="mmini"><div><small>Expected</small><b>${aed(m.expected)}</b></div><div><small>Monthly need</small><b>${aed(m.monthlyCost)}</b></div><div><small>${m.runway!=null?'Runway':'Owed to you'}</small><b>${m.runway!=null?m.runway.toFixed(1)+' mo':aed(m.openRec.reduce((a,r)=>a+(+r.yours||0),0))}</b></div></div>`+m.open.slice().sort((a,b)=>(a.due||'9')<(b.due||'9')?-1:1).slice(0,3).map(d=>{const pc=(d.people||[]).map(personById).find(p=>p&&p.phone);return `<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)} · ${aed(d.value)}</b><div>${esc(d.next||d.stage)}${dueTag(d.due)}</div>${pc?`<div class="dqa"><a href="https://wa.me/${waNum(pc.phone)}" target="_blank" rel="noopener noreferrer" class="wa">${ic('msg')}${esc(short(pc.name))}</a><a href="tel:${digits(pc.phone)}">${ic('phone')}Call</a></div>`:''}</div></div>`}).join(''),`<a href="#money" class="xs" style="font-weight:800;color:var(--green)">Open →</a>`)}
 function openPipe(id){const d=id?{...(pipeline().find(x=>x.id===id)||{})}:{stage:'Lead',prob:25,people:[]};const P=people(),sel=new Set(d.people||[]);
  sheet(head(id?'Deal':'New deal','deal','bg-g')+`<form id="dpf">
   <div class="fld"><label>Deal</label><input class="inp" name="name" value="${esc(d.name||'')}" required placeholder="e.g. EN590 to a Fujairah buyer"></div>
@@ -531,7 +532,7 @@ function openMore(){sheet(head('More','list','bg-grad')+`<div class="actions">${
 function ovSet(id,o){U.pipe=U.pipe||[];const ex=U.pipe.find(x=>x.id===id);if(ex)Object.assign(ex,o);else U.pipe.push({id,...o})}
 
 /* ================= nav ================= */
-const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'business',l:'Business',i:'brief'},{id:'money',l:'Money',i:'money'},{id:'people',l:'People',i:'users'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'projects',l:'Projects',i:'folder'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'}];
+const PAGES=[{id:'today',l:'Today',i:'sun'},{id:'me',l:'Me',i:'heart'},{id:'business',l:'Business',i:'brief'},{id:'money',l:'Money',i:'money'},{id:'people',l:'People',i:'users'},{id:'tasks',l:'To-do',i:'list'},{id:'calendar',l:'Calendar',i:'cal'},{id:'projects',l:'Projects',i:'folder'},{id:'social',l:'Social',i:'chart'},{id:'growth',l:'Growth',i:'rocket'}];
 const MAIN=['today','business','money','people'];
 $('#bottom').innerHTML=PAGES.filter(p=>MAIN.includes(p.id)).map(p=>`<button data-p="${p.id}">${ic(p.i)}<span>${p.l}</span></button>`).join('')+`<button id="morebtn" data-act="more">${ic('list')}<span>More</span></button>`;
 $('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');
@@ -559,7 +560,7 @@ function renderToday(G){
  const views=(D.social||[]).reduce((a,s)=>a+(s.recent||[]).reduce((b,p)=>b+(p.views||0),0),0);
  const ci=U.checkins[n.date], te=G.L.find(e=>e.date===n.date);
  const T=todos(),openT=T.filter(x=>!x.done),doneToday=T.filter(x=>x.done&&(x.doneAt||'').slice(0,10)===n.date).length;
- const Q=[{n:'1h+ of AI',s:'Study or build with AI',i:'ai',bg:'bg-v',xp:20,ok:te&&te.hours.ai>=1},
+ const Q=[{n:'1h Claude AI',s:'Learn or build with Claude',i:'ai',bg:'bg-v',xp:20,ok:te&&te.hours.ai>=1},
   {n:'30 min Arabic',s:'Shadow at the pool',i:'ar',bg:'bg-a',xp:10,ok:te&&te.hours.arabic>=0.5},
   {n:'Gym',s:gymMin(n.date)?gymMin(n.date)+' min logged by location':'20:00 – 22:00',i:'gym',bg:'bg-g',xp:40,ok:te&&te.gym},
   {n:'Finish 3 to-dos',s:`${doneToday}/3 done today`,i:'list',bg:'bg-p',xp:15,ok:doneToday>=3},
@@ -760,7 +761,7 @@ function renderGrowth(G){
    <div class="legend"><span><i style="background:var(--violet)"></i>AI ${G.streakOf(e=>e.hours.ai>0)}d streak</span><span><i style="background:var(--amber)"></i>Arabic ${G.streakOf(e=>e.hours.arabic>0||e.words>0)}d</span><span><i style="background:var(--green)"></i>Gym ${G.streakOf(e=>e.gym)}d</span></div>`,'','s3')}
   ${card(`AI roadmap · ${esc(P.month||'')}`,'ai','bg-v',WK.map((w,i)=>`<div class="wk ${i===ci?'cur':''}"><div class="n ${w.done?'bg-g':WC[i%4]}">${w.done?ic('check'):i+1}</div><div style="min-width:0"><b>${esc(w.theme)} ${i===ci?'<span class="nowtag">THIS WEEK</span>':''}</b><small>${fd(w.from)} – ${fd(w.to)} · ${esc(w.detail)}</small></div></div>`).join('')+`<div class="tip">${ic('target')}<span>${esc(P.goal||'')}</span></div>`,'','s2')}
   <div class="grid">
-   ${card('Cloud','cloud','bg-b',`<b class="sm">${esc(P.cloud?.track||'')}</b><div class="xs muted">${esc(P.cloud?.target||'')} · ${hrs(G.H.cloud)} so far</div>`)}
+   ${card('Claude AI','ai','bg-v',`<b class="sm">${esc(P.claude?.track||'')}</b><div class="xs muted">${esc(P.claude?.target||'')} · ${hrs(G.H.ai)} so far</div>`)}
    ${card('Arabic','ar','bg-a',`<b class="sm">${esc(P.arabic?.track||'')}</b><div class="xs muted">Goal ${esc(P.arabic?.target_words||150)} words · ${hrs(G.H.arabic)} practised</div>`)}
   </div>
   ${card('Arabic word bank','ar','bg-c',W.length?`<div class="words">${W.slice().reverse().map(w=>`<span class="word"><span class="ar" dir="rtl" lang="ar">${esc(w.ar)}</span>${esc(w.meaning)}</span>`).join('')}</div>`:empty('Words from your check-ins collect here','ar'),`${W.length} words`,'s3')}
@@ -793,7 +794,7 @@ function renderBusiness(){
   ${needs.length?`<div class="card s3 hot"><div class="ch"><div class="ic bg-o">${ic('alert')}</div><h3>Log the result</h3><span class="aside">${needs.length} waiting</span></div>${needs.map(m=>meetCard(m,true)).join('')}</div>`:''}
   <div class="card s2"><div class="ch"><div class="ic bg-o">${ic('users')}</div><h3>${nextM&&mState(nextM)==='now'?'Meeting now':'Next meeting'}</h3>${nextM?`<span class="aside">${esc(untilTxt(nextM))}</span>`:''}</div>
    ${nextM?meetCard(nextM,true):`<button class="cin" data-act="meet" style="margin:0"><div class="qi bg-o">${ic('plus')}</div><div><b>Add a meeting</b><small>Person, place, time and agenda — Claude reminds you and follows up</small></div></button>`}</div>
-  ${card('Deals pipeline','deal','bg-g',pipeline().filter(d=>!['Won','Lost'].includes(d.stage)).map(d=>`<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)}</b><div>${esc(d.stage)} · ${aed(d.value)} · ${d.prob||0}%${d.next?' · '+esc(d.next):''}</div></div></div>`).join('')||empty('No open deals','deal'),`<a href="#money" class="xs" style="font-weight:800;color:var(--green)">Money →</a>`,'s3')}
+  ${card('Deals pipeline','deal','bg-g',pipeline().filter(d=>!['Won','Lost'].includes(d.stage)).map(d=>`<div class="row" data-pipe="${d.id}"><div class="ico bg-g">${ic('deal')}</div><div class="tx"><b>${esc(d.name)}</b><div>${esc(d.stage)} · ${aed(d.value)} · ${d.prob||0}%${d.next?' · '+esc(d.next):''}${d.due&&d.due<=nowD().date?dueTag(d.due):''}</div></div></div>`).join('')||empty('No open deals','deal'),`<a href="#money" class="xs" style="font-weight:800;color:var(--green)">Money →</a>`,'s3')}
   ${card('Follow-ups','bell','bg-a',fu.map(fuRow).join('')||empty('After a meeting, set a follow-up date and it shows here','bell'),fu.length?fu.length+' open':'')}
   ${card('Coming up','cal','bg-c',(up.slice(1).map(m=>meetCard(m)).join('')+other.map(m=>`<div class="row"><div class="ico bg-c">${ic('cal')}</div><div class="tx"><b>${esc(m.title)}</b><div>${fd(m.date,{weekday:'short',day:'numeric',month:'short'})}${m.time?' · '+esc(m.time):''}${m.where?' · '+esc(m.where):''} · from Google Calendar</div></div></div>`).join(''))||empty('Nothing else planned'),`${up.length+other.length} planned`,'s2')}
   ${card('Meeting history','book','bg-v',hist.slice(0,8).map(m=>meetCard(m)).join('')||empty('Results you log appear here','book'),hist.length?hist.length+' meetings':'')}
@@ -912,7 +913,7 @@ async function saveToken(){const t=($('#tokin')?.value||'').trim();if(!t)return;
  catch(e){TOKEN=null;toast(e.message||'Could not connect')}}
 
 /* ================= events ================= */
-document.addEventListener('click',e=>{const lk=e.target.closest('a[href]');if(lk&&!lk.dataset.act&&lk.closest('[data-editproj]'))return;const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone],[data-saveplace],[data-delplace],[data-editproj],[data-delproj],[data-go],[data-person],[data-editperson],[data-delperson],[data-meetwith],[data-pipe],[data-delpipe],[data-rec],[data-recsave],[data-recpaid],[data-cost],[data-delcost],[data-txn],[data-deltxn],[data-pf]');if(!a)return;
+document.addEventListener('click',e=>{const lk=e.target.closest('a[href]');if(lk&&!lk.dataset.act&&lk.closest('[data-editproj],[data-pipe]'))return;const a=e.target.closest('[data-act],[data-tog],[data-deltodo],[data-deldeal],[data-editdeal],[data-edit-todo],[data-tf],[data-f],[data-rt],[data-seen],[data-result],[data-editmeet],[data-delmeet],[data-fudone],[data-saveplace],[data-delplace],[data-editproj],[data-delproj],[data-go],[data-person],[data-editperson],[data-delperson],[data-meetwith],[data-pipe],[data-delpipe],[data-rec],[data-recsave],[data-recpaid],[data-cost],[data-delcost],[data-txn],[data-deltxn],[data-pf]');if(!a)return;
  const d=a.dataset;
  if(d.tog){toggleTodo(d.tog);return}
  const now=new Date().toISOString();
@@ -977,6 +978,127 @@ function draw(pg){killCharts();
   const c2=$('#c-score');if(c2)mk('c-score',{type:'line',data:{labels:L.map(e=>fd(e.date)),datasets:[{data:L.map(e=>e.score||null),borderColor:'#f472b6',backgroundColor:grad(c2.getContext('2d'),'rgba(244,114,182,.35)','rgba(244,114,182,0)'),fill:true,tension:.35,pointRadius:3,pointBackgroundColor:'#f472b6'}]},options:{scales:{y:{min:0,max:10,grid:{color:css('--line')}},x:{grid:{display:false},ticks:{maxTicksLimit:6}}}}});
  }
 }
+
+/* ================= v8: Me · habits · skills · settings · live ================= */
+const HAB=[
+ {k:'gym',n:'Gym',i:'gym',bg:'bg-g'},
+ {k:'swim',n:'Swim',i:'bolt',bg:'bg-c'},
+ {k:'sleep',n:'Slept 7h+',i:'moon',bg:'bg-v'},
+ {k:'food',n:'Healthy food',i:'heart',bg:'bg-p'},
+ {k:'water',n:'Water 2L+',i:'spark',bg:'bg-b'},
+ {k:'arabic',n:'Arabic 30 min',i:'ar',bg:'bg-a'},
+ {k:'claude',n:'Claude AI 1h',i:'ai',bg:'bg-v'},
+ {k:'post',n:'Posted content',i:'play',bg:'bg-o'},
+ {k:'family',n:'Family time',i:'users',bg:'bg-g'}];
+const MOOD=['','Low','Meh','OK','Good','Great'];
+function habDay(d){const h={...((U?.habits||{})[d]||{})},c=(U?.checkins||{})[d];
+ if(h.gym==null&&(gymMin(d)>=20||(c&&c.gymMin>0)))h.gym=1;
+ if(h.claude==null&&c&&+(c.study?.ai||0)>=1)h.claude=1;
+ if(h.arabic==null&&c&&+(c.study?.arabic||0)>=0.5)h.arabic=1;
+ return h}
+function habCount(d){const h=habDay(d);return HAB.filter(x=>h[x.k]).length}
+function habStreak(k){let s=0,d=nowD().date;if(!habDay(d)[k])d=addDays(d,-1);while(habDay(d)[k]&&s<999){s++;d=addDays(d,-1)}return s}
+function habXP(){return Object.keys(U?.habits||{}).reduce((a,d)=>a+habCount(d)*5,0)}
+function healthyWeek(){let s=0,d=addDays(nowD().date,-1);while(habCount(d)>=5&&s<99){s++;d=addDays(d,-1)}return s>=7}
+function setHab(k,v,d){d=d||nowD().date;U.habits=U.habits||{};const h={...(U.habits[d]||{})};h[k]=v;h.savedAt=new Date().toISOString();U.habits[d]=h;queueSave()}
+function habWeek(){const n=nowD().date,days=Array.from({length:7},(_,i)=>addDays(n,i-6));
+ const per=HAB.map(x=>({...x,c:days.filter(d=>habDay(d)[x.k]).length}));
+ const tot=per.reduce((a,x)=>a+x.c,0),pct=Math.round(tot/(7*HAB.length)*100);
+ const moods=days.map(d=>+(habDay(d).mood||0)).filter(Boolean),mood=moods.length?(moods.reduce((a,b)=>a+b,0)/moods.length):0;
+ const srt=per.slice().sort((a,b)=>b.c-a.c);return{days,per,pct,best:srt[0],weak:srt[srt.length-1],mood}}
+function habChips(d){const h=habDay(d);return `<div class="habs">${HAB.map(x=>`<button type="button" class="hab ${h[x.k]?'on':''}" data-x="hab" data-k="${x.k}"><span class="qi ${x.bg}">${ic(h[x.k]?'check':x.i)}</span><b>${x.n}</b>${habStreak(x.k)>1?`<small>${ic('flame')}${habStreak(x.k)}</small>`:''}</button>`).join('')}</div>`}
+function moodRow(d){const h=habDay(d);return `<div class="moodrow"><span class="xs faint">Mood</span>${[1,2,3,4,5].map(v=>`<button type="button" class="opt ${+h.mood===v?'on':''}" data-x="mood" data-v="${v}">${MOOD[v]}</button>`).join('')}</div>
+ <div class="moodrow"><span class="xs faint">Energy</span>${[1,2,3,4,5].map(v=>`<button type="button" class="opt ${+h.energy===v?'on':''}" data-x="energy" data-v="${v}">${v}</button>`).join('')}</div>`}
+function habCard(){const n=nowD().date,c=habCount(n);
+ return card('Daily habits','heart','bg-g',`<div class="xs faint" style="margin:-4px 0 10px">Tap what you did today · +5 XP each · ${c}/${HAB.length} done</div>${habChips(n)}${moodRow(n)}`,`<a href="#me" class="pill g">${ic('chart')}Report</a>`,'mb')}
+
+/* social plan */
+const WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function todayWD(){return WD[new Date(nowD().date+'T12:00:00Z').getUTCDay()]}
+function socialToday(){const SP=D.social_plan||{};return (SP.week||{})[todayWD()]||[]}
+function planRows(items,d){const h=habDay(d||nowD().date);return items.map((x,i)=>`<div class="row"><div class="ico ${x.acct==='X Species'?'bg-c':'bg-a'}">${ic(x.icon||'play')}</div><div class="tx"><b>${esc(x.time?x.time+' · ':'')}${esc(x.what)}</b><div>${esc(x.acct)}${x.where?' · '+esc(x.where):''}</div></div></div>`).join('')+(items.length?`<button class="addag" data-x="posted">${ic(h.post?'check':'plus')}${h.post?'Posted today ✓':'Mark today’s post done (+5 XP)'}</button>`:'')}
+function socialTodayCard(){const it=socialToday();if(!it.length)return'';return card('Post today','play','bg-o',planRows(it),`<a href="#social" class="pill w">Plan</a>`,'mb')}
+function planCard(){const SP=D.social_plan;if(!SP)return'';const td=todayWD();
+ return `<div class="card mb"><div class="ch"><div class="ic bg-grad">${ic('rocket')}</div><h3>Growth plan</h3><span class="aside">${esc(SP.focus||'')}</span></div>
+ ${SP.goal?`<div class="sm" style="margin-bottom:10px">${esc(SP.goal)}</div>`:''}
+ <div class="xs faint" style="font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin:6px 0 4px">Today · ${td}</div>${planRows(socialToday())||empty('Rest day — reply to comments','check')}
+ <details class="wk"><summary>Whole week</summary>${WD.slice(1).concat('Sun').map(d=>`<div class="wkd ${d===td?'on':''}"><b>${d}</b>${((SP.week||{})[d]||[]).map(x=>`<div class="xs">${esc(x.time?x.time+' ':'')}${esc(x.acct)}: ${esc(x.what)}</div>`).join('')||'<div class="xs faint">Rest</div>'}</div>`).join('')}</details>
+ ${(SP.rules||[]).length?`<div class="note" style="margin-top:10px"><b>${ic('spark')}Rules that grow the account</b>${SP.rules.map(r=>'• '+esc(r)).join('<br>')}</div>`:''}</div>`}
+
+/* Me page */
+function renderMe(){const el=$('#p-me');if(!el||!D)return;const M=D.me||{},n=nowD().date,W=habWeek();
+ const grid=`<div class="heat hgrid">${HAB.map(x=>`<div class="lb">${ic(x.i)}${x.n}</div><div class="cells">${Array.from({length:14},(_,j)=>{const d=addDays(n,j-13),on=habDay(d)[x.k];return `<div class="cell ${d===n?'today':''}" title="${d}" ${on?'style="background:var(--green);border-color:var(--green)"':''}></div>`}).join('')}</div>`).join('')}</div>`;
+ el.innerHTML=`<div class="pt">Me <span>health · habits · skills</span></div>
+ <div class="g3">
+  <div class="card s2"><div class="ch"><div class="ic bg-g">${ic('heart')}</div><h3>Today</h3><span class="aside">${habCount(n)}/${HAB.length} habits</span></div>${habChips(n)}${moodRow(n)}
+   <div class="moodrow"><span class="xs faint">Sleep</span>${[5,6,7,8,9].map(v=>`<button type="button" class="opt ${+habDay(n).sleepH===v?'on':''}" data-x="sleepH" data-v="${v}">${v}h${v===9?'+':''}</button>`).join('')}</div></div>
+  <div class="card"><div class="ch"><div class="ic bg-grad">${ic('chart')}</div><h3>This week</h3></div>
+   <div class="wkpct"><div class="ringbig">${ring(W.pct/100,96,8,'url(#warm)')}<div class="c"><b>${W.pct}%</b></div></div>
+   <div class="sm"><div>Best: <b>${esc(W.best.n)}</b> ${W.best.c}/7</div><div>Needs love: <b>${esc(W.weak.n)}</b> ${W.weak.c}/7</div>${W.mood?`<div>Avg mood: <b>${MOOD[Math.round(W.mood)]}</b></div>`:''}</div></div>
+   <div class="xs faint" style="margin-top:8px">Claude reads this and sends your weekly report on Sunday.</div></div>
+  ${card('Last 14 days','cal','bg-v',grid,'','s3')}
+  ${card('Health','shield','bg-g',`<div class="sm" style="margin-bottom:8px">${esc(M.health?.baseline||'')}</div>${(M.health?.habits||[]).map(h=>`<div class="row"><div class="ico bg-g">${ic('check')}</div><div class="tx"><b>${esc(h)}</b></div></div>`).join('')}`)}
+  ${card('Languages','msg','bg-a',(M.languages||[]).map(l=>`<div class="lang"><b>${esc(l.n)}</b><span class="pill ${l.lvl==='Learning'?'w':l.lvl==='Basic'?'b':'g'}">${esc(l.lvl)}</span><div class="bar"><i style="width:${l.p||50}%"></i></div></div>`).join(''))}
+  ${card('Skills','star','bg-v',(M.skills||[]).map(s=>`<div class="row"><div class="ico bg-v">${ic(s.i||'star')}</div><div class="tx"><b>${esc(s.n)}</b>${s.d?`<div>${esc(s.d)}</div>`:''}</div></div>`).join(''))}
+  ${card('Made money online','money','bg-o',(M.online||[]).map(s=>`<div class="row"><div class="ico bg-o">${ic(s.i||'bolt')}</div><div class="tx"><b>${esc(s.n)}</b>${s.d?`<div>${esc(s.d)}</div>`:''}</div></div>`).join(''),'','s2')}
+  ${card('Background','book','bg-c',(M.background||[]).map(s=>`<div class="row"><div class="ico bg-c">${ic('check')}</div><div class="tx"><b>${esc(s)}</b></div></div>`).join(''))}
+ </div>`}
+
+/* Talk: instant actions */
+function quickHabits(t){const s=t.toLowerCase(),hit=[];const on=(k,re)=>{if(re.test(s)&&!/\b(no|not|didn'?t|skip)\b/.test(s)){setHab(k,1);hit.push(HAB.find(x=>x.k===k).n)}};
+ on('gym',/\bgym|workout|trained\b/);on('swim',/swim|pool/);on('food',/healthy (food|meal|eat)/);on('water',/water/);on('family',/family|kids|daughters/);on('claude',/claude|learned ai|studied ai/);on('arabic',/arabic/);
+ const sl=s.match(/slept (\d+(\.\d)?)/);if(sl){setHab('sleepH',Math.round(+sl[1]));if(+sl[1]>=7){setHab('sleep',1);hit.push('Sleep')}}
+ if(hit.length)rerender();return hit.length?'Logged '+hit.join(', ')+' ✓ · ':''}
+function askNow(){const t=($('#tktext')?.value||'').trim();const ctx='(I am Borna, using my Borna HQ app.) ';window.open('https://claude.ai/new?q='+encodeURIComponent(ctx+(t||'Help me plan my day')),'_blank','noopener')}
+
+/* settings */
+function prefs(){return{morning:1,meetings:1,followups:1,habits:1,social:1,viral:1,quiet:1,start:'today',...((U?.kv||{}).prefs||{})}}
+function setPref(k,v){U.kv=U.kv||{};const p={...prefs(),[k]:v,updated:new Date().toISOString()};U.kv.prefs=p;queueSave()}
+function settingsExtra(){const p=prefs(),tg=(k,t,s)=>`<label class="tgl"><div><b>${t}</b><small>${s}</small></div><input type="checkbox" data-x="pref" data-k="${k}" ${p[k]?'checked':''}><i></i></label>`;
+ return `<div class="fld" style="margin-top:14px"><label>Notifications</label>
+  <div class="sm muted" style="margin-bottom:8px">Alerts come to the <b>ntfy</b> app on your phone. Nothing private is written in them.</div>
+  ${tg('morning','Morning briefing','09:15 · your day, meetings, follow-ups')}
+  ${tg('meetings','Meeting reminders','2 hours and 30 minutes before')}
+  ${tg('followups','Deal follow-ups','When a deal or person needs a reply')}
+  ${tg('habits','Evening habit check','21:30 if habits are not logged')}
+  ${tg('social','Post reminder','19:00 · what to post today')}
+  ${tg('viral','Viral post alerts','When a post takes off')}
+  ${tg('quiet','Quiet hours','No alerts 23:00 – 07:00')}
+  <div class="btnrow"><button type="button" class="btn2" data-x="testnote">${ic('bell')} Send a test now</button>${D.notify?.topic?`<a class="btn2" href="https://ntfy.sh/${esc(D.notify.topic)}" target="_blank" rel="noopener">${ic('share')} Open in ntfy</a>`:''}</div></div>
+ <div class="fld"><label>Start page</label><div class="opts">${[['today','Today'],['me','Me'],['business','Business'],['money','Money'],['social','Social']].map(([k,l])=>`<button type="button" class="opt ${p.start===k?'on':''}" data-x="start" data-v="${k}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Voice language</label><div class="opts">${[['en-US','English'],['fa-IR','فارسی'],['ar-AE','عربي'],['tr-TR','Türkçe']].map(([k,l])=>`<button type="button" class="opt ${(ls.get('hq.lang')||'en-US')===k?'on':''}" data-x="vlang" data-v="${k}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Data</label><div class="btnrow" style="margin-top:0"><button type="button" class="btn2" data-x="pull">${ic('refresh')} Get latest now</button><button type="button" class="btn2" data-x="backup">${ic('down')} Download backup</button></div>
+  <div class="xs faint" style="margin-top:6px">The app checks for Claude’s updates every 5 minutes while it’s open. Version 8 · ${esc(ago(D.updated))} last update.</div></div>`}
+
+/* live updates */
+let lastPull=Date.now(),pulling=false;
+async function softPull(force){if(!D||pulling)return;if(!force&&$('#sheet').classList.contains('on'))return;pulling=true;
+ try{const j=await pagesJSON('data.enc');if(j){const nd=await dec(j);if(nd.updated!==D.updated){D=nd;rerender();toast('New update from Claude ✓')}else if(force)toast('Already up to date')}lastPull=Date.now()}catch(e){if(force)toast('Could not check')}pulling=false}
+setInterval(()=>{if(document.visibilityState==='visible')softPull()},300000);
+document.addEventListener('visibilitychange',()=>{if(D&&document.visibilityState==='visible'&&Date.now()-lastPull>120000)softPull()});
+
+/* wrappers */
+const _renderToday=renderToday;renderToday=function(G){_renderToday(G);const el=$('#p-today'),g=el&&el.querySelector('.g3');if(!g)return;const x=document.createElement('div');x.className='v8top';x.innerHTML=habCard()+socialTodayCard();el.insertBefore(x,g)};
+const _renderSocial=renderSocial;renderSocial=function(){_renderSocial();const el=$('#p-social'),pt=el&&el.querySelector('.pt');if(!pt)return;const x=document.createElement('div');x.innerHTML=planCard();pt.after(x)};
+let startDone=false;
+const _render=render;render=function(keep){if(!startDone){startDone=true;const st=prefs().start;if(!location.hash&&st&&st!=='today'&&PAGES.some(p=>p.id===st))history.replaceState(null,'','#'+st)}renderMe();_render(keep)};
+const _openSettings=openSettings;openSettings=function(){_openSettings();const s=$('#sheet'),rows=s.querySelectorAll('.btnrow'),last=rows[rows.length-1];const x=document.createElement('div');x.innerHTML=settingsExtra();s.insertBefore(x,last)};
+$('#settings').onclick=()=>openSettings();
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset,n=nowD().date;
+ if(d.x==='hab'){const on=!habDay(n)[d.k];setHab(d.k,on?1:0);rerender();if(on)toast(HAB.find(x=>x.k===d.k).n+' ✓ +5 XP');return}
+ if(d.x==='mood'||d.x==='energy'||d.x==='sleepH'){setHab(d.x,+d.v);if(d.x==='sleepH')setHab('sleep',+d.v>=7?1:0);rerender();return}
+ if(d.x==='posted'){setHab('post',1);rerender();toast('Posted ✓ +5 XP');return}
+ if(d.x==='asknow'){askNow();return}
+ if(d.x==='pref'){setPref(d.k,a.checked?1:0);toast('Saved');return}
+ if(d.x==='start'){setPref('start',d.v);$$('#sheet [data-x="start"]').forEach(y=>y.classList.toggle('on',y===a));toast('Start page saved');return}
+ if(d.x==='vlang'){ls.set('hq.lang',d.v);$$('#sheet [data-x="vlang"]').forEach(y=>y.classList.toggle('on',y===a));return}
+ if(d.x==='pull'){softPull(true);return}
+ if(d.x==='backup'){const b=new Blob([JSON.stringify(U,null,1)],{type:'application/json'}),u=URL.createObjectURL(b),l=document.createElement('a');l.href=u;l.download='borna-hq-backup-'+n+'.json';l.click();setTimeout(()=>URL.revokeObjectURL(u),2000);return}
+ if(d.x==='testnote'){const t=D.notify?.topic;if(!t){toast('Notifications not set up yet');return}
+  fetch('https://ntfy.sh/',{method:'POST',body:JSON.stringify({topic:t,title:'Borna HQ',message:'Test from your app — notifications work ✓',tags:['white_check_mark'],click:location.origin+location.pathname})}).then(r=>toast(r.ok?'Sent — check your phone':'Could not send')).catch(()=>toast('Could not send'));return}
+});
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
