@@ -1559,6 +1559,38 @@ const _habXP17=habXP;habXP=function(){return _habXP17()+media().filter(x=>x.rati
 /* recs show who it's for */
 const _recCard17=recCard;recCard=function(r){return _recCard17(r).replace('<b>',`<b>${r.for==='together'?'<span class="forT">💑 For you two</span> ':''}`)};
 PAGEFN.fun=()=>renderFun();
+
+/* ================= v18: Log my day — remove "Other", add your own activities ================= */
+const SUBJ_BASE=SUBJ.filter(s=>s.k!=='other');
+const SUBJ_COL=[['bg-g','#10b981'],['bg-p','#ec4899'],['bg-o','#fb923c'],['bg-c','#22d3ee'],['bg-b','#60a5fa'],['bg-a','#fbbf24']];
+const SUBJ_EM=['📚','💻','🎨','🎸','✍️','📈','🧘','🗣️','🏃','🎬'];
+function subjCustom(){return ((U?.kv?.subj?.v)||[]).filter(s=>!s.deleted)}
+function syncSubj(){const c=subjCustom().map((s,i)=>({k:s.k,n:s.n,em:s.em||'⭐',i:'book',bg:SUBJ_COL[i%SUBJ_COL.length][0],c:SUBJ_COL[i%SUBJ_COL.length][1],custom:1}));SUBJ.length=0;SUBJ_BASE.concat(c).forEach(s=>SUBJ.push(s))}
+function saveSubj(list){U.kv=U.kv||{};U.kv.subj={v:list,updated:new Date().toISOString()};queueSave();syncSubj()}
+const _render18=render;render=function(k){if(U)syncSubj();return _render18(k)};
+const _openCheckin18=openCheckin;openCheckin=function(date){syncSubj();_openCheckin18(date);decorateSubj()};
+function decorateSubj(){const f=$('#cf .subj')?.parentElement;if(!f)return;const rows=f.querySelectorAll('.subj');
+ SUBJ.forEach((s,i)=>{const r=rows[i];if(!r||!s.custom)return;r.querySelector('.qi').textContent=s.em;r.querySelector('.qi').classList.add('emq');r.querySelector('.nm').insertAdjacentHTML('beforeend',`<button type="button" class="subjx" data-x="subjdel" data-k="${s.k}" aria-label="Remove">×</button>`)});
+ if(!f.querySelector('.subjadd'))f.insertAdjacentHTML('beforeend',`<button type="button" class="subjadd" data-x="subjnew">${ic('plus')} Add activity</button>`)}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="subjnew"],[data-x="subjsave"],[data-x="subjcancel"],[data-x="subjdel"],[data-x="subjem"]');if(!a)return;e.preventDefault();e.stopPropagation();const x=a.dataset.x;
+ if(x==='subjnew'){a.outerHTML=`<div class="subjform"><div class="ems">${SUBJ_EM.map((m,i)=>`<button type="button" class="${i?'':'on'}" data-x="subjem">${m}</button>`).join('')}</div><input class="inp" id="subjname" maxlength="20" placeholder="e.g. Reading, Guitar, Coding"><div class="btnrow"><button type="button" class="btn2" data-x="subjcancel">Cancel</button><button type="button" class="btn2 pri" data-x="subjsave">Add</button></div></div>`;setTimeout(()=>$('#subjname')?.focus(),50);return}
+ if(x==='subjem'){a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));return}
+ if(x==='subjcancel'){a.closest('.subjform').outerHTML=`<button type="button" class="subjadd" data-x="subjnew">${ic('plus')} Add activity</button>`;return}
+ const date=$('#cf [data-name="date"] .opt.on')?.dataset.v;
+ if(x==='subjsave'){const n=($('#subjname').value||'').trim();if(!n){$('#subjname').focus();return}
+  const all=(U?.kv?.subj?.v)||[];if(SUBJ.some(s=>s.n.toLowerCase()===n.toLowerCase())){toast('Already there');return}
+  const em=a.closest('.subjform').querySelector('.ems .on')?.textContent||'⭐';saveSubj(all.concat([{k:'c_'+uid(),n,em,created:new Date().toISOString()}]));
+  keepForm(()=>openCheckin(date));toast(`${em} ${n} added`);return}
+ if(x==='subjdel'){const s=SUBJ.find(z=>z.k===a.dataset.k);if(!s)return;if(a.dataset.sure!=='1'){a.dataset.sure='1';a.textContent='Remove?';a.classList.add('sure');setTimeout(()=>{if(a.isConnected){a.dataset.sure='';a.textContent='×';a.classList.remove('sure')}},2500);return}
+  saveSubj(((U.kv.subj||{}).v||[]).map(z=>z.k===s.k?{...z,deleted:true}:z));keepForm(()=>openCheckin(date));toast(`${s.n} removed`)}
+},true);
+/* keep what was already typed/selected when the form re-draws */
+function keepForm(redo){const f=$('#cf');if(!f){redo();return}const sel={},val={};
+ f.querySelectorAll('.opts').forEach(g=>{const o=g.querySelector('.opt.on');if(o&&g.dataset.name!=='date')sel[g.dataset.name]=o.dataset.v});
+ f.querySelectorAll('input[name],textarea[name]').forEach(i=>val[i.name]=i.type==='checkbox'?i.checked:i.value);
+ redo();const g=$('#cf');if(!g)return;
+ Object.entries(sel).forEach(([n,v])=>{const G=g.querySelector(`.opts[data-name="${n}"]`);if(!G)return;G.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.v===v))});
+ Object.entries(val).forEach(([n,v])=>{const i=g.querySelector(`[name="${n}"]`);if(!i||i.disabled)return;if(i.type==='checkbox')i.checked=v;else i.value=v})}
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
