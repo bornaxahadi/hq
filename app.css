@@ -570,3 +570,27 @@ a.btn2{display:inline-flex;align-items:center;justify-content:center;gap:6px;tex
 .dqa a{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:10px;font-weight:800;font-size:12px;background:var(--card2);border:1px solid var(--line2);min-height:32px}
 .dqa a.wa{background:#25d366;color:#fff;border-color:transparent}
 .dqa svg{width:13px;height:13px}
+/* v9 */
+nav.bottom.scroller{display:flex!important;grid-template-columns:none!important;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-left:4px;padding-right:4px;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+nav.bottom.scroller::-webkit-scrollbar{display:none}
+nav.bottom.scroller button{flex:0 0 66px;scroll-snap-align:center;font-size:10.5px}
+nav.bottom.scroller button svg{width:21px;height:21px}
+.pt.sub{font-size:15px;grid-column:1/-1}
+.smoke{border-color:color-mix(in srgb,#f87171 35%,var(--line))}
+.smrow{display:flex;align-items:center;gap:14px}
+.smbig{flex:none;width:92px;height:92px;border-radius:24px;display:grid;place-content:center;text-align:center;background:color-mix(in srgb,var(--green) 14%,var(--bg2));border:1px solid color-mix(in srgb,var(--green) 40%,transparent)}
+.smbig b{font:700 34px "Space Grotesk";line-height:1}
+.smbig small{font-size:11px;color:var(--muted);font-weight:700}
+.smbig.over{background:color-mix(in srgb,#f87171 14%,var(--bg2));border-color:color-mix(in srgb,#f87171 45%,transparent)}
+.smbig.over b{color:#f87171}
+.smbtns{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.smbtns .btn2{flex:1 1 auto;padding:10px 10px;margin:0}
+.smbtns .ghost{flex:0 0 52px}
+.smstats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+.smstats .stat{padding:10px}
+.smstats .stat .v{font-size:20px}
+.sbars{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;height:90px;margin-top:12px;align-items:end}
+.sb{position:relative;height:100%;background:var(--card2);border-radius:6px;overflow:hidden}
+.sb i{position:absolute;left:0;right:0;bottom:0;border-radius:6px 6px 0 0}
+.sb em{position:absolute;left:-2px;right:-2px;height:2px;background:var(--amber)}
+@media(min-width:700px){.smstats{grid-template-columns:repeat(4,1fr)}}

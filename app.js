@@ -169,7 +169,7 @@ function game(){
   {n:'AI 20h',d:'Study AI for 20 hours',icn:'ai',bg:'bg-v',ok:H.ai>=20},
   {n:'Iron will',d:'12 gym sessions',icn:'gym',bg:'bg-g',ok:L.filter(e=>e.gym).length>=12},
   {n:'Arabic 50',d:'Learn 50 words',icn:'ar',bg:'bg-c',ok:words>=50},
-  {n:'Healthy week',d:'7 days with 5+ habits',icn:'heart',bg:'bg-g',ok:healthyWeek()},
+  {n:'Healthy week',d:'7 days with 5+ habits',icn:'heart',bg:'bg-g',ok:healthyWeek()},{n:'Smoke-down',d:'7 days under your smoking limit',icn:'shield',bg:'bg-r',ok:smokeStats().streak>=7},
   {n:'Networker',d:'Attend 10 meetings',icn:'users',bg:'bg-a',ok:L.reduce((a,e)=>a+e.met,0)>=10},
   {n:'Follow-through',d:'Log 5 meeting results',icn:'check',bg:'bg-c',ok:logged>=5},
   {n:'Hunter',d:'Log 5 new opportunities',icn:'target',bg:'bg-o',ok:allDeals.length>=6},
@@ -991,7 +991,7 @@ const HAB=[
  {k:'post',n:'Posted content',i:'play',bg:'bg-o'},
  {k:'family',n:'Family time',i:'users',bg:'bg-g'}];
 const MOOD=['','Low','Meh','OK','Good','Great'];
-function habDay(d){const h={...((U?.habits||{})[d]||{})},c=(U?.checkins||{})[d];
+function habDay(d){const h={...((D?.habit_log||{})[d]||{}),...((U?.habits||{})[d]||{})},c=(U?.checkins||{})[d];
  if(h.gym==null&&(gymMin(d)>=20||(c&&c.gymMin>0)))h.gym=1;
  if(h.claude==null&&c&&+(c.study?.ai||0)>=1)h.claude=1;
  if(h.arabic==null&&c&&+(c.study?.arabic||0)>=0.5)h.arabic=1;
@@ -1048,6 +1048,7 @@ function renderMe(){const el=$('#p-me');if(!el||!D)return;const M=D.me||{},n=now
 function quickHabits(t){const s=t.toLowerCase(),hit=[];const on=(k,re)=>{if(re.test(s)&&!/\b(no|not|didn'?t|skip)\b/.test(s)){setHab(k,1);hit.push(HAB.find(x=>x.k===k).n)}};
  on('gym',/\bgym|workout|trained\b/);on('swim',/swim|pool/);on('food',/healthy (food|meal|eat)/);on('water',/water/);on('family',/family|kids|daughters/);on('claude',/claude|learned ai|studied ai/);on('arabic',/arabic/);
  const sl=s.match(/slept (\d+(\.\d)?)/);if(sl){setHab('sleepH',Math.round(+sl[1]));if(+sl[1]>=7){setHab('sleep',1);hit.push('Sleep')}}
+ const sm=s.match(/(?:smoked|cigarettes?|cigs|sigar\S*)\D{0,8}(\d{1,2})|(\d{1,2})\s*(?:cigarettes?|cigs|sigar\S*)/);if(sm){const v=+(sm[1]||sm[2]);setHab('cigs',v);hit.push('Smoking '+v)}
  if(hit.length)rerender();return hit.length?'Logged '+hit.join(', ')+' ✓ · ':''}
 function askNow(){const t=($('#tktext')?.value||'').trim();const ctx='(I am Borna, using my Borna HQ app.) ';window.open('https://claude.ai/new?q='+encodeURIComponent(ctx+(t||'Help me plan my day')),'_blank','noopener')}
 
@@ -1098,6 +1099,46 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a
  if(d.x==='testnote'){const t=D.notify?.topic;if(!t){toast('Notifications not set up yet');return}
   fetch('https://ntfy.sh/',{method:'POST',body:JSON.stringify({topic:t,title:'Borna HQ',message:'Test from your app — notifications work ✓',tags:['white_check_mark'],click:location.origin+location.pathname})}).then(r=>toast(r.ok?'Sent — check your phone':'Could not send')).catch(()=>toast('Could not send'));return}
 });
+
+/* ================= v9: smoking tracker · scrolling nav ================= */
+function SP(){return{start:'2026-10-01',base:40,goal:10,end:'2026-12-31',price:1.25,...(D.smoke_plan||{})}}
+function smokeLimit(d){const p=SP(),t=daysBetween(p.start,d||nowD().date),tot=Math.max(1,daysBetween(p.start,p.end));if(t<0)return p.base;return Math.max(p.goal,Math.ceil(p.base-(p.base-p.goal)*Math.min(1,t/tot)))}
+function cigs(d){const v=habDay(d||nowD().date).cigs;return v==null?null:+v}
+function smokeStats(){const p=SP(),n=nowD().date,days=[];let d=p.start;while(d<=n&&days.length<400){days.push(d);d=addDays(d,1)}
+ const logged=days.filter(x=>cigs(x)!=null),avoided=logged.reduce((a,x)=>a+Math.max(0,p.base-cigs(x)),0);
+ let streak=0;for(let i=days.length-1;i>=0;i--){const x=days[i];if(x===n&&cigs(x)==null)continue;if(cigs(x)!=null&&cigs(x)<=smokeLimit(x))streak++;else break}
+ const wk=logged.filter(x=>x>=addDays(n,-6)),avg=wk.length?wk.reduce((a,x)=>a+cigs(x),0)/wk.length:null;
+ const urges=days.reduce((a,x)=>a+(+habDay(x).urges||0),0);
+ return{avoided,saved:Math.round(avoided*p.price),streak,avg,urges,week:Math.floor(daysBetween(p.start,n)/7)+1}}
+const SMOKE_TIPS=['Delay your first cigarette — wait at least 30 minutes after waking, then push it later each week.','When a craving hits, use the 4 Ds: Delay 5 minutes, Deep breaths, Drink water, Do something else. Cravings pass in 3–5 minutes.','Make places smoke-free: no smoking in the car or inside the home.','Break the links: no cigarette with the first coffee or straight after meals — take a short walk instead.','Late work + smoking + little sleep = cough. Set a cut-off time for the last cigarette.','Nicotine gum, lozenges or patches can be used while cutting down — ask a pharmacist or doctor which strength fits ~40 a day.','The pool and the gym are your best craving killers — go when the urge is strongest.','Smoke only half of each cigarette this week.','Buy one pack at a time, never a carton. Leave the pack in another room.','If the cough lasts more than 2–3 weeks, or you see blood or feel chest pain or breathlessness, see a doctor.'];
+function smokeTip(){const i=daysBetween('2026-01-01',nowD().date)%SMOKE_TIPS.length;return SMOKE_TIPS[(i+SMOKE_TIPS.length)%SMOKE_TIPS.length]}
+function smokeCard(full){const n=nowD().date,c=cigs(n)||0,L=smokeLimit(n),pct=Math.min(1,c/L),over=c>L,S=smokeStats(),p=SP();
+ const bars=Array.from({length:14},(_,j)=>{const d=addDays(n,j-13),v=cigs(d),lim=smokeLimit(d);return `<div class="sb" title="${d}: ${v??'—'} / ${lim}"><i style="height:${v==null?0:Math.min(100,v/p.base*100)}%;background:${v==null?'transparent':v<=lim?'var(--green)':'var(--red,#f87171)'}"></i><em style="bottom:${lim/p.base*100}%"></em></div>`}).join('');
+ return `<div class="card ${full?'s2':''} mb smoke"><div class="ch"><div class="ic bg-r">${ic('flame')}</div><h3>Smoking</h3><span class="aside">week ${S.week} · goal ${p.goal}/day by ${fd(p.end)}</span></div>
+ <div class="smrow"><div class="smbig ${over?'over':''}"><b>${c}</b><small>of ${L} today</small></div>
+  <div class="smbtns"><button type="button" class="btn2 pri" data-x="cig" data-v="1">+1 smoked</button><button type="button" class="btn2" data-x="urge">${ic('shield')} Beat a craving</button><button type="button" class="btn2 ghost" data-x="cig" data-v="-1">−1</button></div></div>
+ <div class="bar" style="margin:10px 0 4px"><i style="width:${pct*100}%;background:${over?'var(--red,#f87171)':'var(--green)'}"></i></div>
+ <div class="xs faint">${over?`Over today’s limit by ${c-L}. Tomorrow is a new start.`:`${L-c} left for today.`} ${habDay(n).first?'First one at '+habDay(n).first+'.':''}</div>
+ <div class="smstats">${stat(S.streak+' '+ic('flame'),'Days under limit','check')}${stat(S.avg==null?'—':S.avg.toFixed(1),'7-day average','chart')}${stat(S.avoided,'Not smoked','heart')}${stat('AED '+S.saved,'Saved','money')}</div>
+ ${full?`<div class="sbars">${bars}</div><div class="xs faint" style="margin-top:4px">Last 14 days · line = your daily limit (slowly going from ${p.base} to ${p.goal})</div>`:''}
+ <div class="note" style="margin-top:10px"><b>${ic('bulb')}Today’s tip</b>${esc(smokeTip())}</div>
+ ${full?`<details class="wk"><summary>The 3-month plan</summary><div class="sm" style="line-height:1.7;margin-top:6px">${[0,2,4,6,8,10,12].map(w=>`Week ${w+1}: up to <b>${smokeLimit(addDays(p.start,w*7))}</b> a day`).join('<br>')}<br>Then hold at ${p.goal} and decide with Claude whether to go to zero.</div><div class="xs faint" style="margin-top:8px">Method: “cut down to quit” — reduce a little each week, track every cigarette, delay the first one, replace triggers, and use nicotine gum/patches if a pharmacist or doctor agrees.</div></details>`:''}</div>`}
+
+/* nav: all pages in a swipeable bar */
+function buildNav(){const b=$('#bottom');if(!b)return;b.classList.add('scroller');b.innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}<span>${p.l}</span></button>`).join('');
+ $$('#bottom [data-p]').forEach(x=>x.onclick=()=>{location.hash=x.dataset.p})}
+buildNav();
+const _show=show;show=function(){_show();const a=$('#bottom .on');if(a)a.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})};
+
+/* wrappers */
+const _renderToday9=renderToday;renderToday=function(G){_renderToday9(G);const t=$('#p-today .v8top');if(t){const x=document.createElement('div');x.innerHTML=smokeCard(false);t.insertBefore(x.firstElementChild,t.children[1]||null)}};
+const _renderMe9=renderMe;renderMe=function(){_renderMe9();const g=$('#p-me .g3');if(!g)return;const x=document.createElement('div');x.innerHTML=`<div class="pt sub s3" style="margin:4px 0 0">Bad habits <span>track it, shrink it</span></div>`+smokeCard(true);[...x.children].forEach((c,i)=>g.insertBefore(c,g.children[1+i]||null));const h=document.createElement('div');h.className='pt sub s3';h.style.margin='0';h.innerHTML='Good habits <span>keep the streaks</span>';g.insertBefore(h,g.firstElementChild)};
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset,n=nowD().date;
+ if(d.x==='cig'){const c=Math.max(0,(cigs(n)||0)+(+d.v));setHab('cigs',c);if(+d.v>0&&!habDay(n).first){const t=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());setHab('first',t)}rerender();const L=smokeLimit(n);if(+d.v>0)toast(c>L?`${c} today — over your limit of ${L}`:c===L?`That’s your limit for today (${L})`:`${c} of ${L} today`);return}
+ if(d.x==='urge'){setHab('urges',(+habDay(n).urges||0)+1);rerender();toast('Craving beaten 💪 +3 XP');return}
+});
+const _habXP=habXP;habXP=function(){const p=SP();let x=_habXP();Object.entries(U?.habits||{}).forEach(([d,h])=>{x+=(+h.urges||0)*3;if(h.cigs!=null&&d>=p.start&&+h.cigs<=smokeLimit(d))x+=10});return x};
 
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
