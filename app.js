@@ -1143,12 +1143,13 @@ const _habXP=habXP;habXP=function(){const p=SP();let x=_habXP();Object.entries(U
 /* ================= v10: Talk to Claude — instant message drafts, live status ================= */
 function nextCheck(){const n=nowD().mins,m=n%60,add=m<10?10-m:m<40?40-m:70-m,t=n+add;return String(Math.floor(t/60)%24).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
 function safeWa(u){return /^https:\/\/wa\.me\//.test(u||'')?u:''}
-function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|him|her|them|it|this|that|message|whatsapp|good|morning)$/i,m=[...s.matchAll(/\b(?:send|message|text|tell|whatsapp)\s+(?:to\s+)?([A-Za-z؀-ۿ]+)/gi)].find(x=>!STOP.test(x[1]));if(!m)return null;
- const nm=m[1].toLowerCase(),P=people(),p=P.find(x=>[x.name,x.aka].filter(Boolean).some(v=>String(v).toLowerCase().split(/[\s\/,()]+/).includes(nm)));
+function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|him|her|them|it|this|that|message|whatsapp|good|morning)$/i,m=[...s.matchAll(/\b(?:send|message|text|tell|whatsapp)\s+(?:to\s+)?([A-Za-z؀-ۿ]+)/gi)].find(x=>!STOP.test(x[1]));if(!m&&!/\b(send|message|text|tell|whatsapp)\b/i.test(s))return null;
+ const low=s.toLowerCase(),COMMON=/^(mr|mrs|dr|the|and|from|team|magazine|final)$/i,P=people(),hit=P.find(x=>[x.name,x.aka].filter(Boolean).join(' ').toLowerCase().split(/[\s\/,().]+/).some(w=>w.length>=3&&!COMMON.test(w)&&new RegExp('\\b'+w.replace(/[^\w]/g,'')+'\\b').test(low)));
+ const nm=hit?'':(m?m[1]:'').toLowerCase(),p=hit||P.find(x=>[x.name,x.aka].filter(Boolean).some(v=>String(v).toLowerCase().split(/[\s\/,()]+/).includes(nm)));
  const fam=(p&&p.rel==='family')||/farnaz/i.test(nm);let body=(s.split(/\bthat\b|\bsaying\b|:/i)[1]||'').trim();
- if(!body||/good ?morning|greeting|salam|صبح/i.test(s)){body=/good ?morning|صبح/i.test(s)?(fam?'صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی':'Good morning! Wishing you a great day ☀️'):(fam?'سلام عزیزم ❤️':'Hi! Hope you are well.')}
+ if(!body||/good ?morning|greeting|salam|صبح/i.test(s)){body=/good ?morning|صبح/i.test(s)?(fam?'صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی':'Good morning! Wishing you a great day ☀️'):(fam?'سلام عزیزم ❤️':'Hi '+(p?(/^(mr|dr)\.?$/i.test(p.name.split(' ')[0])?p.name:p.name.split(' ')[0]):'')+', warm greetings — hope you are doing well!')}
  const num=p&&typeof waNum==='function'?waNum(p.phone||''):'';const url='https://wa.me/'+(num||'')+'?text='+encodeURIComponent(body);
- return{name:p?p.name:m[1],text:body,url}}
+ return{name:p?p.name:(m?m[1]:'them'),text:body,url}}
 const _sendTalk10=sendTalk;sendTalk=function(){const t=($('#tktext')?.value||'').trim();const q=t?quickMsg(t):null;_sendTalk10();
  if(q)sheet(head('Ready to send','msg','bg-g')+`<div class="note" style="margin-bottom:12px"><b>${ic('msg')}To ${esc(q.name)}</b>${esc(q.text)}</div><a class="btn2 pri wa-go" href="${q.url}" target="_blank" rel="noopener">${ic('msg')} Open WhatsApp and send</a><div class="xs faint" style="margin-top:10px">WhatsApp opens with the message ready — just tap send. Claude also got your request and will reply here.</div>`)};
 
