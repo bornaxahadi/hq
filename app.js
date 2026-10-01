@@ -1145,6 +1145,7 @@ function nextCheck(){const n=nowD().mins,m=n%60,add=m<10?10-m:m<40?40-m:70-m,t=n
 function safeWa(u){return /^https:\/\/wa\.me\//.test(u||'')?u:''}
 function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|him|her|them|it|this|that|message|whatsapp|good|morning)$/i,m=[...s.matchAll(/\b(?:send|message|text|tell|whatsapp)\s+(?:to\s+)?([A-Za-z؀-ۿ]+)/gi)].find(x=>!STOP.test(x[1]));if(!m&&!/\b(send|message|text|tell|whatsapp)\b/i.test(s))return null;
  const low=s.toLowerCase(),COMMON=/^(mr|mrs|dr|the|and|from|team|magazine|final)$/i,P=people(),hit=P.find(x=>[x.name,x.aka].filter(Boolean).join(' ').toLowerCase().split(/[\s\/,().]+/).some(w=>w.length>=3&&!COMMON.test(w)&&new RegExp('\\b'+w.replace(/[^\w]/g,'')+'\\b').test(low)));
+ if(!hit)return null;
  const nm=hit?'':(m?m[1]:'').toLowerCase(),p=hit||P.find(x=>[x.name,x.aka].filter(Boolean).some(v=>String(v).toLowerCase().split(/[\s\/,()]+/).includes(nm)));
  const fam=(p&&p.rel==='family')||/farnaz/i.test(nm);let body=(s.split(/\bthat\b|\bsaying\b|:/i)[1]||'').trim();
  if(!body||/good ?morning|greeting|salam|صبح/i.test(s)){body=/good ?morning|صبح/i.test(s)?(fam?'صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی':'Good morning! Wishing you a great day ☀️'):(fam?'سلام عزیزم ❤️':'Hi '+(p?(/^(mr|dr)\.?$/i.test(p.name.split(' ')[0])?p.name:p.name.split(' ')[0]):'')+', warm greetings — hope you are doing well!')}
@@ -1166,6 +1167,7 @@ function tkThread(){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-12),st=D.
 function tkRefresh(){const t=$('#tk-thread');if(t){t.innerHTML=tkThread();t.scrollTop=t.scrollHeight}}
 openTalk=function(pre){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  sheet(head('Talk to Claude','spark','bg-grad')+`
+ <a class="tk-direct" href="${esc(D.claude_link||'https://claude.ai/code/session_01WrLRPGYd7DhCMPBzWkg7ap')}" target="_blank" rel="noopener">${ic('spark')}<span><b>Chat with Claude now — live</b><small>Opens your Borna HQ chat in the Claude app: instant answers, and Claude can use your laptop (WhatsApp, Chrome, email)</small></span>${ic('chev')}</a>
  <div class="tk-chips">${TK_CHIPS.map(([t,i])=>`<button type="button" class="tkc" data-x="tkchip" data-t="${esc(t)}">${ic(i)}${esc(t.replace(/[: ]+$/,''))}</button>`).join('')}</div>
  <div class="tk-thread" id="tk-thread">${tkThread()}</div>
  <form id="tk11" class="tk-bar"><textarea id="tktext" class="inp" rows="1" placeholder="Type or dictate…">${esc(pre||'')}</textarea>

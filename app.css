@@ -623,3 +623,7 @@ nav.bottom.scroller button svg{width:21px;height:21px}
 @keyframes pulse{50%{transform:scale(1.08)}}
 .tk-hint{font-size:12px;color:var(--muted);margin:6px 4px 0;min-height:16px}
 .tk-more{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.tk-more .btn2{flex:1 1 auto;margin:0;padding:9px 10px;font-size:12.5px}
+
+/* v11.1 */
+.tk-direct{display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:var(--grad);color:#fff;text-decoration:none;margin-bottom:12px;box-shadow:0 10px 26px color-mix(in srgb,var(--violet) 35%,transparent)}
+.tk-direct>svg{width:26px;height:26px;flex:none}.tk-direct span{flex:1}.tk-direct b{display:block;font-size:15px}.tk-direct small{display:block;font-size:12px;opacity:.9;line-height:1.35;margin-top:2px}
