@@ -343,11 +343,11 @@ function whereCard(){const P=places(),n=nowD(),S=stays(n.date),l=lastVisit(),her
 
 /* ================= talk to Claude ================= */
 function openTalk(pre){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-8).reverse(),st=D.inbox_status||{},SR=window.SpeechRecognition||window.webkitSpeechRecognition,lang=ls.get('hq.lang')||'en-US';
- sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app within the hour.</div>
+ sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app (checked every 30 min). Messages to people come back as a ready WhatsApp button.</div>
   <div class="micwrap">${SR?`<button type="button" class="micbig" id="micbtn" aria-label="Start talking">${ic('mic')}</button><div class="xs faint" id="micst">Tap and speak</div><div class="opts" style="justify-content:center;margin-top:10px">${[['en-US','English'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="opt ${lang===l?'on':''}" data-lang="${l}">${n}</button>`).join('')}</div>`:`<div class="xs faint">Tip: tap the microphone key on your keyboard to dictate.</div>`}</div>
   <form id="tk"><div class="fld"><textarea class="inp" name="t" id="tktext" style="min-height:96px" placeholder="e.g. Tomorrow 4pm meeting with Ali at Business Bay about the website">${esc(pre||'')}</textarea></div>
   <div class="btnrow"><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button><button type="button" class="btn2" data-x="asknow">${ic('msg')} Ask now</button><button type="submit" class="btn2 pri">${ic('spark')} Send</button></div></form>
-  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.reply||r.note||'Done'):'Claude replies within the hour — you’ll get a notification'}</div></div></div>`}).join('')}`:''}`);
+  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.reply||r.note||'Done')+(r&&r.wa&&safeWa(r.wa.url)?`<br><a class="pill g" href="${esc(safeWa(r.wa.url))}" target="_blank" rel="noopener" style="margin-top:6px;display:inline-flex">${ic('msg')}${esc(r.wa.label||'Send on WhatsApp')}</a>`:''):'Claude picks this up at '+nextCheck()+' — you’ll get a notification'}</div></div></div>`}).join('')}`:''}`);
  const b=$('#micbtn');if(b)b.onclick=()=>{if(rec){try{rec.stop()}catch(e){}return}const R=new SR();rec=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=true;const pre0=$('#tktext').value.trim();
   R.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('#tktext').value=(pre0?pre0+' ':'')+t};
   R.onend=()=>{rec=null;b.classList.remove('on');const m=$('#micst');if(m)m.textContent='Tap to talk again'};
@@ -1139,6 +1139,18 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a
  if(d.x==='urge'){setHab('urges',(+habDay(n).urges||0)+1);rerender();toast('Craving beaten 💪 +3 XP');return}
 });
 const _habXP=habXP;habXP=function(){const p=SP();let x=_habXP();Object.entries(U?.habits||{}).forEach(([d,h])=>{x+=(+h.urges||0)*3;if(h.cigs!=null&&d>=p.start&&+h.cigs<=smokeLimit(d))x+=10});return x};
+
+/* ================= v10: Talk to Claude — instant message drafts, live status ================= */
+function nextCheck(){const n=nowD().mins,m=n%60,add=m<10?10-m:m<40?40-m:70-m,t=n+add;return String(Math.floor(t/60)%24).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
+function safeWa(u){return /^https:\/\/wa\.me\//.test(u||'')?u:''}
+function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|him|her|them|it|this|that|message|whatsapp|good|morning)$/i,m=[...s.matchAll(/\b(?:send|message|text|tell|whatsapp)\s+(?:to\s+)?([A-Za-z؀-ۿ]+)/gi)].find(x=>!STOP.test(x[1]));if(!m)return null;
+ const nm=m[1].toLowerCase(),P=people(),p=P.find(x=>[x.name,x.aka].filter(Boolean).some(v=>String(v).toLowerCase().split(/[\s\/,()]+/).includes(nm)));
+ const fam=(p&&p.rel==='family')||/farnaz/i.test(nm);let body=(s.split(/\bthat\b|\bsaying\b|:/i)[1]||'').trim();
+ if(!body||/good ?morning|greeting|salam|صبح/i.test(s)){body=/good ?morning|صبح/i.test(s)?(fam?'صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی':'Good morning! Wishing you a great day ☀️'):(fam?'سلام عزیزم ❤️':'Hi! Hope you are well.')}
+ const num=p&&typeof waNum==='function'?waNum(p.phone||''):'';const url='https://wa.me/'+(num||'')+'?text='+encodeURIComponent(body);
+ return{name:p?p.name:m[1],text:body,url}}
+const _sendTalk10=sendTalk;sendTalk=function(){const t=($('#tktext')?.value||'').trim();const q=t?quickMsg(t):null;_sendTalk10();
+ if(q)sheet(head('Ready to send','msg','bg-g')+`<div class="note" style="margin-bottom:12px"><b>${ic('msg')}To ${esc(q.name)}</b>${esc(q.text)}</div><a class="btn2 pri wa-go" href="${q.url}" target="_blank" rel="noopener">${ic('msg')} Open WhatsApp and send</a><div class="xs faint" style="margin-top:10px">WhatsApp opens with the message ready — just tap send. Claude also got your request and will reply here.</div>`)};
 
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
