@@ -1268,6 +1268,91 @@ sendTalk=function(){const ta=$('#tktext'),t=(ta?.value||'').trim();if(!t)return;
  let ans=acks.length?acks:(answer(t)||[]);const local=ans.length>0&&!mm&&!/change|fix|add .* (page|button|feature)|research|find|check my|email|reply/i.test(t);
  U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now,ans,ack:'',wa,local});queueSave();
  ta.value='';ta.style.height='auto';tkRefresh();rerender();if(wa)setTimeout(()=>{const b=$('#tk-thread .bub.wa:last-of-type');b&&b.classList.add('pulse')},50)};
+
+/* ================= v14: Shopping — orders from email, deliveries, returns, spending, advice ================= */
+P.bag='<path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>';
+P.box='<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>';
+P.truck='<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>';
+PAGES.splice(PAGES.findIndex(p=>p.id==='money')+1,0,{id:'shop',l:'Shopping',i:'bag'});
+buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
+let SH=null,shLoad=null,shF={st:'all',store:'all'},shOpen={};
+const SST={ordered:['On the way','b','truck'],shipped:['On the way','b','truck'],out_for_delivery:['Out for delivery','b','truck'],delivered:['Delivered','g','check'],returned_part:['Part returned','w','refresh'],return_pending:['Return in progress','w','refresh'],refunded:['Refunded','v','refresh'],cancelled:['Cancelled','r','x'],rejected:['Rejected','r','x']};
+const SCOL={Amazon:'#f59e0b','Amazon Now':'#fbbf24',Temu:'#f97316',SHEIN:'#111827',noon:'#facc15',Offline:'#10b981','Lime (Uber)':'#22d3ee','Careem Quik':'#34d399','App Store':'#8b5cf6','Google Play':'#60a5fa',Anthropic:'#d97706',"Hardee's":'#ef4444'};
+const AEDf=n=>'AED '+(Math.round((+n||0)*100)/100).toLocaleString('en-US',{maximumFractionDigits:2});
+async function loadShop(force){if(SH&&!force&&SH.updated===(D.shop_summary||{}).updated)return SH;if(shLoad)return shLoad;
+ shLoad=(async()=>{try{const j=await pagesJSON('shop.enc');if(j)SH=await dec(j)}catch(e){console.warn(e)}shLoad=null;return SH})();return shLoad}
+function manual(){return(U.shop_manual||[]).filter(x=>!x.deleted)}
+function shopRows(){if(!SH)return[];const r=[];(SH.orders||[]).forEach(o=>{if(o.net)r.push({d:o.date,store:o.store,amt:o.net,cat:o.cat,kind:'order'})});
+ (SH.spend||[]).forEach(x=>r.push({d:x.d,store:x.store,amt:x.amt,cat:x.cat,kind:'spend'}));manual().forEach(x=>r.push({d:x.d,store:x.store||'Offline',amt:+x.amt||0,cat:x.cat||'other',kind:'manual'}));return r}
+function shopSum(days){const from=addDays(nowD().date,-days);return shopRows().filter(x=>x.d>=from).reduce((a,x)=>a+x.amt,0)}
+function monthSum(m){return shopRows().filter(x=>x.d.startsWith(m)).reduce((a,x)=>a+x.amt,0)}
+function thumbOf(it){return it&&it.t!=null&&SH.th[it.t]?SH.th[it.t]:''}
+function incoming(){return(SH?SH.orders:[]).filter(o=>['ordered','shipped','out_for_delivery'].includes(o.status))}
+function orderCard(o){const st=SST[o.status]||['',''],its=o.items||[],imgs=its.filter(i=>i.t!=null).slice(0,5),more=its.length-imgs.length,rate=(U.shop_rate||{})[o.id],open=shOpen[o.id];
+ return `<div class="card shop-o ${open?'open':''}" data-x="shopen" data-id="${esc(o.id)}">
+  <div class="so-top"><span class="so-store" style="--sc:${SCOL[o.store]||'#888'}">${esc(o.store)}</span><span class="pill ${st[1]}">${ic(st[2]||'box')}${esc(o.label||st[0])}</span><b class="so-amt">${o.total?AEDf(o.total):''}</b></div>
+  <div class="so-imgs">${imgs.map(i=>`<img src="${thumbOf(i)}" alt="" loading="lazy">`).join('')}${more>0?`<span class="so-more">+${more}</span>`:''}${!imgs.length?`<span class="so-noimg">${ic('box')}</span>`:''}</div>
+  <div class="so-meta">${fd(o.date,{day:'numeric',month:'short'})} · ${its.length} item${its.length===1?'':'s'}${o.eta?` · <b>arrives by ${fd(o.eta)}</b>`:''}${o.due?` · cash ${AEDf(o.due)}`:''}${o.refund?` · refund ${AEDf(o.refund)}${o.refundPending?' (pending)':''}`:''}</div>
+  ${o.note?`<div class="xs faint so-note">${esc(o.note)}</div>`:''}
+  ${open?`<div class="so-items">${its.map(i=>`<div class="so-it">${i.t!=null?`<img src="${thumbOf(i)}" alt="">`:`<span class="so-noimg sm">${ic('box')}</span>`}<span>${esc(i.name)}${i.note?` <em>(${esc(i.note)})</em>`:''}</span><b>${i.price?AEDf(i.price):''}</b></div>`).join('')}
+   ${(o.returned||[]).length?`<div class="xs faint" style="margin-top:8px"><b>Sent back:</b> ${o.returned.map(esc).join(' · ')}</div>`:''}
+   <div class="so-act"><span class="xs faint">Quality?</span><button type="button" class="btn2 ${rate===1?'pri':''}" data-x="shrate" data-id="${esc(o.id)}" data-v="1">👍 Good</button><button type="button" class="btn2 ${rate===-1?'pri':''}" data-x="shrate" data-id="${esc(o.id)}" data-v="-1">👎 Bad</button>${o.mail?`<a class="btn2" href="${esc(o.mail)}" target="_blank" rel="noopener">${ic('msg')} Email</a>`:''}</div>`:`<div class="xs faint so-tap">Tap to see all items</div>`}
+ </div>`}
+function renderShop(){const el=$('#p-shop');if(!el||!D)return;
+ if(SH&&D.shop_summary&&SH.updated!==D.shop_summary.updated&&!shLoad)loadShop(true).then(()=>{if(curPage()==='shop'){renderShop();draw('shop')}});
+ if(!SH){el.innerHTML=`<div class="pt">Shopping <span>loading your orders…</span></div><div class="card">${ic('bag')} Reading your orders…</div>`;loadShop().then(s=>{if(s&&curPage()==='shop'){renderShop();draw('shop')}else if(!s)el.innerHTML=`<div class="pt">Shopping</div><div class="card">No shopping data yet — Claude adds it on the next check.</div>`});return}
+ const I=SH.insights||{},n=nowD().date,m=n.slice(0,7),ms=monthSum(m),bud=I.budget||800,inc=incoming(),O=SH.orders||[];
+ const fil=O.filter(o=>(shF.store==='all'||o.store.startsWith(shF.store))&&(shF.st==='all'||(shF.st==='way'&&inc.includes(o))||(shF.st==='done'&&o.status==='delivered')||(shF.st==='ret'&&['returned_part','return_pending','refunded'].includes(o.status))||(shF.st==='x'&&['cancelled','rejected'].includes(o.status)))).sort((a,b)=>a.date<b.date?1:-1);
+ const subsM=(SH.subs||[]).reduce((a,s)=>a+(s.cycle==='year'?s.amt/12:s.amt),0),items=O.reduce((a,o)=>a+(o.items||[]).length,0),retN=O.reduce((a,o)=>a+((o.returned||[]).length||(['refunded','return_pending'].includes(o.status)?1:0)),0);
+ const R=U.shop_rate||{},good=Object.values(R).filter(v=>v===1).length,bad=Object.values(R).filter(v=>v===-1).length;
+ el.innerHTML=`<div class="pt">Shopping <span>from your 3 Gmail accounts · updated ${ago(SH.updated)}</span></div>
+ <div class="grid g3">
+ <div class="card s3 shop-verdict ${I.level||'w'}"><div class="ch"><div class="ic bg-o">${ic('bag')}</div><h3>${esc(I.verdict||'Your shopping')}</h3><span class="aside">${ic('spark')} Claude’s advice</span></div>
+  <div class="sm" style="line-height:1.55">${esc(I.headline||'')}</div>
+  <div class="bar" style="margin:12px 0 4px"><i style="width:${Math.min(100,ms/bud*100)}%;background:${ms>bud?'var(--red)':ms>bud*.8?'var(--amber)':'var(--green)'}"></i></div>
+  <div class="xs faint">This month: <b>${AEDf(ms)}</b> of your ${AEDf(bud)} budget${ms>bud?' — over budget':ms>bud*.8?' — almost at the limit':''}${(()=>{const pm=addDays(m+'-01',-1).slice(0,7),v=monthSum(pm);return v?` · last month ${AEDf(Math.round(v))}${v>bud?' (over budget)':''}`:''})()}</div>
+  ${I.should?`<div class="note"><b>${ic('bulb')}Should you keep shopping?</b>${esc(I.should)}</div>`:''}</div>
+ <div class="card s3"><div class="stats">${stat(AEDf(Math.round(shopSum(30))),'Last 30 days','money')}${stat(AEDf(Math.round(shopSum(110))),'Since mid-June','chart')}${stat(items,'Items ordered','box')}${stat(retN,'Sent back / refunded','refresh')}</div></div>
+ ${inc.length?`<div class="card s3"><div class="ch"><div class="ic bg-b">${ic('truck')}</div><h3>On the way</h3><span class="aside">${inc.length}</span></div>${inc.map(o=>`<div class="row"><img class="so-th" src="${thumbOf((o.items||[]).find(i=>i.t!=null))}" alt=""><div class="tx"><b>${esc(o.store)} · ${(o.items||[]).length} items</b><div class="xs faint">${o.etaFrom?fd(o.etaFrom)+'–':''}${fd(o.eta)}${o.pay?' · '+esc(o.pay):''}</div></div></div>`).join('')}</div>`:''}
+ ${(I.points||[]).length?`<div class="card s3"><div class="ch"><div class="ic bg-v">${ic('spark')}</div><h3>What I see</h3></div>${I.points.map(p=>`<div class="row"><div class="tx sm">${esc(p)}</div></div>`).join('')}</div>`:''}
+ <div class="card s3"><div class="ch"><div class="ic bg-a">${ic('chart')}</div><h3>Where the money goes</h3></div><div class="chartbox sm"><canvas id="c-shop-store"></canvas></div><div class="legend" id="lg-shop"></div><div class="chartbox sm" style="margin-top:12px"><canvas id="c-shop-month"></canvas></div></div>
+ <div class="card s3"><div class="ch"><div class="ic bg-g">${ic('star')}</div><h3>Quality by store</h3></div>${(I.quality||[]).map(q=>`<div class="row"><span class="pill ${q.score==='good'?'g':q.score==='bad'?'r':'w'}">${esc(q.store)}</span><div class="tx sm">${esc(q.text)}</div></div>`).join('')}${good+bad?`<div class="xs faint" style="margin-top:6px">Your ratings: ${good} 👍 · ${bad} 👎</div>`:''}</div>
+ <div class="pt sub s3" style="margin:6px 0 0">Orders <span>${fil.length}</span></div>
+ <div class="s3 shop-f">${[['all','All'],['way','On the way'],['done','Delivered'],['ret','Returns'],['x','Cancelled']].map(([k,l])=>`<button type="button" class="tkc ${shF.st===k?'on':''}" data-x="shf" data-k="st" data-v="${k}">${l}</button>`).join('')}<span class="sep"></span>${['all','Amazon','Temu','SHEIN','noon'].map(s=>`<button type="button" class="tkc ${shF.store===s?'on':''}" data-x="shf" data-k="store" data-v="${s}">${s==='all'?'All stores':s}</button>`).join('')}</div>
+ <div class="s3 shop-list">${fil.map(orderCard).join('')||'<div class="card">Nothing here.</div>'}</div>
+ <div class="card s3"><div class="ch"><div class="ic bg-c">${ic('refresh')}</div><h3>Subscriptions</h3><span class="aside">≈ ${AEDf(subsM)}/month</span></div>${(SH.subs||[]).map(s=>`<div class="row"><div class="tx"><b>${esc(s.name)}</b> <span class="pill ${s.verdict==='keep'?'g':s.verdict==='cancel'?'r':'w'}">${s.verdict}</span><div class="xs faint">${AEDf(s.amt)}/${s.cycle} · via ${esc(s.via)} · next ${fd(s.next)}<br>${esc(s.why)}</div></div></div>`).join('')}${(SH.failed||[]).length?`<div class="note"><b>${ic('bell')}Payment problems</b>${SH.failed.map(esc).join('<br>')}</div>`:''}</div>
+ <div class="card s3"><div class="ch"><div class="ic bg-o">${ic('money')}</div><h3>Everyday spending</h3><span class="aside">apps · rides · groceries · offline</span></div>
+  ${[...manual().map(x=>({...x,store:x.store||'Offline',what:x.what,m:1})),...(SH.spend||[])].sort((a,b)=>a.d<b.d?1:-1).slice(0,14).map(x=>`<div class="row"><div class="tx"><b>${esc(x.what||x.cat)}</b><div class="xs faint">${esc(x.store)} · ${fd(x.d)} · ${esc(x.cat)}</div></div><b>${AEDf(x.amt)}</b>${x.m?`<button class="x" data-x="shdel" data-id="${x.id}" aria-label="Delete">${ic('x')}</button>`:''}</div>`).join('')}
+  <button type="button" class="btn2 pri" data-x="shadd" style="margin-top:10px;width:100%">${ic('plus')} Add an offline purchase</button></div>
+ ${(I.rules||[]).length?`<div class="card s3"><div class="ch"><div class="ic bg-g">${ic('shield')}</div><h3>Your shopping rules</h3></div>${I.rules.map((r,i)=>`<div class="row"><b>${i+1}</b><div class="tx sm">${esc(r)}</div></div>`).join('')}</div>`:''}
+ </div>`}
+function shopCharts(){if(!SH)return;const by={};shopRows().forEach(x=>{const k=x.store.startsWith('Amazon')?'Amazon':x.store;by[k]=(by[k]||0)+x.amt});const E=Object.entries(by).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
+ mk('c-shop-store',{type:'doughnut',data:{labels:E.map(e=>e[0]),datasets:[{data:E.map(e=>Math.round(e[1])),backgroundColor:E.map((e,i)=>SCOL[e[0]]||ACOL[i%8]),borderColor:css('--card'),borderWidth:3}]},options:{cutout:'66%'}});
+ const lg=$('#lg-shop');if(lg)lg.innerHTML=E.map(e=>`<span><i style="background:${SCOL[e[0]]||'#888'}"></i>${esc(e[0])} · ${AEDf(Math.round(e[1]))}</span>`).join('');
+ const M=[...new Set(shopRows().map(x=>x.d.slice(0,7)))].sort(),cats=['shopping','subscriptions & apps','daily'];const g=(m,f)=>Math.round(shopRows().filter(x=>x.d.startsWith(m)&&f(x)).reduce((a,x)=>a+x.amt,0));
+ mk('c-shop-month',{type:'bar',data:{labels:M.map(m=>fd(m+'-15',{month:'short'})),datasets:[{label:'Shopping',data:M.map(m=>g(m,x=>x.kind==='order'||x.kind==='manual')),backgroundColor:'#f97316',borderRadius:6,stack:'s'},{label:'Apps & subscriptions',data:M.map(m=>g(m,x=>['subscription','games'].includes(x.cat))),backgroundColor:'#8b5cf6',borderRadius:6,stack:'s'},{label:'Rides, food & groceries',data:M.map(m=>g(m,x=>['transport','groceries','food'].includes(x.cat))),backgroundColor:'#22d3ee',borderRadius:6,stack:'s'}]},options:{plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:css('--line')}}}}})}
+const _draw14=draw;draw=function(pg){_draw14(pg);if(pg==='shop'){if(!$('#p-shop .shop-list'))renderShop();shopCharts()}};
+const _render14=render;render=function(keep){renderShop();_render14(keep)};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset;
+ if(d.x==='shopen'){if(e.target.closest('button,a'))return;shOpen[d.id]=!shOpen[d.id];renderShop();draw('shop');return}
+ if(d.x==='shf'){shF[d.k]=d.v;renderShop();draw('shop');return}
+ if(d.x==='shrate'){U.shop_rate=U.shop_rate||{};U.shop_rate[d.id]=U.shop_rate[d.id]===+d.v?0:+d.v;queueSave();renderShop();draw('shop');toast('Thanks — Claude uses this to judge quality');return}
+ if(d.x==='shdel'){const x=(U.shop_manual||[]).find(x=>x.id===d.id);if(x){x.deleted=true;x.updated=new Date().toISOString();queueSave();renderShop();draw('shop')}return}
+ if(d.x==='shadd'){sheet(head('Offline purchase','bag','bg-o')+`<form id="shf14"><div class="fld"><label>What did you buy?</label><input class="inp" name="what" required placeholder="Shoes, groceries, gift…"></div>
+  <div class="fld"><label>Shop</label><input class="inp" name="store" placeholder="Dubai Mall, Carrefour…"></div>
+  <div class="fld"><label>Amount (AED)</label><input class="inp" name="amt" type="number" step="0.01" inputmode="decimal" required></div>
+  <div class="fld"><label>Type</label><select class="inp" name="cat">${['clothing','electronics','groceries','food','home','kids','health','gift','travel','other'].map(c=>`<option>${c}</option>`).join('')}</select></div>
+  <div class="fld"><label>Date</label><input class="inp" name="d" type="date" value="${nowD().date}"></div>
+  <button class="btn2 pri" style="width:100%">Save</button></form>`);
+  $('#shf14').onsubmit=ev=>{ev.preventDefault();const f=Object.fromEntries(new FormData(ev.target));U.shop_manual=U.shop_manual||[];U.shop_manual.push({id:uid(),...f,amt:+f.amt,updated:new Date().toISOString()});queueSave();$('#scrim').click();renderShop();draw('shop');toast('Saved ✓')};return}
+});
+/* Today: deliveries card · Talk: shopping answers */
+const _renderToday14=renderToday;renderToday=function(G){_renderToday14(G);const S=D.shop_summary;if(!S||!(S.incoming||[]).length)return;const t=$('#p-today .v8top');if(!t)return;const x=document.createElement('div');
+ x.innerHTML=`<a class="card mb shop-today" href="#shop"><div class="ch"><div class="ic bg-b">${ic('truck')}</div><h3>Deliveries</h3><span class="aside">Shopping ›</span></div>${S.incoming.map(o=>`<div class="sm"><b>${esc(o.store)}</b> · ${esc(o.what)} · ${esc(o.when)}${o.cash?` · <b>have ${esc(o.cash)} cash</b>`:''}</div>`).join('')}</a>`;t.appendChild(x.firstElementChild)};
+function ansShop(){const S=D.shop_summary||{},L=[];if(S.verdict)L.push('🛍 '+S.verdict+' — '+(S.headline||''));
+ (S.incoming||[]).forEach(o=>L.push(`📦 ${o.store}: ${o.what} · ${o.when}${o.cash?' · cash '+o.cash:''}`));(S.refunds||[]).forEach(r=>L.push('↩️ '+r));
+ L.push(`This month so far: ${AEDf(SH?monthSum(nowD().date.slice(0,7)):S.month||0)}`);L.push('Open Shopping for photos of everything you bought.');return L}
+const _answer14=answer;answer=function(t){if(/shop|deliver|order|package|parcel|receiv|amazon|temu|shein|noon|bought|purchas|refund|return|subscription/i.test(t))return ansShop();return _answer14(t)};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

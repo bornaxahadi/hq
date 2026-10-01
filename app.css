@@ -634,3 +634,24 @@ nav.bottom.scroller button svg{width:21px;height:21px}
 .tk-direct{order:-1}
 .tkv{margin-left:auto;align-self:center}
 .bub.pend span{display:inline}.bub.pend span .ic,.bub.pend span svg{vertical-align:-2px}
+/* v14 shopping */
+.shop-verdict{border-color:color-mix(in srgb,var(--amber) 45%,var(--line))}
+.shop-verdict.r{border-color:color-mix(in srgb,var(--red) 45%,var(--line))}.shop-verdict.g{border-color:color-mix(in srgb,var(--green) 45%,var(--line))}
+.shop-f{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}.shop-f::-webkit-scrollbar{display:none}
+.shop-f .tkc{flex:0 0 auto}.shop-f .tkc.on{background:var(--text);color:var(--bg);border-color:var(--text)}.shop-f .sep{flex:0 0 1px;background:var(--line2);margin:4px 2px}
+.shop-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.shop-o{cursor:pointer;padding:14px}.shop-o.open{grid-column:1/-1}
+.so-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.so-amt{margin-left:auto;font-size:15px}
+.so-store{font-weight:800;font-size:13px;padding:3px 9px;border-radius:8px;color:#fff;background:var(--sc)}
+.so-imgs{display:flex;gap:6px;margin:10px 0 6px;align-items:center}
+.so-imgs img{width:58px;height:58px;border-radius:10px;object-fit:cover;background:#fff;border:1px solid var(--line)}
+.so-more{width:58px;height:58px;border-radius:10px;display:grid;place-items:center;font-weight:800;background:var(--card2);border:1px solid var(--line)}
+.so-noimg{width:58px;height:58px;border-radius:10px;display:grid;place-items:center;background:var(--card2);color:var(--muted)}.so-noimg.sm{width:40px;height:40px;flex:0 0 40px}
+.so-meta{font-size:12.5px;color:var(--muted)}.so-note{margin-top:6px;line-height:1.45}.so-tap{margin-top:6px;opacity:.7}
+.so-items{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 14px}
+.so-it{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:5px 0;border-top:1px solid var(--line)}
+.so-it img{width:40px;height:40px;flex:0 0 40px;border-radius:8px;object-fit:cover;background:#fff}.so-it span{flex:1;min-width:0}.so-it em{color:var(--amber);font-style:normal}
+.so-act{grid-column:1/-1;display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}.so-act .btn2{flex:0 0 auto}
+.so-th{width:46px;height:46px;border-radius:10px;object-fit:cover;background:#fff;flex:0 0 46px}
+.shop-today{display:block;text-decoration:none;color:inherit}
+@media(max-width:640px){.shop-list{grid-template-columns:1fr}.so-imgs img,.so-more,.so-noimg{width:52px;height:52px}}
