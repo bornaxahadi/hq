@@ -343,7 +343,7 @@ function whereCard(){const P=places(),n=nowD(),S=stays(n.date),l=lastVisit(),her
 
 /* ================= talk to Claude ================= */
 function openTalk(pre){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-8).reverse(),st=D.inbox_status||{},SR=window.SpeechRecognition||window.webkitSpeechRecognition,lang=ls.get('hq.lang')||'en-US';
- sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app (checked every 30 min). Messages to people come back as a ready WhatsApp button.</div>
+ sheet(head('Talk to the app','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app (checked every 30 min). Messages to people come back as a ready WhatsApp button.</div>
   <div class="micwrap">${SR?`<button type="button" class="micbig" id="micbtn" aria-label="Start talking">${ic('mic')}</button><div class="xs faint" id="micst">Tap and speak</div><div class="opts" style="justify-content:center;margin-top:10px">${[['en-US','English'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="opt ${lang===l?'on':''}" data-lang="${l}">${n}</button>`).join('')}</div>`:`<div class="xs faint">Tip: tap the microphone key on your keyboard to dictate.</div>`}</div>
   <form id="tk"><div class="fld"><textarea class="inp" name="t" id="tktext" style="min-height:96px" placeholder="e.g. Tomorrow 4pm meeting with Ali at Business Bay about the website">${esc(pre||'')}</textarea></div>
   <div class="btnrow"><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button><button type="button" class="btn2" data-x="asknow">${ic('msg')} Ask now</button><button type="submit" class="btn2 pri">${ic('spark')} Send</button></div></form>
@@ -373,11 +373,11 @@ function projCard(p,nt){const pr=Math.max(0,Math.min(100,+p.progress||0)),st=p.s
   ${nt?`<div class="note"><b>${ic('spark')}Claude</b>${esc(nt.text||nt)}</div>`:''}</div>`}
 function renderProjects(){const P=projects(),notes=D.project_notes||{},by=x=>P.filter(p=>(p.status||'Active')===x);
  $('#p-projects').innerHTML=`<div class="pt">Projects <span>what you're building and thinking about</span></div>
- <div class="bizbar"><button class="bigadd alt2" data-act="project">${ic('plus')}New project</button><button class="bigadd alt3" data-act="talk">${ic('mic')}Talk to Claude</button></div>
+ <div class="bizbar"><button class="bigadd alt2" data-act="project">${ic('plus')}New project</button><button class="bigadd alt3" data-act="talk">${ic('mic')}Talk to the app</button></div>
  <div class="stats" style="margin-bottom:14px">${PST.map(x=>stat(by(x).length,x,PIC[x])).join('')}</div>
  <div class="g3">${PST.filter(x=>by(x).length).map(x=>`<div class="card s3"><div class="ch"><div class="ic ${PBG[x]}">${ic(PIC[x])}</div><h3>${x}</h3><span class="aside">${by(x).length}</span></div><div class="projs">${by(x).map(p=>projCard(p,notes[p.id])).join('')}</div></div>`).join('')||`<div class="s3">${empty('Add your first project','folder')}</div>`}
   ${card('Where projects come from','share','bg-grad',`<div class="row"><div class="ico bg-grad">${ic('spark')}</div><div class="tx"><b>Claude</b><div>Claude keeps the projects from your Claude chats, memory and this assistant up to date here.</div></div></div>
-   <div class="row"><div class="ico bg-g">${ic('msg')}</div><div class="tx"><b>ChatGPT</b><div>ChatGPT can't be connected directly. In ChatGPT ask: “List all my projects and ideas with status and next step”, copy the answer, and paste it into Talk to Claude — Claude adds them here.</div></div></div>
+   <div class="row"><div class="ico bg-g">${ic('msg')}</div><div class="tx"><b>ChatGPT</b><div>ChatGPT can't be connected directly. In ChatGPT ask: “List all my projects and ideas with status and next step”, copy the answer, and paste it into Talk to the app — Claude adds them here.</div></div></div>
    <div class="row"><div class="ico bg-p">${ic('edit')}</div><div class="tx"><b>You</b><div>Tap “New project”, or tap any project to update its status, next step and progress.</div></div></div>`,'','s3')}
  </div>`}
 function openProject(id){const p=id?{...(projects().find(x=>x.id===id)||{})}:{status:'Active',area:'Business',progress:0};
@@ -528,7 +528,7 @@ function openTxn(type,id){const t=id?(U.txns||[]).find(x=>x.id===id)||{}:{type,d
  sheet(head(t.type==='out'?'Money spent':'Money received','money',t.type==='out'?'bg-r':'bg-g')+`<form id="txf"><div class="two"><div class="fld"><label>AED</label><input class="inp" name="a" inputmode="numeric" value="${t.amount||''}" required></div><div class="fld"><label>Date</label><input class="inp" type="date" name="d" value="${esc(t.date||'')}"></div></div><div class="fld"><label>For</label><input class="inp" name="l" value="${esc(t.label||'')}" placeholder="${t.type==='out'?'e.g. Car service':'e.g. Mojeh – September'}"></div>
  <div class="btnrow">${id?`<button type="button" class="btn2 del" data-deltxn="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button class="btn2 pri">Save</button></div></form>`);
  $('#txf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),r={type:t.type,amount:+String(f.a.value).replace(/[^\d.]/g,''),date:f.d.value||nowD().date,label:f.l.value.trim(),updated:now};U.txns=U.txns||[];if(id)Object.assign(t,r);else U.txns.push({id:uid(),...r});queueSave();closeSheet();rerender();toast('Saved')}}
-function openMore(){sheet(head('More','list','bg-grad')+`<div class="actions">${PAGES.filter(p=>!MAIN.includes(p.id)).map(p=>`<button class="action" data-go="${p.id}"><span class="qi bg-v">${ic(p.i)}</span><b>${p.l}</b></button>`).join('')}<button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to Claude</b></button><button class="action" data-act="settings"><span class="qi bg-c">${ic('gear')}</span><b>Settings</b></button></div>`)}
+function openMore(){sheet(head('More','list','bg-grad')+`<div class="actions">${PAGES.filter(p=>!MAIN.includes(p.id)).map(p=>`<button class="action" data-go="${p.id}"><span class="qi bg-v">${ic(p.i)}</span><b>${p.l}</b></button>`).join('')}<button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to the app</b></button><button class="action" data-act="settings"><span class="qi bg-c">${ic('gear')}</span><b>Settings</b></button></div>`)}
 function ovSet(id,o){U.pipe=U.pipe||[];const ex=U.pipe.find(x=>x.id===id);if(ex)Object.assign(ex,o);else U.pipe.push({id,...o})}
 
 /* ================= nav ================= */
@@ -828,7 +828,7 @@ function closeSheet(){stopRec();$('#scrim').classList.remove('on');$('#sheet').c
 $('#scrim').onclick=closeSheet;
 const head=(t,i,bg)=>`<h2><span class="ic ${bg}">${ic(i)}</span>${t}<button data-act="close" aria-label="Close">${ic('x')}</button></h2>`;
 function openActions(){sheet(head('Add','plus','bg-grad')+`<div class="actions">
- <button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to Claude</b><small>Say it — Claude does it</small></button>
+ <button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to the app</b><small>Say it — Claude does it</small></button>
  <button class="action" data-act="meet"><span class="qi bg-o">${ic('users')}</span><b>New meeting</b><small>Who, where, when, agenda</small></button>
  <button class="action" data-act="checkin"><span class="qi bg-v">${ic('moon')}</span><b>Log my day</b><small>Hours, gym, meetings</small></button>
  <button class="action" data-act="newtask"><span class="qi bg-p">${ic('list')}</span><b>New to-do</b><small>Task with category & date</small></button>
@@ -1140,7 +1140,7 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a
 });
 const _habXP=habXP;habXP=function(){const p=SP();let x=_habXP();Object.entries(U?.habits||{}).forEach(([d,h])=>{x+=(+h.urges||0)*3;if(h.cigs!=null&&d>=p.start&&+h.cigs<=smokeLimit(d))x+=10});return x};
 
-/* ================= v10: Talk to Claude — instant message drafts, live status ================= */
+/* ================= v10: Talk to the app — instant message drafts, live status ================= */
 function nextCheck(){const n=nowD().mins,m=n%60,add=m<10?10-m:m<40?40-m:70-m,t=n+add;return String(Math.floor(t/60)%24).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
 function safeWa(u){return /^https:\/\/wa\.me\//.test(u||'')?u:''}
 function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|him|her|them|it|this|that|message|whatsapp|good|morning)$/i,m=[...s.matchAll(/\b(?:send|message|text|tell|whatsapp)\s+(?:to\s+)?([A-Za-z؀-ۿ]+)/gi)].find(x=>!STOP.test(x[1]));if(!m&&!/\b(send|message|text|tell|whatsapp)\b/i.test(s))return null;
@@ -1154,7 +1154,7 @@ function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|hi
 const _sendTalk10=sendTalk;sendTalk=function(){const t=($('#tktext')?.value||'').trim();const q=t?quickMsg(t):null;_sendTalk10();
  if(q)sheet(head('Ready to send','msg','bg-g')+`<div class="note" style="margin-bottom:12px"><b>${ic('msg')}To ${esc(q.name)}</b>${esc(q.text)}</div><a class="btn2 pri wa-go" href="${q.url}" target="_blank" rel="noopener">${ic('msg')} Open WhatsApp and send</a><div class="xs faint" style="margin-top:10px">WhatsApp opens with the message ready — just tap send. Claude also got your request and will reply here.</div>`)};
 
-/* ================= v11: new Talk to Claude — chat, instant actions ================= */
+/* ================= v11: new Talk to the app — chat, instant actions ================= */
 const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 let rec11=null;
 const TK_CHIPS=[['What’s next today?','sun'],['Any updates?','bell'],['Add a to-do: ','list'],['Send a WhatsApp to ','msg'],['Slept 7 hours','moon'],['I smoked 1 cigarette','flame']];
@@ -1166,7 +1166,7 @@ function tkThread(){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-12),st=D.
   return `<div class="bub me">${esc(x.text)}<small>${when}</small></div>${claude}${wa?`<a class="bub wa" href="${esc(safeWa(wa.url))}" target="_blank" rel="noopener">${ic('msg')}<span><b>${esc(wa.label||'Send on WhatsApp')}</b><small>${esc(decodeURIComponent((wa.url.split('text=')[1]||'')).slice(0,90))}</small></span></a>`:''}`}).join('')}
 function tkRefresh(){const t=$('#tk-thread');if(t){t.innerHTML=tkThread();t.scrollTop=t.scrollHeight}}
 openTalk=function(pre){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- sheet(head('Talk to Claude','spark','bg-grad')+`
+ sheet(head('Talk to the app','spark','bg-grad')+`
  <a class="tk-direct" href="${esc(D.claude_link||'https://claude.ai/code/session_01WrLRPGYd7DhCMPBzWkg7ap')}" target="_blank" rel="noopener">${ic('spark')}<span><b>Chat with Claude now — live</b><small>Opens your Borna HQ chat in the Claude app: instant answers, and Claude can use your laptop (WhatsApp, Chrome, email)</small></span>${ic('chev')}</a>
  <div class="tk-chips">${TK_CHIPS.map(([t,i])=>`<button type="button" class="tkc" data-x="tkchip" data-t="${esc(t)}">${ic(i)}${esc(t.replace(/[: ]+$/,''))}</button>`).join('')}</div>
  <div class="tk-thread" id="tk-thread">${tkThread()}</div>
@@ -1198,6 +1198,76 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-x="tkchip"
  if(/^I smoked 1/.test(t)){setHab('cigs',(cigs(nowD().date)||0)+1);rerender();toast('Logged 1 cigarette');return}
  ta.value=t;ta.focus();if(!/[: ]$/.test(t))sendTalk()});
 
+
+/* ================= v12: Talk to the app — instant answers from your data ================= */
+const APPV='v13';
+const AED=n=>'AED '+Math.round(+n||0).toLocaleString('en-US');
+function hhmm(m){return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function toM(t){const[a,b]=(t||'0:0').split(':');return(+a)*60+(+b||0)}
+function openTodos(lim){const n=nowD().date;return todos().filter(t=>!t.done&&(!lim||!t.due||t.due<=n))}
+function ansPlan(){const n=nowD(),L=[],T=D.today&&D.today.date===n.date?D.today:null;
+ if(T&&T.headline)L.push('🎯 '+T.headline);
+ const ev=eventsOn(n.date).filter(e=>e.kind!=='pending');
+ L.push(ev.length?'📅 Today: '+ev.map(e=>(e.time?e.time+' ':'')+e.title).join(' · '):'📅 No meetings today.');
+ const s=(D.schedule||[]).find(b=>toM(b.start)<=n.mins&&n.mins<toM(b.end)),nx=(D.schedule||[]).find(b=>toM(b.start)>n.mins);
+ if(s)L.push('⏱ Now: '+s.block+(s.what?' — '+s.what:''));if(nx)L.push('➡️ Next at '+nx.start+': '+nx.block);
+ const td=openTodos(true).slice(0,4);if(td.length)L.push('✅ Top to-dos: '+td.map(t=>t.text).join(' · '));
+ return L}
+function ansTodos(){const a=openTodos(true),b=openTodos(false);if(!b.length)return['No open to-dos 🎉'];
+ return [`You have ${a.length} due now/overdue (${b.length} open in total):`,...a.slice(0,8).map(t=>'• '+t.text+(t.due?` (${fd(t.due)})`:''))]}
+function ansMeet(){const up=meetings().filter(m=>['upcoming','now'].includes(mState(m))).slice(0,4);if(!up.length)return['No upcoming meetings. Tap “Meeting” below to add one.'];
+ return up.map(m=>`• ${mName(m)} — ${fd(m.date)} ${m.time||''} (${untilTxt(m)})${m.place?' · '+m.place:''}`)}
+function ansDeals(){const p=(D.pipeline||[]).filter(x=>x.stage!=='Won'&&x.stage!=='Lost');if(!p.length)return['No open deals.'];
+ return p.slice(0,6).map(x=>`• ${x.name} (${x.stage}${x.prob?', '+x.prob+'%':''}) → ${x.next||'—'}`)}
+function ansMoney(){const M=D.money||{},L=[];(M.costs||[]).forEach(c=>L.push(`• ${c.name}: ${AED(c.amount)}${c.paidUntil?' — paid until '+fd(c.paidUntil):''}`));
+ (M.receivables||[]).slice(0,4).forEach(r=>L.push(`• Expected: ${r.label} — your share ${AED(r.yours)} (${r.prob}%)`));
+ if(M.target)L.unshift('Monthly target: '+AED(M.target));return L.length?L:['No money data yet.']}
+function ansSmoke(){const n=nowD().date,c=cigs(n)||0,L=smokeLimit(n);return[`🚬 ${c} of ${L} today — ${c>L?'over by '+(c-L):(L-c)+' left'}.`,'Tip: '+smokeTip()]}
+function ansUpdates(){const L=[],al=alerts();al.forEach(a=>L.push('• '+a.title+(a.text?' — '+a.text:'')));
+ const st=D.inbox_status||{},last=Object.values(st).filter(r=>r.reply).sort((a,b)=>(b.updated||'')<(a.updated||'')?-1:1).slice(0,2);
+ last.forEach(r=>L.push('💬 '+r.reply.slice(0,160)));if(D.updated)L.push('Last update from Claude: '+new Date(D.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
+ return L.length?L:['Nothing new right now.']}
+function ansPerson(t){const low=t.toLowerCase(),p=people().find(x=>[x.name,x.aka].filter(Boolean).join(' ').toLowerCase().split(/[\s\/,().]+/).some(w=>w.length>=3&&!/^(mr|mrs|dr|the|and)$/.test(w)&&new RegExp('\\b'+w.replace(/[^\w]/g,'')+'\\b').test(low)));
+ if(!p)return null;const L=[`👤 ${p.name}${p.role?' — '+p.role:''}`];if(p.notes)L.push(String(p.notes).slice(0,200));
+ (D.pipeline||[]).filter(d=>(d.people||[]).includes(p.id)).forEach(d=>L.push(`• ${d.name}: ${d.next||d.stage}`));
+ openTodos(false).filter(x=>new RegExp('\\b'+p.name.split(' ').pop()+'\\b','i').test(x.text)).slice(0,3).forEach(x=>L.push('✅ '+x.text));
+ meetings().filter(m=>m.person&&m.person.includes(p.name.split(' ')[0])&&mState(m)==='upcoming').slice(0,2).forEach(m=>L.push(`📅 ${mName(m)} ${fd(m.date)} ${m.time||''}`));return L}
+const HELP=['I answer instantly from your Borna HQ data. Try:','• What’s my plan today?','• My to-dos · Next meeting · Deals · Money','• Any updates?','• Tell me about Yusuf','• Add a to-do: call Emmanuel','• Send good morning to Farnaz','• Slept 7 hours · Gym done · Smoked 1','Anything else is saved for Claude.'];
+function answer(t){const s=t.toLowerCase();
+ if(/^(help|\?|what can you do)/.test(s))return HELP;
+ if(/plan|today|schedule|what.?s next|agenda for (the )?day|برنامه/.test(s)&&!/meeting with/.test(s))return ansPlan();
+ if(/to-?dos?|tasks?|what (do|should) i do|pending/.test(s)&&!/^(add|remind)/.test(s))return ansTodos();
+ if(/meeting|appointment|calendar|جلسه/.test(s)&&/next|when|today|tomorrow|upcoming|my|any|\?/.test(s))return ansMeet();
+ if(/deals?|pipeline|business|en590|warehouse|qatar|sudan/.test(s))return ansDeals();
+ if(/money|cash|rent|budget|income|pay|salary|پول/.test(s))return ansMoney();
+ if(/smok|cigar|سیگار/.test(s)&&!/smoked \d|^\+?\d/.test(s))return ansSmoke();
+ if(/update|news|what.?s new|anything new|alert/.test(s))return ansUpdates();
+ if(/who is|about|tell me|info on|status of/.test(s))return ansPerson(t);
+ return null}
+tkThread=function(){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-12),st=D.inbox_status||{},P=people();
+ if(!I.length)return `<div class="tk-empty">${ic('spark')}<b>Ask me anything — I answer right away.</b><span>${HELP.slice(1,8).map(esc).join('<br>')}</span></div>`;
+ return I.map(x=>{const r=st[x.id],okWa=w=>w&&safeWa(w.url)&&(r&&r.wa===w||P.some(p=>(w.label||'').includes(p.name)))?w:null,wa=okWa(r&&r.wa)||okWa(x.wa);
+  const when=x.created?new Date(x.created).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'}):'';
+  let bot='';if(x.ans&&x.ans.length)bot+=`<div class="bub c">${x.ans.map(esc).join('<br>')}</div>`;
+  if(r)bot+=`<div class="bub c"><small class="who">Claude</small>${esc(r.reply||r.note||'Done ✓')}</div>`;
+  else if(!x.ans||!x.ans.length)bot+=`<div class="bub c pend">${x.ack?esc(x.ack)+'<br>':''}<span>${ic('clock')} Saved for Claude — answer here by ${nextCheck()}. Need it now? Tap <b>Live chat</b> above.</span></div>`;
+  return `<div class="bub me">${esc(x.text)}<small>${when}</small></div>${bot}${wa?`<a class="bub wa" href="${esc(safeWa(wa.url))}" target="_blank" rel="noopener">${ic('msg')}<span><b>${esc(wa.label||'Send on WhatsApp')}</b><small>${esc(decodeURIComponent((wa.url.split('text=')[1]||'')).slice(0,90))}</small></span></a>`:''}`}).join('')};
+const TK12=[['What’s my plan today?','sun'],['My to-dos','list'],['Next meeting','users'],['Deals','chart'],['Any updates?','bell'],['Add a to-do: ','plus'],['Send good morning to ','msg'],['Slept 7 hours','moon'],['I smoked 1 cigarette','flame'],['Help','spark']];
+const _openTalk12=openTalk;openTalk=function(pre){_openTalk12(pre);
+ const ch=$('.tk-chips');if(ch)ch.innerHTML=TK12.map(([t,i])=>`<button type="button" class="tkc" data-x="tkchip" data-t="${esc(t)}">${ic(i)}${esc(t.replace(/[: ]+$/,''))}</button>`).join('');
+ const dl=$('.tk-direct');if(dl){dl.querySelector('b').textContent='Live chat with Claude';dl.querySelector('small').textContent='For WhatsApp sending, laptop & anything complex — opens Claude'}
+ const ta=$('#tktext');if(ta)ta.placeholder='Ask or tell me anything…';
+ const mo=$('.tk-more');if(mo){const a=mo.querySelector('[data-x="asknow"]');if(a)a.remove();mo.insertAdjacentHTML('beforeend',`<span class="xs faint tkv">App ${APPV}</span>`)}};
+sendTalk=function(){const ta=$('#tktext'),t=(ta?.value||'').trim();if(!t)return;if(typeof rec11!=='undefined'&&rec11){try{rec11.stop()}catch(e){}}
+ const now=new Date().toISOString(),acks=[];let wa=null;
+ const h=quickHabits(t);if(h)acks.push(h.replace(/ · $/,'')+' ✓');
+ const ask=/^(tell me|who is|what|info|status|how)/i.test(t),q=ask?null:quickMsg(t);if(q){wa={label:'Send to '+q.name+' on WhatsApp',url:q.url};acks.push('Message for '+q.name+' is ready — tap the green button to send.')}
+ else if(!ask&&/\b(send|message|text|whatsapp)\b/i.test(t))acks.push('I couldn’t find that person in People. Add them there (with phone), or use Live chat.');
+ const td=t.match(/^(?:add (?:a )?(?:to-?do|task)|to-?do|remind me(?: to)?)[:\s]+(.+)/i);if(td){U.todos.push({id:uid(),text:td[1].trim(),cat:/deal|client|meet|call|invoice|business/i.test(td[1])?'Business':'Personal',due:nowD().date,done:false,updated:now});acks.push('Added to your To-do ✓')}
+ const mm=/\b(meeting|meet)\b/i.test(t)&&typeof parseMeet==='function'?parseMeet(t):null;if(mm&&mm.date&&mm.time)acks.push(`Meeting noted for ${fd(mm.date)} ${mm.time} — Claude adds it to your calendar.`);
+ let ans=acks.length?acks:(answer(t)||[]);const local=ans.length>0&&!mm&&!/change|fix|add .* (page|button|feature)|research|find|check my|email|reply/i.test(t);
+ U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now,ans,ack:'',wa,local});queueSave();
+ ta.value='';ta.style.height='auto';tkRefresh();rerender();if(wa)setTimeout(()=>{const b=$('#tk-thread .bub.wa:last-of-type');b&&b.classList.add('pulse')},50)};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

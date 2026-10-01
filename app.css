@@ -627,3 +627,10 @@ nav.bottom.scroller button svg{width:21px;height:21px}
 /* v11.1 */
 .tk-direct{display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:var(--grad);color:#fff;text-decoration:none;margin-bottom:12px;box-shadow:0 10px 26px color-mix(in srgb,var(--violet) 35%,transparent)}
 .tk-direct>svg{width:26px;height:26px;flex:none}.tk-direct span{flex:1}.tk-direct b{display:block;font-size:15px}.tk-direct small{display:block;font-size:12px;opacity:.9;line-height:1.35;margin-top:2px}
+/* v12 talk to the app */
+.bub .who{display:block;font-size:10px;opacity:.6;margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em}
+.bub.wa.pulse{animation:wapulse 1.2s ease 3}
+@keyframes wapulse{50%{transform:scale(1.03);box-shadow:0 0 0 6px rgba(37,211,102,.25)}}
+.tk-direct{order:-1}
+.tkv{margin-left:auto;align-self:center}
+.bub.pend span{display:inline}.bub.pend span .ic,.bub.pend span svg{vertical-align:-2px}
