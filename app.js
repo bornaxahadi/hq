@@ -1417,6 +1417,84 @@ const _moneyCalc15=moneyCalc;moneyCalc=function(){const m=_moneyCalc15(),c=liveC
 
 /* --- 7. Social: show how fresh the numbers are --- */
 const _renderSocial15=renderSocial;renderSocial=function(){_renderSocial15();const el=$('#p-social .pt');if(el&&D.social_updated&&!el.querySelector('.fresh'))el.insertAdjacentHTML('beforeend',`<span class="fresh">${ic('refresh')} checked ${ago(D.social_updated)}</span>`)};
+
+/* ================= v16: dark/light mode + accent · Watch & Play tracker ================= */
+/* --- Theme --- */
+const ACCENTS={violet:['#8b5cf6','#22d3ee'],ocean:['#3b82f6','#06b6d4'],sunset:['#f97316','#ec4899'],emerald:['#10b981','#84cc16'],gold:['#f59e0b','#ef4444'],rose:['#ec4899','#8b5cf6']};
+function applyTheme(){const t=ls.get('hq.theme')||'auto',a=ls.get('hq.accent')||'violet',r=document.documentElement;
+ if(t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',t);
+ const A=ACCENTS[a]||ACCENTS.violet;r.style.setProperty('--violet',A[0]);r.style.setProperty('--cyan',A[1]);r.style.setProperty('--acc1',A[0]);r.style.setProperty('--acc2',A[1]);
+ const dark=t==='dark'||(t==='auto'&&!matchMedia('(prefers-color-scheme: light)').matches);let m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.content=dark?'#0b0d14':'#f4f5fb'}
+applyTheme();matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{applyTheme();if(D)draw(curPage())});
+function themeBlock(){const t=ls.get('hq.theme')||'auto',a=ls.get('hq.accent')||'violet';
+ return `<div class="fld"><label>Appearance</label><div class="seg3">${[['auto','🌓 Auto'],['dark','🌙 Dark'],['light','☀️ Light']].map(([k,l])=>`<button type="button" class="${t===k?'on':''}" data-x="theme" data-v="${k}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Accent colour</label><div class="accs">${Object.entries(ACCENTS).map(([k,c])=>`<button type="button" class="acc ${a===k?'on':''}" data-x="accent" data-v="${k}" style="background:linear-gradient(135deg,${c[0]},${c[1]})" aria-label="${k}"></button>`).join('')}</div></div>`}
+const _openSettings16=openSettings;openSettings=function(){_openSettings16();const s=$('#sheet'),h=s&&s.querySelector('h2');if(h){const x=document.createElement('div');x.innerHTML=themeBlock();h.after(...x.children)}};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="theme"],[data-x="accent"]');if(!a)return;ls.set(a.dataset.x==='theme'?'hq.theme':'hq.accent',a.dataset.v);applyTheme();
+ a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));if(D)draw(curPage());toast(a.dataset.x==='theme'?'Theme: '+a.dataset.v:'Accent changed')});
+/* quick toggle: double-tap the logo */
+(function(){const lg=document.querySelector('header .logo');if(lg)lg.addEventListener('dblclick',()=>{const t=(ls.get('hq.theme')||'auto'),n=t==='light'?'dark':'light';ls.set('hq.theme',n);applyTheme();if(D)draw(curPage());toast(n==='light'?'☀️ Light mode':'🌙 Dark mode')})})();
+
+/* --- Watch & Play --- */
+P.film='<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>';
+PAGES.splice(PAGES.findIndex(p=>p.id==='social')+1,0,{id:'fun',l:'Watch & Play',i:'film'});
+(function(){const sec=document.createElement('section');sec.className='page';sec.id='p-fun';$('#p-social')?.after(sec)})();
+buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
+const MT={movie:['🎬','Movie'],series:['📺','Series'],game:['🎮','Game']};
+function media(){return((U?.kv?.media?.v)||[]).filter(x=>!x.deleted).sort((a,b)=>(b.date||'')<(a.date||'')?-1:1)}
+function saveMedia(L){U.kv=U.kv||{};U.kv.media={v:L,updated:new Date().toISOString()};queueSave()}
+function addMedia(it){const L=((U?.kv?.media?.v)||[]).slice();const x={id:uid(),date:nowD().date,rating:0,...it};L.push(x);saveMedia(L);fetchPoster(x);return x}
+async function wikiLookup(title,type){const suf={movie:['(film)',''],series:['(TV series)',''],game:['(video game)','']}[type]||[''];
+ for(const sx of suf){try{const t=(title+(sx?' '+sx:'')).trim().replace(/ /g,'_');const r=await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(t));if(!r.ok)continue;const d=await r.json();
+  if(d.type!=='standard')continue;const ds=d.description||'';if(type==='game'&&!/game/i.test(ds))continue;if(type!=='game'&&!/film|series|movie|show|miniseries|sitcom|drama|animated/i.test(ds))continue;
+  return{poster:(d.thumbnail||{}).source||'',genre:ds.replace(/^\d{4}\s*/,'').slice(0,60),year:(ds.match(/\b(19|20)\d\d\b/)||[''])[0],plot:(d.extract||'').slice(0,220)}}catch(e){}}return null}
+async function fetchPoster(x){if(x.poster)return;const w=await wikiLookup(x.title,x.type||'movie');if(!w)return;
+ const L=((U.kv.media||{}).v||[]).slice(),i=L.findIndex(y=>y.id===x.id);if(i<0)return;L[i]={...L[i],...w,poster:w.poster||L[i].poster||''};saveMedia(L);if(curPage()==='fun')renderFun()}
+function stars(v,id){return `<span class="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-x="mstar" data-id="${id||''}" data-v="${n}" class="${n<=v?'on':''}">★</button>`).join('')}</span>`}
+function mediaStats(){const L=media(),n=nowD().date,mon=n.slice(0,7),thisM=L.filter(x=>(x.date||'').startsWith(mon));const g={};L.forEach(x=>{if(x.genre)g[x.genre]=(g[x.genre]||0)+1});
+ const top=Object.entries(g).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);const rated=L.filter(x=>x.rating),avg=rated.length?rated.reduce((a,x)=>a+x.rating,0)/rated.length:0;
+ let st=0,d=n;const ds=new Set(L.map(x=>x.date));if(!ds.has(d))d=addDays(d,-1);while(ds.has(d)&&st<999){st++;d=addDays(d,-1)}
+ return{L,thisM,top,avg,st,movies:L.filter(x=>x.type==='movie').length,games:L.filter(x=>x.type==='game').length,series:L.filter(x=>x.type==='series').length}}
+function recCard(r){return `<div class="rec"><div class="rp">${r.poster?`<img src="${esc(r.poster)}" alt="" loading="lazy">`:`<span>${(MT[r.type]||MT.movie)[0]}</span>`}</div><div class="rt"><b>${esc(r.title)}</b><small>${esc([r.year,r.genre,r.where].filter(Boolean).join(' · '))}</small><p>${esc(r.why||'')}</p>
+ <div class="ra"><button type="button" class="btn2 pri" data-x="mwatch" data-t="${esc(r.title)}" data-k="${r.type||'movie'}">${r.type==='game'?'🎮 Played it':'✓ Watched'}</button><button type="button" class="btn2" data-x="mlater" data-t="${esc(r.title)}" data-k="${r.type||'movie'}">＋ List</button></div></div></div>`}
+let funTab='all';
+function renderFun(){const el=$('#p-fun');if(!el||!D)return;const S=mediaStats(),R=(D.media_recs||{}),recs=(R.items||[]),wl=S.L.filter(x=>x.later),hist=S.L.filter(x=>!x.later&&(funTab==='all'||x.type===funTab));
+ el.innerHTML=`<div class="pt">Watch & Play <span>your movies, series & games</span></div>
+ <div class="g3">
+ <div class="card s3 funhero"><div class="fh-big">🍿</div><div class="fh-t"><b>${S.thisM.filter(x=>!x.later).length} this month</b><div class="xs faint">${S.movies} movies · ${S.series} series · ${S.games} games${S.top.length?' · you love '+esc(S.top.join(', ')):''}</div>
+  <div class="chips2"><span>🔥 ${S.st}-night streak</span>${S.avg?`<span>⭐ avg ${S.avg.toFixed(1)}</span>`:''}<span>+3 XP per log</span></div></div></div>
+ <form class="card s3 madd" id="madd"><div class="seg3">${Object.entries(MT).map(([k,v],i)=>`<button type="button" class="${i===0?'on':''}" data-x="mtype" data-v="${k}">${v[0]} ${v[1]}</button>`).join('')}</div>
+  <div class="addline"><input class="inp" name="t" placeholder="What did you watch or play tonight?" enterkeyhint="done" required><button class="btn2 pri" style="flex:0 0 auto">Add</button></div><input type="hidden" name="k" value="movie"></form>
+ <div class="card s3"><div class="ch"><div class="ic bg-grad">${ic('spark')}</div><h3>Picked for you</h3><span class="aside">${R.updated?'by Claude · '+ago(R.updated):''}</span></div>
+  ${recs.length?`<div class="recs">${recs.slice(0,6).map(recCard).join('')}</div>`:empty('Log a few movies or games — Claude picks new ones for you every evening','spark')}
+  ${R.note?`<div class="note"><b>${ic('bulb')}Why these</b>${esc(R.note)}</div>`:''}</div>
+ ${wl.length?`<div class="card s3"><div class="ch"><div class="ic bg-a">${ic('list')}</div><h3>Watch list</h3><span class="aside">${wl.length}</span></div>${wl.map(x=>`<div class="row"><div class="tx"><b>${MT[x.type]?.[0]||'🎬'} ${esc(x.title)}</b></div><button class="btn2" data-x="mdone" data-id="${x.id}">✓ Done</button></div>`).join('')}</div>`:''}
+ <div class="pt sub s3" style="margin:6px 0 0">History <span>${S.L.filter(x=>!x.later).length}</span></div>
+ <div class="s3 shop-f">${[['all','All'],['movie','🎬 Movies'],['series','📺 Series'],['game','🎮 Games']].map(([k,l])=>`<button type="button" class="tkc ${funTab===k?'on':''}" data-x="mtab" data-v="${k}">${l}</button>`).join('')}</div>
+ <div class="s3 mgrid">${hist.map(x=>`<div class="mcard"><div class="mp">${x.poster?`<img src="${esc(x.poster)}" alt="" loading="lazy">`:`<span>${MT[x.type]?.[0]||'🎬'}</span>`}<button class="mdel" data-x="mdel" data-id="${x.id}" aria-label="Remove">×</button></div><b>${esc(x.title)}</b><small>${fd(x.date)}${x.genre?' · '+esc(x.genre):''}</small>${stars(x.rating||0,x.id)}</div>`).join('')||empty('Nothing logged yet','film')}</div>
+ </div>`;
+ const f=$('#madd');f.onsubmit=e=>{e.preventDefault();const t=f.t.value.trim();if(!t)return;addMedia({title:t,type:f.k.value});f.t.value='';xpFly(f.querySelector('.btn2'),'+3 XP');renderFun();toast('Logged ✓ — rate it with the stars')}}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x^="m"]');if(!a)return;const d=a.dataset;
+ const upd=(id,fn)=>{const L=((U.kv.media||{}).v||[]).map(x=>x.id===id?fn({...x}):x);saveMedia(L);renderFun()};
+ if(d.x==='mtype'){a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));$('#madd').k.value=d.v;return}
+ if(d.x==='mtab'){funTab=d.v;renderFun();return}
+ if(d.x==='mstar'&&d.id){upd(d.id,x=>(x.rating=+d.v,x));if(+d.v===5)confetti(30);return}
+ if(d.x==='mdel'){upd(d.id,x=>(x.deleted=true,x));toast('Removed');return}
+ if(d.x==='mdone'){upd(d.id,x=>(x.later=false,x.date=nowD().date,x));toast('Watched ✓ +3 XP');return}
+ if(d.x==='mwatch'){const r=((D.media_recs||{}).items||[]).find(y=>y.title===d.t)||{};addMedia({title:d.t,type:d.k,poster:r.poster,genre:r.genre,year:r.year});xpFly(a,'+3 XP');renderFun();toast('Logged — rate it ⭐');return}
+ if(d.x==='mlater'){addMedia({title:d.t,type:d.k,later:true});renderFun();toast('Added to your watch list');return}});
+const _habXP16=habXP;habXP=function(){return _habXP16()+media().filter(x=>!x.later).length*3};
+PAGEFN.fun=renderFun;
+const _render16=render;render=function(keep){_render16(keep);if(!keep)renderFun()};
+const _draw16=draw;draw=function(pg){_draw16(pg);if(pg==='fun'&&!$('#p-fun .mgrid'))renderFun()};
+/* Today: evening nudge */
+const _renderToday16=renderToday;renderToday=function(G){_renderToday16(G);const n=nowD();if(n.mins<19*60&&n.mins>4*60)return;const t=$('#p-today .v8top');if(!t)return;
+ const tonight=media().some(x=>x.date===n.date&&!x.later),r=((D.media_recs||{}).items||[])[0];const x=document.createElement('div');
+ x.innerHTML=`<a class="card mb movienight" href="#fun"><span class="mn-ic">${tonight?'✅':'🍿'}</span><div><b>${tonight?'Movie night logged':'Movie night?'}</b><div class="xs faint">${tonight?'Rate it and see new picks':r?'Tonight’s pick: '+esc(r.title)+(r.year?' ('+r.year+')':''):'Log what you watch or play tonight · +3 XP'}</div></div>${ic('chev')}</a>`;t.appendChild(x.firstElementChild)};
+/* Talk to the app: "watched X" / "played X" */
+const _answer16=answer;answer=function(t){const m=t.match(/^(?:i\s+)?(watched|watching|saw|played|playing)\s+(.+)/i);if(m){const g=/play/i.test(m[1]);addMedia({title:m[2].replace(/[.!]+$/,'').trim(),type:g?'game':'movie'});return[`${g?'🎮':'🎬'} Logged “${m[2].trim()}” in Watch & Play · +3 XP. Rate it there ⭐`]}
+ if(/movie|film|what (should|to) (i )?watch|recommend|game to play/i.test(t)){const R=((D.media_recs||{}).items||[]).slice(0,3);return R.length?['🍿 Picks for you:',...R.map(r=>`• ${r.title}${r.year?' ('+r.year+')':''} — ${r.why||r.genre||''}`)]:['Log a few movies first — then I suggest new ones every evening.']}
+ return _answer16(t)};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
