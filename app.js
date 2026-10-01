@@ -1591,6 +1591,36 @@ function keepForm(redo){const f=$('#cf');if(!f){redo();return}const sel={},val={
  redo();const g=$('#cf');if(!g)return;
  Object.entries(sel).forEach(([n,v])=>{const G=g.querySelector(`.opts[data-name="${n}"]`);if(!G)return;G.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.v===v))});
  Object.entries(val).forEach(([n,v])=>{const i=g.querySelector(`[name="${n}"]`);if(!i||i.disabled)return;if(i.type==='checkbox')i.checked=v;else i.value=v})}
+
+/* ================= v19: working microphone in Talk to the app (iPhone too) ================= */
+const MICL=[['en-US','EN'],['fa-IR','فارسی'],['ar-AE','عربي']];
+let mic19=null;
+function micStop(){if(mic19){try{mic19.stop()}catch(e){}}}
+function micUI(on,msg){const b=$('#tkmic');if(b){b.classList.toggle('on',on);b.innerHTML=on?'<span class="micbars"><i></i><i></i><i></i></span>':ic('mic')}if(msg!=null){const h=$('#tkhint');if(h)h.innerHTML=msg}}
+function micFallback(why){const ta=$('#tktext');ta&&ta.focus();micUI(false,`${why?why+'<br>':''}Tap the <b>🎙 key</b> on your keyboard (bottom right), speak, then tap send.`)}
+function micStart(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition,ta=$('#tktext');if(!ta)return;
+ if(mic19){micStop();return}
+ if(!SR){micFallback('Voice input isn’t supported in this browser.');return}
+ let R;try{R=new SR()}catch(e){micFallback();return}
+ mic19=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=!IOS;R.maxAlternatives=1;
+ const pre0=ta.value.trim();let finalT='',got=false;
+ R.onstart=()=>{micUI(true,'🔴 Listening… speak now · tap the mic to stop');if(navigator.vibrate)navigator.vibrate(15)};
+ R.onresult=e=>{got=true;let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)finalT+=r[0].transcript+' ';else interim+=r[0].transcript}
+  ta.value=((pre0?pre0+' ':'')+finalT+interim).replace(/\s+/g,' ').trimStart();ta.dispatchEvent(new Event('input'))};
+ R.onerror=e=>{const c=e.error||'';mic19=null;
+  if(c==='not-allowed'||c==='service-not-allowed')micFallback(IOS?'Microphone is blocked. On iPhone: Settings → Safari → Microphone → Allow, and make sure Siri & Dictation is on.':'Microphone permission was blocked — allow it in the browser’s site settings.');
+  else if(c==='no-speech')micUI(false,'I didn’t hear anything — tap the mic and try again.');
+  else if(c==='aborted')micUI(false,'');
+  else micFallback('Voice input had a problem ('+esc(c)+').')};
+ R.onend=()=>{mic19=null;micUI(false,got?'✓ Got it — check the text, then tap send.':($('#tkhint')?.textContent.startsWith('🔴')?'I didn’t hear anything — tap the mic and try again.':null))};
+ try{R.start()}catch(e){mic19=null;micFallback()}}
+const _openTalk19=openTalk;openTalk=function(pre){_openTalk19(pre);const b=$('#tkmic');if(!b)return;
+ const nb=b.cloneNode(true);b.replaceWith(nb);nb.addEventListener('click',e=>{e.preventDefault();micStart()});
+ const h=$('#tkhint');if(h){h.innerHTML='Tap the mic and speak · choose your language:';h.insertAdjacentHTML('afterend',`<div class="miclang">${MICL.map(([l,n])=>`<button type="button" class="${(ls.get('hq.lang')||'en-US')===l?'on':''}" data-x="miclang" data-l="${l}">${n}</button>`).join('')}</div>`)}
+ const v=$('.tkv');if(v)v.textContent='App v19'};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="miclang"]');if(!a)return;ls.set('hq.lang',a.dataset.l);a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));if(mic19){micStop()}toast('Voice language: '+a.textContent)});
+const _sendTalk19=sendTalk;sendTalk=function(){micStop();return _sendTalk19()};
+const _closeSheet19=closeSheet;closeSheet=function(){micStop();return _closeSheet19.apply(this,arguments)};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
