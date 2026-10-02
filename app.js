@@ -2489,6 +2489,60 @@ const _habXP_d30=habXP;habXP=function(){let x=_habXP_d30();if(SS.loaded)x+=S_().
 
 window.addEventListener('hashchange',()=>{if(curPage()==='today'&&SS.loaded&&D)setTimeout(rerender,40)});
 
+
+/* ================= v31: Borna Circle — who is close to you, as a living orbit ================= */
+const RINGS_d31=[[1,'Inner circle','❤️','#f43f5e'],[2,'Close','💜','#a855f7'],[3,'Friends & partners','🤝','#3b82f6'],[4,'Business','💼','#06b6d4'],[5,'Occasional','🌙','#64748b']];
+const RDEF_d31={family:1,friend:3,partner:3,team:3,client:4,buyer:4,seller:4,careful:5};
+const ringOf_d31=p=>p.circle===0?0:(+p.circle||RDEF_d31[p.rel]||4);
+const short_d31=n=>String(n||'').replace(/^(Mr|Dr|Mrs|Ms|Haj)\.?\s+/i,'').split(/\s+/)[0];
+const isNew_d31=p=>p.auto&&!p.circleOk&&p.added&&(new Date(nowD().date)-new Date(p.added))/864e5<=7;
+const recent_d31=p=>{const a=(D.circle_activity||{})[p.id];return a&&a.last&&(new Date(nowD().date)-new Date(a.last))/864e5<=2};
+function setCircle_d31(id,patch){U.people=U.people||[];const t=new Date().toISOString(),ex=U.people.find(x=>x.id===id);if(ex)Object.assign(ex,patch,{updated:t});else U.people.push({id,...patch,updated:t});queueSave()}
+function circleHTML_d31(){const P=people(),inC=P.filter(p=>ringOf_d31(p)>0),R=[0,15.5,24.5,32.5,39.5,45.5],AV=[0,8.8,7.8,7,6.3,5.7];
+ const byR={};inC.forEach(p=>(byR[ringOf_d31(p)]=byR[ringOf_d31(p)]||[]).push(p));
+ let nodes='',lines='';const placed=[];Object.entries(byR).sort((a,b)=>a[0]-b[0]).forEach(([r,L])=>{r=+r;L.sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name));
+  const pos=o=>L.map((_,i)=>{const g=(o+i*360/L.length-90)*Math.PI/180;return[50+R[r]*Math.cos(g),50+R[r]*Math.sin(g)]});let best=0,bs=-1;
+  for(let o=0;o<360/L.length;o+=3){const P=pos(o);const md=Math.min(99,...P.flatMap(([x,y])=>placed.map(([a,b])=>Math.hypot(x-a,y-b))));if(md>bs){bs=md;best=o}}
+  const prev=placed,step=360/L.length,PP=L.map((_,i)=>{let bx=null,bd=-1;for(let d=-step*0.4;d<=step*0.4;d+=2){const g=(best+i*step+d-90)*Math.PI/180,x=50+R[r]*Math.cos(g),y=50+R[r]*Math.sin(g),md=Math.min(99,...prev.map(([a,b])=>Math.hypot(x-a,y-b*1.0)+(Math.abs(y-b)<4&&Math.hypot(x-a,y-b)<14?-2:0)));if(md>bd+0.5){bd=md;bx=[x,y]}}placed.push(bx);return bx});
+  L.forEach((p,i)=>{const [x,y]=PP[i],col=RINGS_d31[r-1][3],sz=AV[r];
+   lines+=`<line x1="50" y1="50" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" style="stroke:${col};opacity:${(0.62-r*0.1).toFixed(2)}"/>`;
+   nodes+=`<button type="button" class="cnode r${r} ${isNew_d31(p)?'nw':''} ${recent_d31(p)?'hot':''}" data-cp="${p.id}" style="left:${x}%;top:${y}%;--sz:${sz}%;--c:${col};animation-delay:${(i*0.35+r*0.2).toFixed(2)}s"><span class="cav">${p.photo?`<img src="${p.photo}" alt="">`:`<i>${esc((p.emoji)||initials(p.name))}</i>`}</span><em>${esc(short_d31(p.name))}</em></button>`})});
+ const todo=P.filter(p=>!p.circleOk&&ringOf_d31(p)>0).length;
+ return `<div class="bcircle"><div class="bch"><div><b>◉ Borna Circle</b><small>${inC.length} people · closer = more important</small></div><button type="button" class="btn2 sm bcint" data-cx="interview">🎙 Interview${todo?` <span>${todo}</span>`:''}</button></div>
+ <div class="bcsky"><div class="bcstars"></div><svg viewBox="0 0 100 100" class="bcsvg" aria-hidden="true"><defs><radialGradient id="bcg_d31"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".55"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/></radialGradient></defs>
+  <circle cx="50" cy="50" r="22" fill="url(#bcg_d31)"/>${RINGS_d31.map(([r,,,c])=>`<circle cx="50" cy="50" r="${R[r]}" class="bring" style="stroke:${c}"/><circle cx="50" cy="50" r="${R[r]}" class="bscan" style="stroke:${c};animation-duration:${14+r*7}s;animation-direction:${r%2?'normal':'reverse'}"/>`).join('')}
+  <g class="blines">${lines}</g></svg>
+  <div class="bcore" data-cx="me">${D.photo?`<img src="${D.photo}" alt="Borna">`:''}<b>BORNA</b></div>${nodes}</div>
+ <div class="bleg">${RINGS_d31.map(([r,n,e,c])=>`<span style="--c:${c}"><i></i>${n} · ${(byR[r]||[]).length}</span>`).join('')}</div>
+ <div class="xs faint" style="margin-top:6px">Tap someone to move them closer or further. ✨ = new — Claude added them from WhatsApp or email. Glowing = you talked in the last 2 days.</div></div>`}
+const _renderPeople_d31=renderPeople;renderPeople=function(){_renderPeople_d31();const el=$('#p-people');if(!el||el.querySelector('.bcircle'))return;el.querySelector('.pt')?.insertAdjacentHTML('afterend',circleHTML_d31())};
+
+function openCP_d31(id){const p=personById(id);if(!p)return;const r=ringOf_d31(p),a=(D.circle_activity||{})[id];
+ sheet(`<div class="cps"><div class="cph">${avatar(p,64)}<div><b>${esc(p.name)}</b><small>${esc(p.role||'')}</small>${p.auto?`<small class="cpa">✨ Added by Claude${p.source?' from '+esc(p.source):''}${p.added?' · '+fd(p.added,{day:'numeric',month:'short'}):''}</small>`:''}${a&&a.last?`<small>Last talk ${(()=>{const n=Math.round((new Date(nowD().date)-new Date(a.last))/864e5);return n<=0?'today':n===1?'yesterday':n+' days ago'})()}${a.n7?' · '+a.n7+' chats this week':''}</small>`:''}</div></div>
+ ${p.notes&&p.auto?`<div class="xs" style="margin:6px 0 10px;opacity:.8">${esc(p.notes)}</div>`:''}
+ <div class="ahd">How close is ${esc(short_d31(p.name))}?</div><div class="cpr">${RINGS_d31.map(([k,n,e,c])=>`<button type="button" class="${k===r?'on':''}" data-ring="${k}" style="--c:${c}"><span>${e}</span>${n}</button>`).join('')}</div>
+ <div class="btnrow"><button type="button" class="btn2" data-ring="0">Hide from circle</button>${p.auto&&!p.circleOk?'<button type="button" class="btn2 danger" id="cprem">Remove person</button>':''}<button type="button" class="btn2 pri" id="cpopen">Open contact</button></div></div>`);
+ $$('#sheet [data-ring]').forEach(b=>b.onclick=()=>{const k=+b.dataset.ring;setCircle_d31(id,{circle:k,circleOk:1});closeSheet();rerender();toast(k?`${short_d31(p.name)} → ${RINGS_d31[k-1][1]}`:'Hidden from your circle')});
+ $('#cpopen').onclick=()=>{closeSheet();setTimeout(()=>openPerson(id),60)};
+ $('#cprem')&&($('#cprem').onclick=()=>{setCircle_d31(id,{deleted:true});closeSheet();rerender();toast('Removed — Claude won’t add them again')})}
+
+/* interview: one person at a time, then "who else?" */
+function interview_d31(){const L=people().filter(p=>!p.circleOk&&ringOf_d31(p)>0);let i=0;
+ const step=()=>{if(i>=L.length)return askNew();const p=L[i];
+  sheet(`<div class="civ"><div class="xs faint">Interview · ${i+1} / ${L.length}</div><div class="civp">${avatar(p,84)}<b>${esc(p.name)}</b><small>${esc(p.role||'')}</small></div><h3>How close is ${esc(short_d31(p.name))} to you?</h3>
+   <div class="cpr">${RINGS_d31.map(([k,n,e,c])=>`<button type="button" class="${k===ringOf_d31(p)?'sug':''}" data-ring="${k}" style="--c:${c}"><span>${e}</span>${n}</button>`).join('')}</div>
+   <div class="btnrow"><button type="button" class="btn2" data-ring="0">Not in my circle</button><button type="button" class="btn2" id="civskip">Skip</button><button type="button" class="btn2" data-act="close">Stop</button></div></div>`);
+  $$('#sheet [data-ring]').forEach(b=>b.onclick=()=>{setCircle_d31(p.id,{circle:+b.dataset.ring,circleOk:1});xpFly(document.body,'+2 XP');i++;step()});$('#civskip').onclick=()=>{i++;step()}};
+ const askNew=()=>{sheet(`<div class="civ"><div class="civp"><span class="cbig">🌌</span></div><h3>Who else is close to you?</h3><div class="xs faint" style="margin-bottom:10px">Add anyone missing — family, a friend, someone you work with.</div>
+   <div class="fld"><input id="cnn" class="inp" placeholder="Name"></div><div class="cpr">${RINGS_d31.map(([k,n,e,c])=>`<button type="button" data-nr="${k}" style="--c:${c}" class="${k===2?'on':''}"><span>${e}</span>${n}</button>`).join('')}</div>
+   <div class="btnrow"><button type="button" class="btn2" data-act="close">Done</button><button type="button" class="btn2 pri" id="cnadd">Add</button></div></div>`);let nr=2;
+  $$('#sheet [data-nr]').forEach(b=>b.onclick=()=>{nr=+b.dataset.nr;$$('#sheet [data-nr]').forEach(x=>x.classList.toggle('on',x===b))});
+  $('#cnadd').onclick=()=>{const n=$('#cnn').value.trim();if(!n){closeSheet();rerender();return}U.people=U.people||[];U.people.push({id:'u-'+uid(),name:n,rel:nr===1?'family':nr<=3?'friend':'partner',circle:nr,circleOk:1,updated:new Date().toISOString()});queueSave();toast(n+' added ✓');askNew()};
+  if(!L.length)return;confetti(40)};
+ step()}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-cp],[data-cx]');if(!a)return;e.preventDefault();e.stopPropagation();
+ if(a.dataset.cp)openCP_d31(a.dataset.cp);else if(a.dataset.cx==='interview')interview_d31();else if(a.dataset.cx==='me'){const b=$('.bcsky');b&&b.classList.remove('pulse');void b?.offsetWidth;b?.classList.add('pulse')}},true);
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
