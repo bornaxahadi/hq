@@ -2647,6 +2647,14 @@ new MutationObserver(()=>fixNact_d35()).observe(document.body,{childList:true,su
 document.addEventListener('click',e=>{const a=e.target.closest('[data-x="nchk_d35"]');if(!a)return;e.preventDefault();e.stopPropagation();
  openNote(null);setTimeout(()=>{const t=$('#ntitle'),b=$('#nbody');if(t&&!t.value)t.value='Checklist';if(b&&!b.value){b.value='☐ \n☐ \n☐ ';b.focus();b.setSelectionRange(2,2)}},80)},true);
 
+
+/* ================= v36: Vault — stop iPhone "Strong Password" autofill; Show passwords really shows them ================= */
+const _wireVault_d36=wireVault;wireVault=function(){const P=[$('#vpw'),$('#vpw2')].filter(Boolean);
+ P.forEach(i=>{i.type='text';i.classList.add('vmask');i.value='';['autocomplete','off','autocapitalize','off','autocorrect','off','spellcheck','false','data-lpignore','true','data-1p-ignore','true','name','vault-'+Math.random().toString(36).slice(2)].reduce((a,v,k,arr)=>{if(k%2===0)i.setAttribute(v,arr[k+1]);return a},0)});
+ _wireVault_d36();
+ P.forEach(i=>{i.type='text';i.setAttribute('autocomplete','off')});
+ const s=$('#vshow');if(s){s.onchange=e=>P.forEach(i=>i.classList.toggle('vmask',!e.target.checked));s.checked=false}};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

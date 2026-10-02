@@ -1128,3 +1128,6 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 
 /* v34 */
 .vshow{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 2px;font-size:13px;opacity:.8;cursor:pointer}.vshow input{width:18px;height:18px}
+
+/* v36 */
+.vmask{-webkit-text-security:disc;text-security:disc}
