@@ -902,3 +902,56 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 .dentry.auto::after{content:"";display:block;clear:both}
 .dbtns .dshare{flex:0 0 52px}
 .fidbtn.pulse{animation:micp 1.3s infinite}
+
+/* v26 health */
+.hday{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+.hday button{width:40px;height:36px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:20px}
+.hday button:disabled{opacity:.3}
+.hsum{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-around}
+.hring{position:relative;width:96px;text-align:center}
+.hring svg{width:96px;height:96px;transform:rotate(-90deg)}
+.hring circle{fill:none;stroke-width:8;stroke-linecap:round}.hring .bg{stroke:var(--card2)}
+.hring b{position:absolute;left:0;right:0;top:30px;font-size:19px;font-weight:800}
+.hring small{display:block;font-size:11px;opacity:.65;margin-top:-4px}
+.hmini{display:flex;flex-direction:column;gap:8px}.hmini div{display:flex;flex-direction:column}.hmini b{font-size:15px}.hmini small{font-size:11px;opacity:.6}
+.htip{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.5;background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(34,211,238,.08))}
+.hsnap{width:100%;margin-bottom:10px;justify-content:center}
+.hsnap svg{width:20px;height:20px}
+.hdrinks{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;align-items:center;scrollbar-width:none}.hdrinks::-webkit-scrollbar{display:none}
+.hdrinks span{font-size:12px;opacity:.6;white-space:nowrap}
+.hdrinks button{flex:none;padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:12px;white-space:nowrap}
+.hslot{padding:12px 14px}
+.hsh{display:flex;align-items:center;gap:8px;margin-bottom:8px}.hsh b{flex:1}
+.hask{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.hmeal{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.hmeal:first-of-type{border-top:0}
+.hmeal img{width:52px;height:52px;object-fit:cover;border-radius:12px;flex:none}
+.hmt{flex:1;min-width:0}.hmt b{display:block;font-size:13.5px}.hmt small{display:block;font-size:11.5px;opacity:.65}.hmt .hen{opacity:.85;color:var(--accent,#8b5cf6)}
+.hmeal.sk b{opacity:.5;font-weight:600}.ht{font-size:12px;opacity:.6;width:44px}
+.hsl{margin-bottom:8px}
+.hph{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hph img{width:84px;height:84px;object-fit:cover;border-radius:14px}
+.hph svg{width:16px;height:16px}
+.hfoods{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.hfoods button{padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:12px}
+.hfoods small{opacity:.55;margin-left:4px}
+.hsel{margin-bottom:6px}
+.hchip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;background:rgba(16,185,129,.15);margin:0 6px 6px 0;font-size:12.5px}
+.hchip button{width:22px;height:22px;border-radius:50%;border:0;background:var(--card);color:var(--text)}
+.hfoodtoday .hft{display:flex;flex-direction:column;margin-bottom:8px}.hft span{font-size:12.5px;opacity:.7}
+.hftb{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.hftb svg{width:14px;height:14px}
+.hbody .hbt{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:10px}
+.hbt div{display:flex;flex-direction:column}.hbt small{font-size:11px;opacity:.6}.hbt b{font-size:20px;font-weight:800}.hbt span{font-size:11px;opacity:.7}.hbt .up{color:#10b981;opacity:1}
+.hprog{height:10px;border-radius:999px;background:var(--card2);margin:12px 0 6px;overflow:hidden}.hprog i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#10b981,#22d3ee)}
+.hbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}.hbtns .bigadd{justify-content:center;font-size:12px;padding:12px 4px}
+.hline{width:100%;height:100px}.hline polyline{fill:none;stroke-width:2.5;stroke-linejoin:round}.hline text{font-size:9px;fill:var(--muted,#888)}
+.hmeas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hmeas div{padding:9px 10px;border-radius:12px;background:var(--card2);display:flex;flex-direction:column;position:relative}
+.hmeas span{font-size:11px;opacity:.65}.hmeas b{font-size:16px}.hmeas small{font-size:11px;opacity:.6}
+.hmeas em{position:absolute;right:10px;top:10px;font-style:normal;font-weight:800;font-size:12px}.hmeas em.g{color:#10b981}.hmeas em.b{color:#f43f5e}
+.hposes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hpose{padding:10px;border-radius:14px;background:var(--card2)}
+.hpl{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.hpl b{font-size:12.5px}.hpl svg{width:14px;height:14px}
+.hcmp{display:flex;gap:6px}.hcmp figure{margin:0;flex:1}.hcmp img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;cursor:pointer}.hcmp figcaption{font-size:10px;opacity:.6;text-align:center}
+.hbigin{display:flex;align-items:center;gap:10px;justify-content:center;margin:10px 0}.hbigin input{font-size:34px;font-weight:800;text-align:center;max-width:160px}.hbigin span{font-size:20px;opacity:.6}
+.hmform{display:grid;grid-template-columns:1fr 1fr;gap:8px}.hmform label{display:flex;flex-direction:column;gap:4px}.hmform span{font-size:11.5px;opacity:.7}

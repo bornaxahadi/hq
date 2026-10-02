@@ -2091,6 +2091,174 @@ $('#settings').onclick=()=>openSettings();
 /* same for the “Open with Face ID?” prompt after unlocking */
 document.addEventListener('click',e=>{const y=e.target.closest('#fidyes');if(!y)return;e.stopImmediatePropagation();e.preventDefault();
  fidEnable_d24(PW).then(()=>{closeSheet();confetti(40);toast('Face ID is on ✓')}).catch(err=>{$('#sheet .lvup p').textContent=fidErr_d25(err)})},true);
+
+/* ================= v26: Health — food & coffee tracker with photo calories, body & muscle progress ================= */
+P.food='<path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 3c-2 0-3 2-3 5s1 4 3 4v9"/>';
+P.scale='<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9a3 3 0 0 1 6 0M12 9l1.5-1.5"/>';
+P.camera='<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
+
+/* ---------- encrypted store for health.enc (separate file, photos inside) ---------- */
+function makeStore_d26(file,lsKey,empty,merge){const S={data:null,loaded:false,loading:null,sha:null,t:null,saving:false,again:false};
+ S.remote=async()=>{if(!TOKEN){const j=await pagesJSON(file);return j?dec(j):null}
+  const h={Authorization:'Bearer '+TOKEN},r=await fetch(API+file+'?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github+json'},cache:'no-store'});
+  if(r.status===404){S.sha=null;return null}if(!r.ok)throw new Error('GitHub '+r.status);const j=await r.json();S.sha=j.sha;let txt;
+  if(j.content&&j.encoding==='base64')txt=atob(j.content.replace(/\s/g,''));else txt=await(await fetch(API+file+'?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github.raw'},cache:'no-store'})).text();
+  return dec(JSON.parse(txt))};
+ S.cache=()=>{try{localStorage.setItem(lsKey,JSON.stringify(S.data))}catch(e){try{const lite=JSON.parse(JSON.stringify(S.data));['meals','photos'].forEach(k=>(lite[k]||[]).forEach(x=>{if(x.img&&S.sha)delete x.img}));localStorage.setItem(lsKey,JSON.stringify(lite))}catch(_){}}};
+ S.load=force=>{if(S.loaded&&!force)return Promise.resolve(S.data);if(S.loading)return S.loading;
+  S.loading=(async()=>{let local=null;try{const t=ls.get(lsKey);if(t)local=JSON.parse(t)}catch(e){}if(!S.data)S.data=local||empty();
+   let remote=null,ok=true;try{remote=await S.remote()}catch(e){ok=false;console.warn(e)}const before=JSON.stringify(remote);S.data=merge(remote,S.data);S.loaded=true;S.cache();
+   if(ok&&TOKEN&&JSON.stringify(S.data)!==before)S.queue(true);S.loading=null;return S.data})();return S.loading};
+ S.queue=keep=>{if(!keep)S.data.updated=new Date().toISOString();S.cache();if(!TOKEN)return;clearTimeout(S.t);S.t=setTimeout(S.save,900)};
+ S.save=async()=>{if(S.saving){S.again=true;return}S.saving=true;
+  try{for(let i=0;i<3;i++){const m=merge(await S.remote(),S.data);try{S.sha=await ghPut(file,await enc(m),S.sha,'Health from app');S.data=m;S.cache();break}catch(e){if(e.status!==409&&e.status!==422)throw e}}}
+  catch(e){console.warn(e);toast('Saved on this phone — will sync later')}S.saving=false;if(S.again){S.again=false;S.save()}};
+ return S}
+const hEmpty_d26=()=>({v:1,meals:[],weights:[],meas:[],photos:[],prof:null,updated:null});
+const HS=makeStore_d26('health.enc','hq.health',hEmpty_d26,(a,b)=>{a=a||hEmpty_d26();b=b||hEmpty_d26();const pa=a.prof,pb=b.prof;
+ return{v:1,meals:mergeArr(a.meals,b.meals),weights:mergeArr(a.weights,b.weights),meas:mergeArr(a.meas,b.meas),photos:mergeArr(a.photos,b.photos),prof:(pb&&(!pa||(pb.updated||'')>(pa.updated||'')))?pb:(pa||null),updated:(a.updated||'')>(b.updated||'')?a.updated:b.updated}});
+const H_=()=>HS.data||hEmpty_d26();
+const hNow_d26=()=>new Date().toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false});
+const hid_d26=()=>'h'+uid();
+function shrinkTo_d26(file,W=512,q=.72){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,W/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',q))};im.onerror=()=>res('');im.src=r.result};r.readAsDataURL(file)})}
+
+/* ---------- profile & targets ---------- */
+function prof_d26(){const s=D.body_seed||{},p=H_().prof||{};const w=lastWeight_d26();return{height:+p.height||+s.height||173,age:+p.age||+s.age||42,start:+p.start||+s.start||103,goal:+p.goal||+s.goal||80,weight:w?w.kg:(+s.weight||93)}}
+function lastWeight_d26(){return H_().weights.filter(x=>!x.deleted).sort((a,b)=>(a.date+a.updated).localeCompare(b.date+b.updated)).pop()}
+function targets_d26(){const p=prof_d26(),bmr=10*p.weight+6.25*p.height-5*p.age+5;return{kcal:Math.round((bmr*1.5-500)/50)*50,protein:Math.round(p.goal*2),water:8}}
+
+/* ---------- food database (typical portions) ---------- */
+const FOODS_d26=[['🍳','Eggs (2)',155,13],['🍳','Omelette',220,14],['🍞','Bread slice',80,3],['🫓','Naan / lavash',160,5],['🧀','Feta / cheese',80,5],['🥣','Oats bowl',300,10],['🥛','Greek yogurt',150,15],['🍌','Banana',105,1],['🍎','Apple',95,0],['🌴','Dates (3)',70,1],['🍚','Rice (1 cup)',205,4],['🍛','Chelow rice plate',350,7],['🍗','Chicken breast',250,46],['🍢','Kebab koobideh',300,18],['🍢','Joojeh kebab',300,35],['🥘','Ghormeh sabzi',400,25],['🌯','Shawarma',550,30],['🥗','Salad',120,3],['🐟','Fish',250,35],['🥩','Steak',450,50],['🍝','Pasta plate',600,20],['🍕','Pizza slice',285,12],['🍔','Burger',550,25],['🍟','Fries',365,4],['🍣','Sushi (8)',350,14],['🥣','Soup',150,6],['🧆','Falafel (4)',330,13],['🫘','Hummus',170,8],['🥤','Protein shake',150,25],['🥜','Nuts (handful)',170,6],['🍫','Chocolate bar',230,3],['🍰','Cake slice',350,4],['🍉','Fruit bowl',120,2],['🥪','Sandwich',400,20],['🥞','Pancakes',350,8],['🧃','Fresh juice',120,1]];
+const DRINKS_d26=[['☕','Espresso',5,0],['☕','Americano',10,0],['☕','Latte',190,10],['☕','Cappuccino',120,6],['☕','Flat white',110,6],['☕','Turkish coffee',10,0],['☕','Nescafé 3-in-1',70,1],['🍵','Tea',2,0],['🍵','Tea + sugar',35,0],['💧','Water',0,0],['🥤','Soft drink',140,0],['🧃','Juice',120,1],['🥤','Protein shake',150,25]];
+const SLOTS_d26=[['breakfast','🍳','Breakfast','07:00','11:30'],['lunch','🍛','Lunch','12:00','16:00'],['dinner','🍽','Dinner','18:00','23:00'],['snack','🍎','Snacks','',''],['drink','☕','Drinks','','']];
+function slotByTime_d26(){const m=nowD().mins;return m<11*60+30?'breakfast':m<16*60?'lunch':m>=18*60?'dinner':'snack'}
+
+/* ---------- day maths ---------- */
+function est_d26(m){return (D.food_est||{})[m.id]}
+function mealKcal_d26(m){if(m.skipped)return 0;if(m.kcal!=null&&m.kcal!=='')return +m.kcal;const e=est_d26(m);return e?+e.kcal||0:(m.items||[]).reduce((a,i)=>a+(i.kcal||0)*(i.q||1),0)}
+function mealProt_d26(m){if(m.skipped)return 0;const it=(m.items||[]).reduce((a,i)=>a+(i.p||0)*(i.q||1),0);const e=est_d26(m);return it||(e?+e.p||0:0)}
+function dayMeals_d26(d){return H_().meals.filter(x=>!x.deleted&&x.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''))}
+function daySum_d26(d){const M=dayMeals_d26(d);const coffee=M.filter(x=>x.slot==='drink'&&/coffee|espresso|americano|latte|cappuccino|flat white|nescaf/i.test(x.text||'')).reduce((a,x)=>a+(x.q||1),0);const water=M.filter(x=>x.slot==='drink'&&/water/i.test(x.text||'')).reduce((a,x)=>a+(x.q||1),0);
+ const sc=M.map(x=>est_d26(x)?.score).filter(Boolean);return{M,kcal:Math.round(M.reduce((a,x)=>a+mealKcal_d26(x),0)),p:Math.round(M.reduce((a,x)=>a+mealProt_d26(x),0)),coffee,water,score:sc.length?Math.round(sc.reduce((a,b)=>a+ +b,0)/sc.length*10)/10:null,pending:M.filter(x=>x.img&&!est_d26(x)&&!x.kcal).length}}
+
+/* ---------- PAGE ---------- */
+PAGES.splice(PAGES.findIndex(p=>p.id==='me')+1,0,{id:'health',l:'Health',i:'food'});
+(function(){if(!$('#p-health')){const s=document.createElement('section');s.className='page';s.id='p-health';($('#p-me')||$('#p-today')).after(s)}
+ buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p})})();
+let hTab_d26='food',hDay_d26=null;
+function ring_d26(v,max,col,label,sub){const R=34,C=2*Math.PI*R,p=Math.min(1,max?v/max:0);return `<div class="hring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="${R}" class="bg"/><circle cx="40" cy="40" r="${R}" class="fg" style="stroke:${col};stroke-dasharray:${C};stroke-dashoffset:${C*(1-p)}"/></svg><b>${label}</b><small>${sub}</small></div>`}
+function renderHealth_d26(){const el=$('#p-health');if(!el||!D)return;if(!HS.loaded){el.innerHTML='<div class="pt">Health</div><div class="card faint">Loading…</div>';HS.load().then(renderHealth_d26);return}
+ el.innerHTML=`<div class="pt">Health <span>food · body · muscle</span></div>
+ <div class="ntabs"><button type="button" class="${hTab_d26==='food'?'on':''}" data-x="htab" data-t="food">🍽 Food</button><button type="button" class="${hTab_d26==='body'?'on':''}" data-x="htab" data-t="body">💪 Body</button></div>
+ ${hTab_d26==='food'?foodHTML_d26():bodyHTML_d26()}`}
+PAGEFN.health=()=>renderHealth_d26();
+const _draw_d26=draw;draw=function(pg){_draw_d26(pg);if(pg==='health'&&!$('#p-health .ntabs'))renderHealth_d26()};
+
+/* ---------- FOOD tab ---------- */
+function foodHTML_d26(){const n=nowD().date;hDay_d26=hDay_d26||n;const d=hDay_d26,S=daySum_d26(d),T=targets_d26(),tip=(D.food_day||{})[d];
+ return `<div class="hday"><button type="button" data-x="hdaynav" data-v="-1">‹</button><b>${d===n?'Today':fd(d,{weekday:'long',day:'numeric',month:'short'})}</b><button type="button" data-x="hdaynav" data-v="1" ${d>=n?'disabled':''}>›</button></div>
+ <div class="card mb hsum">${ring_d26(S.kcal,T.kcal,S.kcal>T.kcal?'#f43f5e':'#10b981',S.kcal,'of '+T.kcal+' kcal')}${ring_d26(S.p,T.protein,'#8b5cf6',S.p+'g','protein / '+T.protein)}
+  <div class="hmini"><div><b>☕ ${S.coffee}</b><small>coffee</small></div><div><b>💧 ${S.water}/${T.water}</b><small>water</small></div><div><b>${S.score!=null?S.score+'/10':'—'}</b><small>health score</small></div></div></div>
+ ${S.pending?`<div class="nwarn soft">📷 ${S.pending} photo${S.pending>1?'s':''} waiting — Claude estimates calories within the hour.</div>`:''}
+ ${tip?`<div class="card mb htip">🤖 <span>${esc(tip.note||'')}</span></div>`:''}
+ <button type="button" class="bigadd hsnap" data-x="hsnap">${ic('camera')} Snap your meal or drink</button>
+ <div class="hdrinks"><span>Quick drink:</span>${DRINKS_d26.slice(0,10).map((x,i)=>`<button type="button" data-x="hdrink" data-i="${i}">${x[0]} ${x[1]}</button>`).join('')}</div>
+ ${SLOTS_d26.map(([k,e,l])=>{const M=S.M.filter(x=>x.slot===k);return `<div class="card mb hslot"><div class="hsh"><b>${e} ${l}</b>${M.length&&k!=='drink'?`<span class="xs faint">${M.reduce((a,x)=>a+mealKcal_d26(x),0)} kcal</span>`:''}<button type="button" class="btn2 sm" data-x="hadd" data-s="${k}">+ Add</button></div>
+  ${M.length?M.map(mealRow_d26).join(''):k==='drink'||k==='snack'?'<div class="xs faint">Nothing yet</div>':`<div class="hask">Did you have ${l.toLowerCase()}? <button type="button" class="btn2 sm pri" data-x="hadd" data-s="${k}">Yes — log it</button><button type="button" class="btn2 sm" data-x="hskip" data-s="${k}">Skipped</button></div>`}</div>`}).join('')}
+ <div class="xs faint" style="text-align:center;margin:8px 0 20px">Targets are a general guide for losing fat while building muscle (${T.kcal} kcal, ${T.protein} g protein a day) — not medical advice.</div>`}
+function mealRow_d26(m){const e=est_d26(m),k=mealKcal_d26(m);if(m.skipped)return `<div class="hmeal sk" data-x="hedit" data-id="${m.id}"><span class="ht">${esc(m.time||'')}</span><b>Skipped</b></div>`;
+ const name=m.text||(m.items||[]).map(i=>(i.q>1?i.q+'× ':'')+i.n).join(', ')||(e?(e.items||[]).join(', '):'')||'Photo';
+ return `<div class="hmeal" data-x="hedit" data-id="${m.id}">${m.img?`<img src="${m.img}" alt="">`:''}<div class="hmt"><b>${esc(name)}</b><small>${esc(m.time||'')}${m.q>1?' · ×'+m.q:''} · ${k?k+' kcal':m.img&&!e?'⏳ Claude is estimating…':'—'}${e?.score?` · ${e.score}/10`:''}</small>${e?.note?`<small class="hen">🤖 ${esc(e.note)}</small>`:''}</div></div>`}
+function openMeal_d26(id,opt={}){const m=H_().meals.find(x=>x.id===id)||{slot:opt.slot||slotByTime_d26(),date:hDay_d26||nowD().date,time:hNow_d26(),items:[],img:opt.img||''};let slot=m.slot,img=m.img||'',items=(m.items||[]).map(x=>({...x}));const isDrink=slot==='drink';
+ const L=isDrink?DRINKS_d26:FOODS_d26.concat(DRINKS_d26);
+ sheet(head(id?'Edit':'Log food & drink','food','bg-g')+`
+ <div class="nbooks sm2 hsl">${SLOTS_d26.map(([k,e,l])=>`<button type="button" class="${slot===k?'on':''}" data-sl="${k}">${e} ${l}</button>`).join('')}</div>
+ <div class="two"><div class="fld"><label>Time</label><input id="mtime" class="inp" type="time" value="${esc(m.time||hNow_d26())}"></div><div class="fld"><label>Date</label><input id="mdate" class="inp" type="date" value="${esc(m.date)}"></div></div>
+ <div class="hph">${img?`<img id="mimg" src="${img}">`:'<span id="mimg"></span>'}<label class="btn2">${ic('camera')} ${img?'Retake':'Photo'}<input type="file" accept="image/*" capture="environment" id="mfile" hidden></label><label class="btn2 ghost">🖼 Gallery<input type="file" accept="image/*" id="mfile2" hidden></label></div>
+ <input id="mq" class="inp" placeholder="Search food or drink…" style="margin-top:8px"><div class="hfoods" id="hfoods"></div>
+ <div class="hsel" id="hsel"></div>
+ <div class="fld"><label>Or describe it</label><input id="mtext" class="inp" value="${esc(m.text||'')}" placeholder="e.g. 2 eggs, toast, black coffee"></div>
+ <div class="two"><div class="fld"><label>Calories (optional)</label><input id="mkcal" class="inp" type="number" inputmode="numeric" value="${m.kcal??''}" placeholder="auto"></div><div class="fld"><label>Sugar spoons</label><input id="msug" class="inp" type="number" inputmode="numeric" value="${m.sugar||''}" placeholder="0"></div></div>
+ <div class="xs faint" id="mhint"></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="hdel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="msave">Save</button></div>`);
+ const drawFoods=()=>{const q=($('#mq').value||'').toLowerCase();$('#hfoods').innerHTML=L.filter(x=>!q||x[1].toLowerCase().includes(q)).slice(0,q?20:14).map(x=>`<button type="button" data-fd="${esc(x[1])}">${x[0]} ${esc(x[1])}<small>${x[2]}</small></button>`).join('');
+  $$('#hfoods [data-fd]').forEach(b=>b.onclick=()=>{const f=L.find(x=>x[1]===b.dataset.fd);const ex=items.find(i=>i.n===f[1]);if(ex)ex.q=(ex.q||1)+1;else items.push({n:f[1],e:f[0],kcal:f[2],p:f[3],q:1});drawSel()})};
+ const drawSel=()=>{const tot=items.reduce((a,i)=>a+i.kcal*(i.q||1),0)+(+$('#msug').value||0)*16;$('#hsel').innerHTML=items.map((i,k)=>`<span class="hchip">${i.e||''} ${esc(i.n)} <button type="button" data-qm="${k}">−</button><b>${i.q||1}</b><button type="button" data-qp="${k}">+</button></span>`).join('')+(items.length?`<div class="xs" style="margin-top:4px">≈ <b>${tot} kcal</b></div>`:'');
+  $$('#hsel [data-qm]').forEach(b=>b.onclick=()=>{const i=items[+b.dataset.qm];i.q=(i.q||1)-1;if(i.q<1)items.splice(+b.dataset.qm,1);drawSel()});$$('#hsel [data-qp]').forEach(b=>b.onclick=()=>{items[+b.dataset.qp].q++;drawSel()});
+  $('#mhint').textContent=img&&!items.length&&!$('#mkcal').value&&!$('#mtext').value?'📷 Claude will look at the photo and estimate calories, protein and a health score.':img?'📷 Claude will also check the photo.':''};
+ drawFoods();drawSel();$('#mq').oninput=drawFoods;$('#msug').oninput=drawSel;$('#mtext').oninput=drawSel;
+ $$('#sheet [data-sl]').forEach(b=>b.onclick=()=>{slot=b.dataset.sl;$$('#sheet [data-sl]').forEach(x=>x.classList.toggle('on',x===b))});
+ const onFile=async ev=>{const f=ev.target.files[0];if(!f)return;$('#mhint').textContent='Preparing photo…';img=await shrinkTo_d26(f,512,.72);$('#mimg').outerHTML=`<img id="mimg" src="${img}">`;drawSel()};$('#mfile').onchange=onFile;$('#mfile2').onchange=onFile;
+ $('#msave').onclick=()=>{const t=new Date().toISOString(),text=$('#mtext').value.trim(),kc=$('#mkcal').value,sug=+$('#msug').value||0;if(!items.length&&!text&&!img&&!kc){toast('Add a food, a photo or a description');return}
+  let kcal=kc!==''?+kc:null;if(kcal==null&&items.length)kcal=items.reduce((a,i)=>a+i.kcal*(i.q||1),0)+sug*16;
+  const o={slot,date:$('#mdate').value||nowD().date,time:$('#mtime').value||hNow_d26(),items,text:text||(items.length?'':m.text||''),kcal:kcal??((img||text)?null:0),sugar:sug,img,skipped:false,updated:t};
+  if(slot==='drink'&&items.length===1){o.text=items[0].n;o.q=items[0].q||1}
+  if(id)Object.assign(m,o);else{H_().meals.push({id:hid_d26(),created:t,...o});xpFly($('#msave'),'+2 XP')}HS.queue();closeSheet();rerenderHealth_d26();toast('Logged ✓')};
+ if(opt.autoCam)setTimeout(()=>$('#mfile').click(),300)}
+function quickDrink_d26(i){const x=DRINKS_d26[i],t=new Date().toISOString(),d=nowD().date;
+ const same=H_().meals.find(m=>!m.deleted&&m.date===d&&m.slot==='drink'&&m.text===x[1]&&!m.img);
+ if(same){same.q=(same.q||1)+1;same.kcal=x[2]*same.q;same.items=[{n:x[1],e:x[0],kcal:x[2],p:x[3],q:same.q}];same.time=hNow_d26();same.updated=t}
+ else H_().meals.push({id:hid_d26(),slot:'drink',date:d,time:hNow_d26(),text:x[1],q:1,items:[{n:x[1],e:x[0],kcal:x[2],p:x[3],q:1}],kcal:x[2],created:t,updated:t});
+ HS.queue();rerenderHealth_d26();toast(`${x[0]} ${x[1]} +1 · ${hNow_d26()}`)}
+function rerenderHealth_d26(){if(curPage()==='health')renderHealth_d26();if(curPage()==='today')rerender()}
+
+/* ---------- BODY tab ---------- */
+const MEAS_d26=[['waist','Waist (navel)'],['belly','Belly (widest)'],['chest','Chest'],['shoulders','Shoulders'],['neck','Neck'],['bicepL','Biceps L (flexed)'],['bicepR','Biceps R (flexed)'],['forearm','Forearm'],['hips','Hips'],['thighL','Thigh L'],['thighR','Thigh R'],['calf','Calf']];
+const GROW_d26=new Set(['chest','shoulders','bicepL','bicepR','forearm','thighL','thighR','calf']);
+const POSES_d26=[['front','Front'],['side','Side'],['back','Back'],['biceps','Biceps flex'],['belly','Belly / abs'],['legs','Legs']];
+function measSeries_d26(k){return H_().meas.filter(x=>!x.deleted&&x[k]).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>({d:x.date,v:+x[k]}))}
+function lineSvg_d26(pts,col,unit){if(pts.length<2)return `<div class="xs faint">${pts.length?'Add one more to see the trend':'No data yet'}</div>`;const W=320,Hh=90,xs=pts.map((p,i)=>i),ys=pts.map(p=>p.v),mn=Math.min(...ys),mx=Math.max(...ys),r=mx-mn||1;
+ const P=pts.map((p,i)=>[10+i*(W-20)/(pts.length-1),10+(Hh-20)*(1-(p.v-mn)/r)]);return `<svg class="hline" viewBox="0 0 ${W} ${Hh}"><polyline points="${P.map(p=>p.join(',')).join(' ')}" style="stroke:${col}"/>${P.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" style="fill:${col}"/>`).join('')}<text x="10" y="${Hh-1}">${fd(pts[0].d,{day:'numeric',month:'short'})}</text><text x="${W-10}" y="${Hh-1}" text-anchor="end">${fd(pts[pts.length-1].d,{day:'numeric',month:'short'})}</text></svg>`}
+function bodyHTML_d26(){const p=prof_d26(),w=p.weight,bmi=w/((p.height/100)**2),lost=Math.round((p.start-w)*10)/10,toGo=Math.round((w-p.goal)*10)/10,W=H_().weights.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>({d:x.date,v:+x.kg}));
+ const lm=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)),first=lm[0]||{},last=lm[lm.length-1]||{};
+ const bf=last.waist&&last.neck&&last.waist>last.neck?Math.round((495/(1.0324-0.19077*Math.log10(last.waist-last.neck)+0.15456*Math.log10(p.height))-450)*10)/10:null;
+ const pct=Math.max(0,Math.min(100,(p.start-w)/((p.start-p.goal)||1)*100)),rv=D.body_review;
+ return `<div class="card mb hbody"><div class="hbt"><div><small>Weight</small><b>${w} kg</b><span class="up">▼ ${lost} kg lost</span></div><div><small>Goal</small><b>${p.goal} kg</b><span>${toGo>0?toGo+' kg to go':'reached 🎉'}</span></div><div><small>BMI</small><b>${bmi.toFixed(1)}</b><span>${p.height} cm</span></div>${bf?`<div><small>Body fat ≈</small><b>${bf}%</b><span>tape method</span></div>`:''}</div>
+  <div class="hprog"><i style="width:${pct}%"></i></div><div class="xs faint">${p.start} kg start → ${p.goal} kg goal · ${Math.round(pct)}% of the way</div></div>
+ <div class="hbtns"><button type="button" class="bigadd" data-x="hweigh">${ic('scale')}Weigh in</button><button type="button" class="bigadd alt2" data-x="hmeas">📏 Measure</button><button type="button" class="bigadd alt3" data-x="hphoto">${ic('camera')}Body photo</button></div>
+ ${rv?`<div class="card mb htip">🤖 <span><b>Claude’s review · ${fd((rv.date||'').slice(0,10)||nowD().date)}</b><br>${esc(rv.text||'')}</span></div>`:''}
+ <div class="card mb"><div class="hsh"><b>⚖️ Weight</b><span class="xs faint">${W.length} weigh-ins</span></div>${lineSvg_d26(W,'#10b981')}</div>
+ <div class="card mb"><div class="hsh"><b>📏 Waist</b><span class="xs faint">belly fat goes down here first</span></div>${lineSvg_d26(measSeries_d26('waist'),'#f59e0b')}</div>
+ <div class="card mb"><div class="hsh"><b>💪 Measurements</b><span class="xs faint">${lm.length?'first → latest':'tap Measure to start'}</span></div>
+  ${lm.length?`<div class="hmeas">${MEAS_d26.filter(([k])=>last[k]||first[k]).map(([k,l])=>{const a=+first[k]||null,b=+last[k]||null,dd=a&&b?Math.round((b-a)*10)/10:null,good=dd==null||dd===0?'':(GROW_d26.has(k)?dd>0:dd<0)?'g':'b';return `<div><span>${l}</span><b>${b??'—'}<small> cm</small></b>${dd?`<em class="${good}">${dd>0?'+':''}${dd}</em>`:''}</div>`}).join('')}</div>`:''}</div>
+ <div class="card mb"><div class="hsh"><b>📸 Progress photos</b><span class="xs faint">first vs latest</span></div><div class="hposes">${POSES_d26.map(([k,l])=>{const L=H_().photos.filter(x=>!x.deleted&&x.pose===k).sort((a,b)=>a.date.localeCompare(b.date));const a=L[0],b=L[L.length-1];
+  return `<div class="hpose"><div class="hpl"><b>${l}</b><button type="button" class="btn2 sm" data-x="hphoto" data-pose="${k}">${ic('camera')}</button></div>${a?`<div class="hcmp"><figure><img src="${a.img}" data-x="hpview" data-id="${a.id}"><figcaption>${fd(a.date,{day:'numeric',month:'short'})}</figcaption></figure>${b&&b!==a?`<figure><img src="${b.img}" data-x="hpview" data-id="${b.id}"><figcaption>${fd(b.date,{day:'numeric',month:'short'})}</figcaption></figure>`:''}</div>`:'<div class="xs faint">No photo yet</div>'}</div>`}).join('')}</div>
+  <div class="xs faint" style="margin-top:8px">Same place, same light, same time of day (morning) — makes the change easy to see. Photos stay encrypted in your private file.</div></div>
+ <div class="card mb"><div class="hsh"><b>⚙️ Profile</b><button type="button" class="btn2 sm" data-x="hprof">Edit</button></div><div class="xs faint">Height ${p.height} cm · age ${p.age} · start ${p.start} kg · goal ${p.goal} kg</div></div>`}
+function openWeigh_d26(){const p=prof_d26();sheet(head('Weigh in','scale','bg-g')+`<div class="hbigin"><input id="wkg" class="inp" type="number" step="0.1" inputmode="decimal" value="${p.weight}"><span>kg</span></div><div class="fld"><label>Date</label><input id="wdate" class="inp" type="date" value="${nowD().date}"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="wsave">Save</button></div><div class="xs faint">Best: mornings, after the toilet, before breakfast.</div>`);
+ $('#wsave').onclick=()=>{const kg=+$('#wkg').value;if(!kg||kg<30||kg>250){toast('Check the number');return}const d=$('#wdate').value||nowD().date,t=new Date().toISOString(),ex=H_().weights.find(x=>!x.deleted&&x.date===d);if(ex){ex.kg=kg;ex.updated=t}else H_().weights.push({id:hid_d26(),date:d,kg,created:t,updated:t});
+  HS.queue();closeSheet();const prev=lastWeightBefore_d26(d);toast(prev&&kg<prev?`▼ ${Math.round((prev-kg)*10)/10} kg — great work 💪`:'Saved ✓');if(prev&&kg<prev)confetti(40);rerenderHealth_d26()}}
+function lastWeightBefore_d26(d){const L=H_().weights.filter(x=>!x.deleted&&x.date<d).sort((a,b)=>a.date.localeCompare(b.date));return L.length?L[L.length-1].kg:prof_d26().start}
+function openMeas_d26(){const last=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)).pop()||{};
+ sheet(head('Measurements','scale','bg-o')+`<div class="xs faint" style="margin-bottom:8px">Tape measure in cm. Fill what you can — even waist + biceps is great.</div><div class="hmform">${MEAS_d26.map(([k,l])=>`<label><span>${l}</span><input class="inp" type="number" step="0.1" inputmode="decimal" data-mk="${k}" placeholder="${last[k]||''}"></label>`).join('')}</div><div class="fld"><label>Date</label><input id="mmdate" class="inp" type="date" value="${nowD().date}"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="mmsave">Save</button></div>`);
+ $('#mmsave').onclick=()=>{const o={};$$('#sheet [data-mk]').forEach(i=>{if(i.value)o[i.dataset.mk]=+i.value});if(!Object.keys(o).length){toast('Enter at least one');return}const t=new Date().toISOString();H_().meas.push({id:hid_d26(),date:$('#mmdate').value||nowD().date,...o,created:t,updated:t});HS.queue();closeSheet();toast('Measurements saved ✓');rerenderHealth_d26()}}
+function openBodyPhoto_d26(pose){let sel=pose||'front';sheet(head('Body photo','camera','bg-p')+`<div class="nbooks sm2">${POSES_d26.map(([k,l])=>`<button type="button" class="${sel===k?'on':''}" data-po="${k}">${l}</button>`).join('')}</div><div class="hph" style="margin-top:10px"><label class="btn2 pri">${ic('camera')} Take photo<input type="file" accept="image/*" capture="user" id="bpcam" hidden></label><label class="btn2">🖼 Gallery<input type="file" accept="image/*" id="bpgal" hidden></label></div><div class="xs faint" style="margin-top:8px">Tip: stand 2 m from a mirror, relaxed, same pose each time.</div>`);
+ $$('#sheet [data-po]').forEach(b=>b.onclick=()=>{sel=b.dataset.po;$$('#sheet [data-po]').forEach(x=>x.classList.toggle('on',x===b))});
+ const on=async ev=>{const f=ev.target.files[0];if(!f)return;const img=await shrinkTo_d26(f,640,.75),t=new Date().toISOString();H_().photos.push({id:hid_d26(),date:nowD().date,pose:sel,img,created:t,updated:t});HS.queue();closeSheet();xpFly(document.body,'+5 XP');toast('Photo saved 🔒');rerenderHealth_d26()};$('#bpcam').onchange=on;$('#bpgal').onchange=on}
+function openProf_d26(){const p=prof_d26();sheet(head('Body profile','heart','bg-v')+`<div class="hmform">${[['height','Height (cm)',p.height],['age','Age',p.age],['start','Starting weight (kg)',p.start],['goal','Goal weight (kg)',p.goal]].map(([k,l,v])=>`<label><span>${l}</span><input class="inp" type="number" step="0.1" data-pk="${k}" value="${v}"></label>`).join('')}</div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="psave">Save</button></div>`);
+ $('#psave').onclick=()=>{const o={updated:new Date().toISOString()};$$('#sheet [data-pk]').forEach(i=>o[i.dataset.pk]=+i.value);H_().prof=o;HS.queue();closeSheet();rerenderHealth_d26()}}
+
+/* ---------- clicks ---------- */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x^="h"]');if(!a)return;const x=a.dataset.x;
+ const map={htab:()=>{hTab_d26=a.dataset.t;renderHealth_d26()},hdaynav:()=>{const n=nowD().date;hDay_d26=addDays(hDay_d26||n,+a.dataset.v);if(hDay_d26>n)hDay_d26=n;renderHealth_d26()},
+  hsnap:()=>HS.load().then(()=>openMeal_d26(null,{autoCam:true})),hadd:()=>HS.load().then(()=>openMeal_d26(null,{slot:a.dataset.s})),hedit:()=>openMeal_d26(a.dataset.id),hdrink:()=>HS.load().then(()=>quickDrink_d26(+a.dataset.i)),
+  hskip:()=>HS.load().then(()=>{const t=new Date().toISOString();H_().meals.push({id:hid_d26(),slot:a.dataset.s,date:hDay_d26||nowD().date,time:hNow_d26(),skipped:true,created:t,updated:t});HS.queue();rerenderHealth_d26()}),
+  hdel:()=>{if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const m=H_().meals.find(z=>z.id===a.dataset.id);if(m){m.deleted=true;m.updated=new Date().toISOString();HS.queue()}closeSheet();rerenderHealth_d26()},
+  hweigh:()=>HS.load().then(openWeigh_d26),hmeas:()=>HS.load().then(openMeas_d26),hphoto:()=>HS.load().then(()=>openBodyPhoto_d26(a.dataset.pose)),hprof:()=>openProf_d26(),
+  hpview:()=>{const ph=H_().photos.find(z=>z.id===a.dataset.id);if(!ph)return;sheet(head(fd(ph.date,{day:'numeric',month:'long',year:'numeric'}),'camera','bg-p')+`<img src="${ph.img}" style="width:100%;border-radius:14px"><div class="btnrow"><button type="button" class="btn2 danger" data-x="hpdel" data-id="${ph.id}">${ic('trash')} Delete</button><button type="button" class="btn2" data-act="close">Close</button></div>`)},
+  hpdel:()=>{if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Sure?';return}const ph=H_().photos.find(z=>z.id===a.dataset.id);if(ph){ph.deleted=true;delete ph.img;ph.updated=new Date().toISOString();HS.queue()}closeSheet();rerenderHealth_d26()}};
+ if(map[x]){e.preventDefault();map[x]()}});
+
+/* ---------- Today: food card with time-aware questions ---------- */
+const _renderToday_d26=renderToday;renderToday=function(G){_renderToday_d26(G);const el=$('#p-today');if(!el)return;if(!HS.loaded){HS.load().then(()=>{if(curPage()==='today')rerender()});return}
+ const n=nowD().date,S=daySum_d26(n),T=targets_d26(),m=nowD().mins,has=k=>S.M.some(x=>x.slot===k);
+ let ask='';if(m>=10*60&&!has('breakfast'))ask=['breakfast','Did you have breakfast?'];else if(m>=15*60&&!has('lunch'))ask=['lunch','Did you have lunch?'];else if(m>=21*60&&!has('dinner'))ask=['dinner','Did you have dinner?'];
+ const html=`<div class="card mb hfoodtoday"><div class="hft"><b>🍽 Food today</b><span>${S.kcal} / ${T.kcal} kcal · ${S.p} g protein · ☕ ${S.coffee}</span></div>
+  ${ask?`<div class="hask">${ask[1]} <button type="button" class="btn2 sm pri" data-x="hadd" data-s="${ask[0]}">Yes — log it</button><button type="button" class="btn2 sm" data-x="hskip" data-s="${ask[0]}">Skipped</button></div>`:''}
+  <div class="hftb"><button type="button" class="btn2 sm pri" data-x="hsnap">${ic('camera')} Snap meal</button><button type="button" class="btn2 sm" data-x="hdrink" data-i="1">☕ +1 coffee</button><button type="button" class="btn2 sm" data-x="hdrink" data-i="9">💧 +1 water</button><button type="button" class="btn2 sm ghost" onclick="location.hash='#health'">Open ›</button></div></div>`;
+ const t=el.querySelector('.v8top');if(t){const r=t.querySelector('.reward');(r||t.firstElementChild)?.insertAdjacentHTML('afterend',html)}};
+/* XP */
+const _habXP_d26=habXP;habXP=function(){let x=_habXP_d26();if(HS.loaded){const h=H_();x+=h.meals.filter(m=>!m.deleted&&!m.skipped).length*2+h.weights.filter(w=>!w.deleted).length*5+h.photos.filter(p=>!p.deleted).length*5+h.meas.filter(w=>!w.deleted).length*5}return x};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
