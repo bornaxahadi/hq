@@ -2048,6 +2048,49 @@ const _draw_d24=draw;draw=function(pg){_draw_d24(pg);if(pg!=='money')return;cons
 /* 5. Today: Notes & Diary shortcuts near the top */
 const _renderToday_d24=renderToday;renderToday=function(G){_renderToday_d24(G);const t=$('#p-today .v8top'),q=$('#p-today .nquick');if(t&&q){const after=t.querySelector('.reward');(after||t.firstElementChild)?.after(q);
  if(!q.querySelector('.nq3'))q.insertAdjacentHTML('beforeend',`<button type="button" class="nq2 nq3" data-x="dnew" data-voice="1">📔 Diary</button>`)}};
+
+/* ================= v25: Notes last in the bar · movies & games in the diary · share a day · Face ID fixes ================= */
+/* 1. Notes button goes to the end of the bottom bar */
+(function(){const i=PAGES.findIndex(p=>p.id==='notes');if(i>-1){const [n]=PAGES.splice(i,1);PAGES.push(n)}
+ buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
+ if(typeof show==='function'&&D)show()})();
+/* Today: Notes card back at the bottom of the top section */
+const _renderToday_d25=renderToday;renderToday=function(G){_renderToday_d25(G);const t=$('#p-today .v8top'),q=$('#p-today .nquick');if(t&&q)t.appendChild(q)};
+
+/* 2. Movies & games you log appear in your diary automatically */
+const MICON_d25={movie:'🎬',series:'📺',game:'🎮'};
+function mediaDiary_d25(d){if(typeof media!=='function')return[];return media().filter(x=>!x.later&&x.date===d).map(x=>{const who=x.with==='farnaz'?' · with Farnaz 💑':x.with==='family'?' · with the family':'';const st=x.rating?' · '+'★'.repeat(x.rating):'';const verb=x.type==='game'?'Played':'Watched';
+ return{id:'media-'+x.id,mid:x.id,date:d,at:(x.ratedAt||x.created||x.updated||(d+'T21:00:00')),auto:1,mood:null,photo:x.photo||x.poster||'',text:`${MICON_d25[x.type]||'🎬'} ${verb} ${x.title}${x.year?' ('+x.year+')':''}${st}${who}${x.note?'\n“'+x.note+'”':''}`}})}
+const _diaryOn_d25=diaryOn;diaryOn=function(d){return _diaryOn_d25(d).concat(mediaDiary_d25(d)).sort((a,b)=>(a.at||'').localeCompare(b.at||''))};
+const _diaryStreak_d25=diaryStreak;diaryStreak=function(){const ds=new Set((NB?.diary||[]).filter(x=>!x.deleted).map(x=>x.date));if(typeof media==='function')media().forEach(x=>{if(!x.later&&x.date)ds.add(x.date)});let s=0,d=nowD().date;if(!ds.has(d))d=addDays(d,-1);while(ds.has(d)&&s<999){s++;d=addDays(d,-1)}return s};
+const _diaryEntryHTML_d25=diaryEntryHTML;diaryEntryHTML=function(e){if(!e.auto)return _diaryEntryHTML_d25(e);
+ return `<div class="dentry auto" data-x="dmedia" data-id="${esc(e.mid)}"><div class="dmeta"><span class="dmood">${e.text.slice(0,2)}</span><span>from Watch &amp; Play</span><span class="pill2">auto</span></div>${e.photo&&/^data:|^https:/.test(e.photo)?`<img class="dphoto mini" src="${esc(e.photo)}" alt="">`:''}<div class="dtext">${linkify(e.text.slice(2).trim())}</div></div>`};
+/* share a day */
+const _diaryPanel_d25=diaryPanel;diaryPanel=function(c){const h=_diaryPanel_d25(c);if(!NB)return h;return h.replace(/<\/div>\s*$/,`<button type="button" class="btn2 dshare" data-x="dshare" title="Share this day">📤</button></div>`)};
+function dayText_d25(d){const E=diaryOn(d);const head=`📔 ${fd(d,{weekday:'long',day:'numeric',month:'long'})}`;return head+'\n\n'+(E.length?E.map(e=>(e.mood!=null&&!e.auto?DMOOD[e.mood]+' ':'')+e.text).join('\n\n'):'(nothing written)')}
+document.addEventListener('click',async e=>{const a=e.target.closest('[data-x="dmedia"],[data-x="dshare"]');if(!a)return;
+ if(a.dataset.x==='dmedia'){if(typeof openRate==='function')openRate(a.dataset.id);return}
+ const txt=dayText_d25(diaryDay||nowD().date);
+ if(navigator.share){try{await navigator.share({title:'My day',text:txt})}catch(err){}}else{try{await navigator.clipboard.writeText(txt);toast('Copied — paste it anywhere')}catch(err){toast('Could not share')}}});
+/* refresh the diary when a movie/game is saved */
+const _saveMedia_d25=saveMedia;saveMedia=function(L){_saveMedia_d25(L);setTimeout(()=>$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel()),50)};
+
+/* 3. Face ID: start the system prompt directly from the tap (Safari blocks it otherwise) and show the real reason if it fails */
+let fidTap_d25=false;
+const isIOS_d25=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const _fidUnlock_d25=fidUnlock_d24;fidUnlock_d24=async function(){if(!fidTap_d25&&isIOS_d25){const b=$('#fidbtn');if(b)b.classList.add('pulse');return}fidTap_d25=false;return _fidUnlock_d25()};
+(function(){const b=$('#fidbtn');if(!b)return;b.onclick=()=>{fidTap_d25=true;fidUnlock_d24()};const lb=$('#lockform');if(lb)lb.addEventListener('click',ev=>{if(ev.target.closest('input,button,label'))return;fidTap_d25=true;fidUnlock_d24()})})();
+function fidErr_d25(e){const n=e&&e.name||'',m=(e&&e.message||'').slice(0,80);
+ return n==='NotAllowedError'?'Face ID was cancelled or blocked. Make sure Face ID is set up and “Passwords / iCloud Keychain” is on in iPhone Settings, then try again.':n==='SecurityError'?'Face ID needs the app opened from bornaxahadi.github.io.':n==='InvalidStateError'?'Face ID is already set up on this phone — tap Turn off, then Turn on again.':n==='NotSupportedError'?'This browser doesn’t support Face ID login. Update iOS or open the app from the Home Screen.':'Face ID error: '+(n||'unknown')+(m?' — '+m:'')}
+const _openSettings_d25=openSettings;openSettings=function(){_openSettings_d25();const t=$('#fidtog');if(!t)return;
+ t.onclick=()=>{if(fidInfo_d24()){ls.del(FID_d24);if(PW)ls.set(KEY,PW);toast('Face ID off');closeSheet();return}
+  if(!fidOK_d24()){toast('Face ID isn’t available in this browser — open Borna HQ from your Home Screen or Safari');return}
+  if(!PW){toast('Unlock with your password first');return}
+  fidEnable_d24(PW).then(()=>{ls.del('hq.fidno');closeSheet();confetti(40);toast('Face ID is on ✓ — try it: close and reopen the app')}).catch(e=>{sheet(head('Face ID','lock','bg-o')+`<p class="sm">${esc(fidErr_d25(e))}</p><button class="btn2" data-act="close" style="width:100%;margin-top:10px">OK</button>`)})}};
+$('#settings').onclick=()=>openSettings();
+/* same for the “Open with Face ID?” prompt after unlocking */
+document.addEventListener('click',e=>{const y=e.target.closest('#fidyes');if(!y)return;e.stopImmediatePropagation();e.preventDefault();
+ fidEnable_d24(PW).then(()=>{closeSheet();confetti(40);toast('Face ID is on ✓')}).catch(err=>{$('#sheet .lvup p').textContent=fidErr_d25(err)})},true);
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
