@@ -1634,6 +1634,267 @@ function fzCard(){const P=people(),f=P.find(x=>x.id==='p-farnaz')||P.find(x=>/fa
  return `<div class="card mb fzq"><div class="fzh"><b>💑 Message Farnaz</b>${num?'':`<button type="button" class="xs faint fzadd" data-person="${esc(f.id)}">Add her number ›</button>`}</div><div class="fzrow">${L.map(({m,i})=>`<a class="fzc${i===first?' on':''}" href="https://wa.me/${num}?text=${encodeURIComponent(m[2])}" target="_blank" rel="noopener">${m[0]} ${esc(m[1])}</a>`).join('')}</div></div>`}
 const _renderToday21=renderToday;renderToday=function(G){_renderToday21(G);const t=$('#p-today .v8top');if(!t)return;t.querySelectorAll('.fzq').forEach(x=>x.remove());const h=fzCard();if(!h)return;const x=document.createElement('div');x.innerHTML=h;t.insertBefore(x.firstElementChild,t.children[1]||null)};
 const _openTalk21=openTalk;openTalk=function(pre){_openTalk21(pre);const v=$('.tkv');if(v)v.textContent='App v21'};
+
+/* ================= v22: Dear diary · Notes (Evernote-style) · Vault · Refresh everything ================= */
+P.search=P.search||'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>';
+P.lock='<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
+P.note='<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/>';
+P.copy='<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>';
+P.eye2='<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+P.diary='<path d="M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 3v18M11 8h5M11 12h5"/>';
+
+/* ---------- storage: notes.enc (own file so the main data stays small) ---------- */
+let NB=null,nbLoaded=false,nbLoading=null,nbSha=null,nbTimer=null,nbSaving=false,nbAgain=false;
+const nbEmpty=()=>({v:1,notes:[],books:[{id:'b-personal',n:'Personal',e:'🗒️',updated:''},{id:'b-business',n:'Business',e:'💼',updated:''},{id:'b-ideas',n:'Ideas',e:'💡',updated:''},{id:'b-links',n:'Links',e:'🔗',updated:''}],diary:[],vault:null,updated:null});
+function nbMerge(a,b){a=a||nbEmpty();b=b||nbEmpty();const va=a.vault,vb=b.vault;
+ return{v:1,notes:mergeArr(a.notes,b.notes),books:mergeArr(a.books,b.books),diary:mergeArr(a.diary,b.diary),vault:(vb&&(!va||(vb.updated||'')>(va.updated||'')))?vb:(va||null),updated:(a.updated||'')>(b.updated||'')?a.updated:b.updated}}
+async function nbRemote(){
+ if(!TOKEN){const j=await pagesJSON('notes.enc');return j?dec(j):null}
+ const h={Authorization:'Bearer '+TOKEN};
+ const r=await fetch(API+'notes.enc?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github+json'},cache:'no-store'});
+ if(r.status===404){nbSha=null;return null}if(!r.ok)throw new Error('GitHub '+r.status);
+ const j=await r.json();nbSha=j.sha;let txt;
+ if(j.content&&j.encoding==='base64')txt=atob(j.content.replace(/\s/g,''));
+ else{const r2=await fetch(API+'notes.enc?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github.raw'},cache:'no-store'});txt=await r2.text()}
+ return dec(JSON.parse(txt))}
+function nbCache(){try{localStorage.setItem('hq.notes',JSON.stringify(NB))}catch(e){}}
+function loadNB(force){if(nbLoaded&&!force)return Promise.resolve(NB);if(nbLoading)return nbLoading;
+ nbLoading=(async()=>{let local=null;try{const t=ls.get('hq.notes');if(t)local=JSON.parse(t)}catch(e){}
+  if(!NB)NB=local||nbEmpty();let remote=null,ok=true;try{remote=await nbRemote()}catch(e){ok=false;console.warn(e)}
+  const before=JSON.stringify(remote);NB=nbMerge(remote,NB);nbLoaded=true;nbCache();
+  if(ok&&TOKEN&&JSON.stringify(NB)!==before&&(NB.notes.length||NB.diary.length||NB.vault))nbQueue(true);
+  nbLoading=null;return NB})();return nbLoading}
+function nbQueue(keepTime){if(!keepTime)NB.updated=new Date().toISOString();nbCache();if(!TOKEN)return;clearTimeout(nbTimer);nbTimer=setTimeout(nbSave,900)}
+async function nbSave(){if(nbSaving){nbAgain=true;return}nbSaving=true;
+ try{for(let i=0;i<3;i++){const remote=await nbRemote();const m=nbMerge(remote,NB);
+   try{nbSha=await ghPut('notes.enc',await enc(m),nbSha,'Notes from app');NB=m;nbCache();break}catch(e){if(e.status!==409&&e.status!==422)throw e}}}
+ catch(e){console.warn(e);toast('Notes saved on this phone — will sync later')}
+ nbSaving=false;if(nbAgain){nbAgain=false;nbSave()}}
+const nid=()=>'n'+uid();
+const nowISO=()=>new Date().toISOString();
+
+/* ---------- reusable dictation (tap mic → words appear in a text box) ---------- */
+let dict=null;
+function dictate(btn,ta,hint){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(dict){try{dict.stop()}catch(e){}return}
+ if(!SR){ta.focus();if(hint)hint.innerHTML='Tap the <b>🎙 key</b> on your keyboard and speak.';return}
+ let R;try{R=new SR()}catch(e){ta.focus();return}
+ dict=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=!IOS;
+ const pre=ta.value.replace(/\s+$/,'');let fin='';
+ R.onstart=()=>{btn.classList.add('on');if(hint)hint.textContent='🔴 Listening… tap the mic to stop'};
+ R.onresult=e=>{let im='';for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)fin+=r[0].transcript+' ';else im+=r[0].transcript}
+  ta.value=(pre?pre+(pre.endsWith('\n')?'':' '):'')+(fin+im).trim();ta.dispatchEvent(new Event('input'))};
+ R.onerror=e=>{dict=null;btn.classList.remove('on');if(hint)hint.innerHTML=(e.error==='not-allowed'||e.error==='service-not-allowed')?'Microphone is blocked — allow it in Settings, or use the 🎙 key on your keyboard.':e.error==='no-speech'?'I didn’t hear anything — tap the mic again.':''};
+ R.onend=()=>{dict=null;btn.classList.remove('on');if(hint&&hint.textContent.startsWith('🔴'))hint.textContent='✓ Done — edit if needed, then save.'};
+ try{R.start()}catch(e){dict=null}}
+function stopDict(){if(dict){try{dict.stop()}catch(e){}}}
+const micLangs=()=>`<div class="miclang sm2">${[['en-US','EN'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="${(ls.get('hq.lang')||'en-US')===l?'on':''}" data-x="miclang" data-l="${l}">${n}</button>`).join('')}</div>`;
+
+/* ---------- helpers ---------- */
+const linkify=t=>esc(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>').replace(/\n/g,'<br>');
+const snip=(t,n=140)=>{t=(t||'').replace(/\s+/g,' ').trim();return t.length>n?t.slice(0,n)+'…':t};
+const PWD_RX=/\b(pass(word)?|pwd|pin|رمز|پسورد)\b\s*[:=]/i;
+
+/* =========================================================
+   DEAR DIARY
+   ========================================================= */
+const DMOOD=['😢','😕','😐','🙂','😄','🤩'];
+function diaryOn(d){return (NB?.diary||[]).filter(x=>!x.deleted&&x.date===d).sort((a,b)=>(a.at||'').localeCompare(b.at||''))}
+function diaryStreak(){const ds=new Set((NB?.diary||[]).filter(x=>!x.deleted).map(x=>x.date));let s=0,d=nowD().date;if(!ds.has(d))d=addDays(d,-1);while(ds.has(d)&&s<999){s++;d=addDays(d,-1)}return s}
+let diaryDay=null;
+function diaryEntryHTML(e){return `<div class="dentry" data-x="dedit" data-id="${e.id}"><div class="dmeta"><span class="dmood">${e.mood!=null?DMOOD[e.mood]:'📝'}</span><span>${esc(new Date(e.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}))}</span>${e.voice?'<span class="pill2">🎙 spoken</span>':''}</div>${e.photo?`<img class="dphoto" src="${e.photo}" alt="">`:''}<div class="dtext">${linkify(e.text||'')}</div></div>`}
+function diaryPanel(compact){if(!NB)return `<div class="faint sm">Loading your diary…</div>`;const n=nowD().date;diaryDay=diaryDay||n;
+ const days=Array.from({length:14},(_,i)=>addDays(n,-i));const E=diaryOn(diaryDay),st=diaryStreak();
+ return `<div class="dstrip">${days.map(d=>{const c=diaryOn(d).length;return `<button type="button" class="dday ${d===diaryDay?'on':''} ${c?'has':''}" data-x="dday" data-d="${d}"><small>${fd(d,{weekday:'short'}).slice(0,2)}</small><b>${fd(d,{day:'numeric'})}</b><i></i></button>`}).join('')}</div>
+ <div class="dhead"><b>${diaryDay===n?'Today':fd(diaryDay,{weekday:'long',day:'numeric',month:'short'})}</b>${st?`<span class="pill2 fire">🔥 ${st}-day streak</span>`:''}</div>
+ ${E.length?E.map(diaryEntryHTML).join(''):`<div class="dempty">${diaryDay===n?'Nothing yet today. What was memorable?':'No entry for this day.'}</div>`}
+ <div class="dbtns"><button type="button" class="btn2 pri" data-x="dnew" data-voice="1">🎙 Speak</button><button type="button" class="btn2" data-x="dnew">✍️ Write</button></div>`}
+function openDiary(id,voice,date){const e=(NB.diary||[]).find(x=>x.id===id)||{date:date||diaryDay||nowD().date};let photo=e.photo||'';
+ sheet(head(id?'Diary entry':'Dear diary','diary','bg-p')+`<div class="sm muted" style="margin:-6px 0 10px">${fd(e.date,{weekday:'long',day:'numeric',month:'long'})}</div>
+ <div class="fld"><label>How was it?</label><div class="dmoods">${DMOOD.map((m,i)=>`<button type="button" class="${e.mood===i?'on':''}" data-x="dmood" data-v="${i}">${m}</button>`).join('')}</div></div>
+ <div class="fld"><label>Write or speak</label><div class="dwrap"><textarea id="dtext" class="inp" rows="7" placeholder="Dear diary, today…">${esc(e.text||'')}</textarea><button type="button" class="tk-mic dmic" id="dmic" aria-label="Speak">${ic('mic')}</button></div><div class="tk-hint" id="dhint"></div>${micLangs()}</div>
+ <div class="fld"><label>Photo (optional)</label><div class="dphrow">${photo?`<img class="dphoto sm" id="dph" src="${photo}">`:'<span id="dph"></span>'}<label class="btn2 sm">📷 Add photo<input type="file" accept="image/*" id="dfile" hidden></label></div></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="ddel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="dsave">Save</button></div>`);
+ const ta=$('#dtext'),mb=$('#dmic'),hint=$('#dhint');let mood=e.mood,spoke=!!e.voice;
+ mb.onclick=()=>{spoke=true;dictate(mb,ta,hint)};
+ $$('#sheet [data-x="dmood"]').forEach(b=>b.onclick=()=>{mood=+b.dataset.v;$$('#sheet [data-x="dmood"]').forEach(x=>x.classList.toggle('on',x===b))});
+ $('#dfile').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;photo=await shrinkImg(f);$('#dph').outerHTML=`<img class="dphoto sm" id="dph" src="${photo}">`};
+ $('#dsave').onclick=()=>{stopDict();const text=ta.value.trim();if(!text&&!photo){ta.focus();return}const t=nowISO();
+  if(id){Object.assign(e,{text,mood,photo,voice:spoke,updated:t})}else{NB.diary.push({id:nid(),date:e.date,text,mood,photo,voice:spoke,at:t,created:t,updated:t});xpFly($('#dsave'),'+3 XP')}
+  nbQueue();closeSheet();refreshDiaryViews();toast(id?'Updated ✓':'Saved to your diary 📔')};
+ if(voice)setTimeout(()=>mb.click(),250)}
+function refreshDiaryViews(){$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel());const pg=curPage();if(pg==='today')rerender();if(pg==='notes'&&nTab==='diary')renderNotes()}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="dday"],[data-x="dnew"],[data-x="dedit"],[data-x="ddel"]');if(!a)return;const x=a.dataset.x;
+ if(x==='dday'){diaryDay=a.dataset.d;$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel());if(curPage()==='notes')renderNotes();return}
+ if(x==='dnew'){loadNB().then(()=>openDiary(null,!!a.dataset.voice));return}
+ if(x==='dedit'){openDiary(a.dataset.id);return}
+ if(x==='ddel'){if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const it=NB.diary.find(z=>z.id===a.dataset.id);if(it){it.deleted=true;it.updated=nowISO();nbQueue()}closeSheet();refreshDiaryViews();toast('Deleted')}});
+const _habXP22=habXP;habXP=function(){let x=_habXP22();if(NB)x+=new Set((NB.diary||[]).filter(d=>!d.deleted).map(d=>d.date)).size*3;return x};
+
+/* Calendar: Dear diary card at the top + 📔 on today */
+const _renderCalendar22=renderCalendar;renderCalendar=function(){_renderCalendar22();const el=$('#p-calendar');if(!el)return;
+ const pt=el.querySelector('.pt');if(pt)pt.insertAdjacentHTML('afterend',`<div class="card mb diarycard"><div class="ch"><div class="ic bg-p">${ic('diary')}</div><h3>Dear diary</h3><span class="aside xs faint">notes & memorable moments</span></div><div class="diarybox">${diaryPanel()}</div></div>`);
+ if(!nbLoaded)loadNB().then(()=>$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel()))};
+
+/* Today: evening prompt */
+const _renderToday22=renderToday;renderToday=function(G){_renderToday22(G);const el=$('#p-today');if(!el)return;
+ if(!nbLoaded){loadNB().then(()=>{if(curPage()==='today')rerender()});return}
+ const h=new Date().getHours(),n=nowD().date,E=diaryOn(n);if(h<19&&!E.length)return;
+ const html=E.length?`<div class="card mb diaryask done"><div class="da-ic">📔</div><div class="da-t"><b>Diary · ${E.length} note${E.length>1?'s':''} today</b><div class="xs faint">${esc(snip(E[E.length-1].text,70))}</div></div><button type="button" class="btn2" data-x="dnew" data-voice="1">🎙 Add</button></div>`
+  :`<div class="card mb diaryask"><div class="da-ic">📔</div><div class="da-t"><b>Dear diary…</b><div class="xs faint">Anything memorable today? Say it in 20 seconds.</div></div><button type="button" class="btn2 pri" data-x="dnew" data-voice="1">🎙 Speak</button></div>`;
+ const t=el.querySelector('.v8top');if(t)t.insertAdjacentHTML('afterend',html);else el.insertAdjacentHTML('afterbegin',html)};
+
+/* =========================================================
+   NOTES PAGE (Evernote-style) + VAULT
+   ========================================================= */
+PAGES.splice(PAGES.findIndex(p=>p.id==='calendar')+1,0,{id:'notes',l:'Notes',i:'note'});
+(function(){if($('#p-notes'))return;const s=document.createElement('section');s.className='page';s.id='p-notes';($('#p-calendar')||$('#p-today')).after(s)})();
+let nTab='notes',nBook='all',nQ='',nPwdOnly=false;
+function books(){return (NB.books||[]).filter(b=>!b.deleted)}
+function notesList(){return (NB.notes||[]).filter(n=>!n.deleted)}
+function noteCard(n){const b=books().find(x=>x.id===n.nb);return `<div class="ncard ${n.pinned?'pin':''}" data-x="nopen" data-id="${n.id}"><div class="nt">${n.pinned?'📌 ':''}${esc(n.title||'Untitled')}</div><div class="ns">${esc(snip(n.body))}</div><div class="nm">${b?`<span>${b.e} ${esc(b.n)}</span>`:''}${(n.tags||[]).slice(0,3).map(t=>`<span class="tag">#${esc(t)}</span>`).join('')}${PWD_RX.test(n.body||'')?'<span class="tag warn">🔑</span>':''}<span class="faint">${(Date.now()-new Date(n.updated||n.created))>30*864e5?fd((n.updated||n.created).slice(0,10)):ago(n.updated||n.created)}</span></div></div>`}
+function filteredNotes(){const q=nQ.toLowerCase();return notesList().filter(n=>(nBook==='all'||n.nb===nBook)&&(!nPwdOnly||PWD_RX.test(n.body||''))&&(!q||(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)||(n.tags||[]).join(' ').toLowerCase().includes(q))).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||(b.updated||'').localeCompare(a.updated||''))}
+function renderNotesList(){const box=$('#nlist');if(!box)return;const L=filteredNotes();box.innerHTML=L.length?L.map(noteCard).join(''):`<div class="dempty">${nQ?'No notes match “'+esc(nQ)+'”':'No notes here yet — tap + New note.'}</div>`}
+function renderNotes(){const el=$('#p-notes');if(!el||!D)return;
+ if(!nbLoaded){el.innerHTML=`<div class="pt">Notes</div><div class="card"><div class="faint">Loading your notes…</div></div>`;loadNB().then(renderNotes);return}
+ const N=notesList(),pw=N.filter(n=>PWD_RX.test(n.body||'')).length,vn=NB.vault?.n||0;
+ el.innerHTML=`<div class="pt">Notes <span>${N.length} notes · ${books().length} notebooks</span></div>
+ <div class="ntabs"><button type="button" class="${nTab==='notes'?'on':''}" data-x="ntab" data-t="notes">${ic('note')} Notes</button><button type="button" class="${nTab==='diary'?'on':''}" data-x="ntab" data-t="diary">${ic('diary')} Diary</button><button type="button" class="${nTab==='vault'?'on':''}" data-x="ntab" data-t="vault">${ic('lock')} Vault${vn?` <small>${vn}</small>`:''}</button></div>
+ ${nTab==='notes'?`
+  <div class="nsearch">${ic('search')}<input id="nq" class="inp" placeholder="Search all notes…" value="${esc(nQ)}"></div>
+  <div class="nbooks"><button type="button" class="${nBook==='all'?'on':''}" data-x="nbook" data-b="all">All <small>${N.length}</small></button>${books().map(b=>`<button type="button" class="${nBook===b.id?'on':''}" data-x="nbook" data-b="${b.id}">${b.e} ${esc(b.n)} <small>${N.filter(n=>n.nb===b.id).length}</small></button>`).join('')}<button type="button" class="addb" data-x="nbnew">+ Notebook</button></div>
+  ${pw&&!nPwdOnly?`<div class="nwarn" data-x="npwd">🔑 ${pw} note${pw>1?'s look':' looks'} like ${pw>1?'they contain':'it contains'} passwords — move them to the encrypted Vault ›</div>`:''}${nPwdOnly?`<div class="nwarn" data-x="npwd">Showing notes with passwords · tap to show all</div>`:''}
+  <div class="nact"><button type="button" class="bigadd" data-x="nnew">${ic('plus')}New note</button><button type="button" class="bigadd alt2" data-x="nnew" data-voice="1">${ic('mic')}Voice note</button><label class="bigadd alt3">${ic('down')}Import Evernote<input type="file" accept=".enex,application/xml,text/xml" id="enex" hidden multiple></label></div>
+  <div class="nlist" id="nlist"></div>`
+ :nTab==='diary'?`<div class="card"><div class="diarybox">${diaryPanel()}</div></div>`
+ :vaultHTML()}`;
+ if(nTab==='notes'){renderNotesList();const q=$('#nq');q.oninput=()=>{nQ=q.value;renderNotesList()};$('#enex').onchange=ev=>importEnex(ev.target.files)}
+ if(nTab==='vault')wireVault()}
+PAGEFN.notes=()=>renderNotes();
+const _draw22=draw;draw=function(pg){_draw22(pg);if(pg==='notes'&&!$('#p-notes .ntabs'))renderNotes()};
+
+function openNote(id,voice){const n=(NB.notes||[]).find(x=>x.id===id)||{nb:nBook!=='all'?nBook:'b-personal',tags:[]};let nb=n.nb,pin=!!n.pinned;
+ sheet(head(id?'Note':'New note','note','bg-v')+`
+ <input id="ntitle" class="inp ntitle" placeholder="Title" value="${esc(n.title||'')}">
+ <div class="dwrap"><textarea id="nbody" class="inp nbody" rows="12" placeholder="Write anything — text, emails, links…">${esc(n.body||'')}</textarea><button type="button" class="tk-mic dmic" id="nmic" aria-label="Dictate">${ic('mic')}</button></div><div class="tk-hint" id="nhint"></div>
+ <div class="nlinks" id="nlinks"></div>
+ <div class="fld"><label>Notebook</label><div class="nbooks sm2">${books().map(b=>`<button type="button" class="${nb===b.id?'on':''}" data-nb="${b.id}">${b.e} ${esc(b.n)}</button>`).join('')}</div></div>
+ <div class="fld"><label>Tags</label><input id="ntags" class="inp" placeholder="e.g. travel, watches" value="${esc((n.tags||[]).join(', '))}"></div>
+ <label class="chk"><input type="checkbox" id="npin" ${pin?'checked':''}> 📌 Pin to top</label>
+ ${id&&PWD_RX.test(n.body||'')?`<button type="button" class="btn2" style="width:100%;margin-top:10px" data-x="n2vault" data-id="${id}">${ic('lock')} Move to Vault (encrypted)</button>`:''}
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="ndel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="nsave">Save</button></div>
+ ${id?`<div class="xs faint" style="margin-top:8px;text-align:center">Created ${fd((n.created||'').slice(0,10)||nowD().date)} · edited ${ago(n.updated)}</div>`:''}`);
+ const body=$('#nbody'),links=$('#nlinks');
+ const showLinks=()=>{const L=(body.value.match(/https?:\/\/[^\s]+/g)||[]).slice(0,6);links.innerHTML=L.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(u.replace(/^https?:\/\//,'').slice(0,40))}</a>`).join('')};showLinks();body.addEventListener('input',showLinks);
+ $('#nmic').onclick=()=>dictate($('#nmic'),body,$('#nhint'));
+ $$('#sheet [data-nb]').forEach(b=>b.onclick=()=>{nb=b.dataset.nb;$$('#sheet [data-nb]').forEach(x=>x.classList.toggle('on',x===b))});
+ $('#nsave').onclick=()=>{stopDict();const title=$('#ntitle').value.trim(),text=body.value;if(!title&&!text.trim()){closeSheet();return}const t=nowISO();
+  const tags=$('#ntags').value.split(',').map(s=>s.trim().replace(/^#/,'')).filter(Boolean);
+  if(id)Object.assign(n,{title,body:text,nb,tags,pinned:$('#npin').checked,updated:t});else NB.notes.push({id:nid(),title,body:text,nb,tags,pinned:$('#npin').checked,created:t,updated:t});
+  nbQueue();closeSheet();if(curPage()==='notes')renderNotes();toast('Saved ✓')};
+ if(voice)setTimeout(()=>$('#nmic').click(),250);else if(!id)setTimeout(()=>$('#ntitle').focus(),200)}
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x^="n"]');if(!a)return;const x=a.dataset.x;
+ if(x==='ntab'){nTab=a.dataset.t;renderNotes();return}
+ if(x==='nbook'){nBook=a.dataset.b;renderNotes();return}
+ if(x==='npwd'){nPwdOnly=!nPwdOnly;nBook='all';renderNotes();return}
+ if(x==='nnew'){openNote(null,!!a.dataset.voice);return}
+ if(x==='nopen'){openNote(a.dataset.id);return}
+ if(x==='nbnew'){sheet(head('New notebook','note','bg-v')+`<div class="fld"><label>Emoji</label><div class="dmoods">${['📒','✈️','🏠','⌚','🐠','🎨','💰','👨‍👩‍👧','📚','🧠'].map((m,i)=>`<button type="button" class="${i?'':'on'}" data-em="${m}">${m}</button>`).join('')}</div></div><div class="fld"><label>Name</label><input id="nbname" class="inp" maxlength="24" placeholder="e.g. Travel"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="nbsave">Create</button></div>`);
+  $$('#sheet [data-em]').forEach(b=>b.onclick=()=>$$('#sheet [data-em]').forEach(z=>z.classList.toggle('on',z===b)));
+  $('#nbsave').onclick=()=>{const n=$('#nbname').value.trim();if(!n)return;const id='b-'+uid();NB.books.push({id,n,e:$('#sheet [data-em].on')?.dataset.em||'📒',updated:nowISO()});nbQueue();nBook=id;closeSheet();renderNotes()};return}
+ if(x==='ndel'){if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const n=NB.notes.find(z=>z.id===a.dataset.id);if(n){n.deleted=true;n.updated=nowISO();nbQueue()}closeSheet();renderNotes();toast('Note deleted');return}
+ if(x==='n2vault'){const n=NB.notes.find(z=>z.id===a.dataset.id);if(!n)return;if(!VK){closeSheet();nTab='vault';vPending=n.id;renderNotes();toast('Unlock the Vault first — then the note moves in');return}moveToVault(n);closeSheet();return}});
+
+/* ---------- Evernote import (.enex export files) ---------- */
+function enmlText(html){const d=new DOMParser().parseFromString('<div>'+String(html||'').replace(/<\?xml[^>]*>|<!DOCTYPE[^>]*>/gi,'').replace(/<\/?en-note[^>]*>/gi,'')+'</div>','text/html');
+ d.querySelectorAll('br').forEach(b=>b.replaceWith('\n'));d.querySelectorAll('div,p,li,h1,h2,h3,tr').forEach(b=>b.append('\n'));d.querySelectorAll('a[href]').forEach(a=>{const h=a.getAttribute('href');if(h&&/^https?:/.test(h)&&!a.textContent.includes(h))a.append(' ('+h+')')});
+ d.querySelectorAll('en-todo').forEach(t=>t.replaceWith(t.getAttribute('checked')==='true'?'☑ ':'☐ '));d.querySelectorAll('en-media').forEach(m=>m.replaceWith('[attachment]'));
+ return d.body.textContent.replace(/\n{3,}/g,'\n\n').trim()}
+const enDate=s=>{const m=/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)/.exec(s||'');return m?`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`:nowISO()};
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return (h>>>0).toString(36)}
+async function importEnex(files){if(!files||!files.length)return;let added=0,skipped=0,pw=0;
+ for(const f of files){const xml=new DOMParser().parseFromString(await f.text(),'text/xml');const bn=f.name.replace(/\.enex$/i,'').slice(0,24)||'Evernote';
+  let book=books().find(b=>b.n.toLowerCase()===bn.toLowerCase());if(!book){book={id:'b-'+uid(),n:bn,e:'🐘',updated:nowISO()};NB.books.push(book)}
+  xml.querySelectorAll('note').forEach(no=>{const title=no.querySelector('title')?.textContent||'Untitled',cr=enDate(no.querySelector('created')?.textContent),up=enDate(no.querySelector('updated')?.textContent||no.querySelector('created')?.textContent);
+   const id='ev'+hashStr(title+cr);if(NB.notes.some(n=>n.id===id)){skipped++;return}
+   let body=enmlText(no.querySelector('content')?.textContent);if(body.length>30000)body=body.slice(0,30000)+'\n…(trimmed)';
+   const src=no.querySelector('note-attributes source-url')?.textContent;if(src&&!body.includes(src))body+='\n\n'+src;
+   if(PWD_RX.test(body))pw++;
+   NB.notes.push({id,title,body,nb:book.id,tags:[...no.querySelectorAll('tag')].map(t=>t.textContent).slice(0,8),created:cr,updated:up,from:'evernote'});added++})}
+ nbQueue();nBook='all';renderNotes();
+ sheet(head('Evernote import','note','bg-g')+`<div class="lvup"><div class="lvb">🐘 ${added}</div><h2>${added} notes imported</h2><p>${skipped?skipped+' already here (skipped). ':''}Pictures and attachments stay in Evernote — the text, links and tags are here.${pw?`<br><br>🔑 <b>${pw}</b> look like they contain passwords. Open them and tap <b>Move to Vault</b> so they’re locked with your own Vault password.`:''}</p><button class="btn2 pri" data-act="close" style="width:100%">Done</button></div>`);
+ confetti(50)}
+
+/* ---------- VAULT: passwords encrypted with a separate master password only you know ---------- */
+let VK=null,VI=null,vTimer=null,vQ='',vPending=null;
+async function vKey(pass,salt){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt:b64d(salt),iterations:400000},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function vSeal(){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},VK.k,new TextEncoder().encode(JSON.stringify(VI))));
+ NB.vault={salt:VK.salt,iv:b64e(iv),ct:b64e(ct),n:VI.filter(x=>!x.deleted).length,updated:nowISO()};nbQueue()}
+function vLock(msg){VK=null;VI=null;clearTimeout(vTimer);if(curPage()==='notes'&&nTab==='vault')renderNotes();if(msg)toast(msg)}
+function vArm(){clearTimeout(vTimer);vTimer=setTimeout(()=>vLock('Vault locked 🔒'),3*60*1000)}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&VK)vLock()});
+function vaultHTML(){const V=NB.vault;
+ if(!VK)return `<div class="card vlock"><div class="vl-ic">${ic('lock')}</div>${V?`<h3>Vault is locked</h3><p class="sm muted">${V.n||0} saved logins. Enter your Vault password.</p>`:`<h3>Create your Vault</h3><p class="sm muted">Store passwords, emails, PINs and links. Everything is encrypted on this phone with a <b>Vault password only you know</b> — not even Claude can read it.<br><br>⚠️ If you forget it, the Vault can’t be recovered. Pick something memorable.</p>`}
+  <input type="password" id="vpw" class="inp" placeholder="Vault password" autocomplete="current-password">${V?'':'<input type="password" id="vpw2" class="inp" placeholder="Repeat Vault password" style="margin-top:8px">'}
+  <div class="tk-hint" id="vmsg"></div><button type="button" class="btn2 pri" id="vgo" style="width:100%;margin-top:8px">${V?'Unlock':'Create Vault'}</button></div>`;
+ const L=VI.filter(x=>!x.deleted&&(!vQ||[x.t,x.u,x.url,x.n].join(' ').toLowerCase().includes(vQ.toLowerCase()))).sort((a,b)=>(a.t||'').localeCompare(b.t||''));
+ return `<div class="vbar"><div class="nsearch">${ic('search')}<input id="vq" class="inp" placeholder="Search logins…" value="${esc(vQ)}"></div><button type="button" class="btn2" data-x="vlock">${ic('lock')} Lock</button></div>
+ <button type="button" class="bigadd" data-x="vnew" style="width:100%;margin-bottom:12px">${ic('plus')}Add login / secret</button>
+ <div class="vlist">${L.length?L.map(x=>`<div class="vrow"><div class="vav">${esc((x.t||'?').slice(0,1).toUpperCase())}</div><div class="vtx" data-x="vedit" data-id="${x.id}"><b>${esc(x.t||'Untitled')}</b><small>${esc(x.u||x.url||'')}</small></div>${x.u?`<button type="button" class="vbtn" data-x="vcopy" data-id="${x.id}" data-f="u" title="Copy username">👤</button>`:''}${x.p?`<button type="button" class="vbtn" data-x="vcopy" data-id="${x.id}" data-f="p" title="Copy password">${ic('key')}</button>`:''}${x.url?`<a class="vbtn" href="${esc(/^https?:/.test(x.url)?x.url:'https://'+x.url)}" target="_blank" rel="noopener noreferrer">↗</a>`:''}</div>`).join(''):`<div class="dempty">${vQ?'Nothing matches.':'Empty — add your first login.'}</div>`}</div>
+ <div class="xs faint" style="text-align:center;margin-top:10px">🔒 Locks automatically after 3 minutes or when you leave the app.</div>`}
+function wireVault(){const go=$('#vgo');if(go){const pw=$('#vpw');pw.focus();pw.onkeydown=e=>{if(e.key==='Enter')go.click()};
+  go.onclick=async()=>{const p=pw.value,msg=$('#vmsg');if(p.length<4){msg.textContent='At least 4 characters.';return}
+   go.disabled=true;go.textContent='…';
+   try{const V=NB.vault;if(!V){if(p!==$('#vpw2').value){msg.textContent='The two passwords don’t match.';go.disabled=false;go.textContent='Create Vault';return}
+     const salt=b64e(crypto.getRandomValues(new Uint8Array(16)));VK={k:await vKey(p,salt),salt};VI=[];await vSeal();toast('Vault created 🔒')}
+    else{const k=await vKey(p,V.salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(V.iv)},k,b64d(V.ct));VI=JSON.parse(new TextDecoder().decode(pt));VK={k,salt:V.salt}}
+    vArm();if(vPending){const n=NB.notes.find(z=>z.id===vPending);vPending=null;if(n){moveToVault(n);return}}renderNotes()}
+   catch(e){msg.textContent='Wrong Vault password.';go.disabled=false;go.textContent='Unlock';if(navigator.vibrate)navigator.vibrate([30,40,30])}};return}
+ const q=$('#vq');if(q)q.oninput=()=>{vQ=q.value;vArm();const pos=q.selectionStart;renderNotes();const q2=$('#vq');q2.focus();q2.setSelectionRange(pos,pos)}}
+function genPw(n=16){const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';const r=crypto.getRandomValues(new Uint32Array(n));return [...r].map(x=>c[x%c.length]).join('')}
+function openVaultItem(id){vArm();const x=VI.find(z=>z.id===id)||{};
+ sheet(head(id?esc(x.t||'Login'):'New login','lock','bg-o')+`
+ <div class="fld"><label>Name</label><input id="vt" class="inp" value="${esc(x.t||'')}" placeholder="e.g. Gmail, Emirates NBD app, Wi-Fi"></div>
+ <div class="fld"><label>Username / email</label><input id="vu" class="inp" value="${esc(x.u||'')}" autocomplete="off" autocapitalize="off"></div>
+ <div class="fld"><label>Password</label><div class="vpw"><input id="vp" class="inp" type="password" value="${esc(x.p||'')}" autocomplete="off"><button type="button" class="vbtn" id="vshow">${ic('eye2')}</button><button type="button" class="vbtn" id="vgen" title="Generate">🎲</button></div></div>
+ <div class="fld"><label>Website / link</label><input id="vurl" class="inp" value="${esc(x.url||'')}" autocapitalize="off" placeholder="https://"></div>
+ <div class="fld"><label>Notes (PIN, security questions…)</label><textarea id="vn" class="inp" rows="3">${esc(x.n||'')}</textarea></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="vdel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="vsave">Save</button></div>`);
+ $('#vshow').onclick=()=>{const p=$('#vp');p.type=p.type==='password'?'text':'password'};
+ $('#vgen').onclick=()=>{const p=$('#vp');p.value=genPw();p.type='text'};
+ $('#vsave').onclick=async()=>{if(!VK){closeSheet();toast('Vault locked — unlock and try again');return}const t=nowISO(),o={t:$('#vt').value.trim(),u:$('#vu').value.trim(),p:$('#vp').value,url:$('#vurl').value.trim(),n:$('#vn').value,updated:t};
+  if(!o.t&&!o.u&&!o.p)return;if(id)Object.assign(x,o);else VI.push({id:'v'+uid(),created:t,...o});await vSeal();closeSheet();renderNotes();toast('Saved in Vault 🔒')}}
+async function moveToVault(n){VI.push({id:'v'+uid(),t:n.title||'From notes',u:'',p:'',url:((n.body||'').match(/https?:\/\/[^\s]+/)||[''])[0],n:n.body,created:nowISO(),updated:nowISO()});await vSeal();
+ n.deleted=true;n.updated=nowISO();nbQueue();nTab='vault';renderNotes();toast('Moved to Vault 🔒 — removed from notes')}
+document.addEventListener('click',async e=>{const a=e.target.closest('[data-x^="v"]');if(!a||!a.dataset.x)return;const x=a.dataset.x;if(!['vnew','vedit','vcopy','vlock','vdel'].includes(x))return;
+ if(x==='vlock'){vLock('Vault locked 🔒');return}if(!VK){vLock();return}
+ if(x==='vnew'){openVaultItem(null);return}if(x==='vedit'){openVaultItem(a.dataset.id);return}
+ if(x==='vcopy'){vArm();const it=VI.find(z=>z.id===a.dataset.id);if(!it)return;try{await navigator.clipboard.writeText(it[a.dataset.f]||'');toast(a.dataset.f==='p'?'Password copied · clears in 30s':'Username copied');if(a.dataset.f==='p')setTimeout(()=>navigator.clipboard.writeText('').catch(()=>{}),30000)}catch(err){toast('Could not copy')}return}
+ if(x==='vdel'){if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const it=VI.find(z=>z.id===a.dataset.id);if(it){it.deleted=true;it.updated=nowISO();await vSeal()}closeSheet();renderNotes();toast('Deleted')}});
+const _closeSheet22=closeSheet;closeSheet=function(){stopDict();return _closeSheet22.apply(this,arguments)};
+
+/* =========================================================
+   REFRESH EVERYTHING (live data)
+   ========================================================= */
+function freshRows(){const sw=D.sweeps;const lastSweep=Array.isArray(sw)?sw.map(s=>s.at||s.date||s.time||'').sort().pop():(sw&&typeof sw==='object'?Object.values(sw).map(v=>(v&&(v.at||v.updated))||v).filter(v=>typeof v==='string').sort().pop():'');
+ return [['📈','Social numbers',D.social_updated,'every 30 min'],['💬','WhatsApp & email sweep',lastSweep||D.inbox_status?.checked||D.inbox_status?.updated,'5× a day'],['🛍️','Shopping',(D.shop_summary||{}).updated,'twice a day'],['🧠','All app data',D.updated,'live']].filter(r=>r[2])}
+function nextSocial(){const d=new Date(),m=d.getMinutes(),add=m<10?10-m:m<40?40-m:70-m;const t=new Date(d.getTime()+add*60000);return t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+function openRefresh(){sheet(head('Live data','refresh','bg-grad')+`<div class="frows">${freshRows().map(([e,n,t,f])=>`<div class="frow"><span class="fe">${e}</span><div><b>${n}</b><small>checked ${ago(t)} · ${f}</small></div><i class="fdot ${(Date.now()-new Date(t))<45*60000?'g':(Date.now()-new Date(t))<4*3600000?'a':'r'}"></i></div>`).join('')}</div>
+ <button type="button" class="btn2 pri" id="rfall" style="width:100%;margin-top:12px">${ic('refresh')} Refresh everything now</button>
+ <div class="xs faint" style="margin-top:10px">Pulls the newest data straight from your account (no cache). Claude re-checks your social accounts every 30 minutes — next check at ${nextSocial()}. Instagram only reports <b>organic</b> views; paid (boosted) views show in the Instagram app.</div>`);
+ $('#rfall').onclick=async()=>{const b=$('#rfall');b.disabled=true;b.innerHTML=ic('refresh')+' Refreshing…';await refreshAll(true);closeSheet()}}
+let rfBusy=false,lastRf=Date.now();
+async function refreshAll(loud){if(rfBusy)return;rfBusy=true;const before=D.updated;
+ try{let blob=null;if(TOKEN){try{blob=(await ghGet('data.enc'))?.json}catch(e){}}if(!blob)blob=await pagesJSON('data.enc');
+  D=await dec(blob);await loadUser();try{SH=null;if(typeof loadShop==='function')await loadShop(true)}catch(e){}try{await loadNB(true)}catch(e){}
+  render();lastRf=Date.now();if(loud)toast(D.updated!==before?'Updated ✓ newest data loaded':'Already up to date ✓ · '+ago(D.updated))}
+ catch(e){console.warn(e);if(loud)toast('Could not refresh — check your connection')}rfBusy=false}
+(function(){const r=$('#refresh');if(r){const nb=r.cloneNode(true);r.replaceWith(nb);nb.innerHTML=ic('refresh');nb.onclick=openRefresh}})();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&D&&Date.now()-lastRf>5*60000)refreshAll(false)});
+setInterval(()=>{if(!document.hidden&&D&&Date.now()-lastRf>10*60000)refreshAll(false)},60000);
+document.addEventListener('click',e=>{const s=e.target.closest('.fresh');if(s){e.preventDefault();openRefresh()}});
+const _openTalk22=openTalk;openTalk=function(pre){_openTalk22(pre);const v=$('.tkv');if(v)v.textContent='App v22'};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
