@@ -2259,6 +2259,64 @@ const _renderToday_d26=renderToday;renderToday=function(G){_renderToday_d26(G);c
  const t=el.querySelector('.v8top');if(t){const r=t.querySelector('.reward');(r||t.firstElementChild)?.insertAdjacentHTML('afterend',html)}};
 /* XP */
 const _habXP_d26=habXP;habXP=function(){let x=_habXP_d26();if(HS.loaded){const h=H_();x+=h.meals.filter(m=>!m.deleted&&!m.skipped).length*2+h.weights.filter(w=>!w.deleted).length*5+h.photos.filter(p=>!p.deleted).length*5+h.meas.filter(w=>!w.deleted).length*5}return x};
+
+/* ================= v27: edit/delete measurements & weigh-ins · body-diagram icons · sanity checks ================= */
+const MLINE_d27={neck:[[17,12.5,23,12.5]],shoulders:[[7.5,15.2,32.5,15.2]],chest:[[12,19.5,28,19.5]],belly:[[10.6,25,29.4,25]],waist:[[11,28.3,29,28.3]],hips:[[10.6,33,29.4,33]],bicepL:[[28,20,33,22.5]],bicepR:[[7,22.5,12,20]],forearm:[[4.8,30,9.6,31.5]],thighL:[[24.5,41,30.5,41]],thighR:[[9.5,41,15.5,41]],calf:[[10.5,51,16.5,51],[23.5,51,29.5,51]]};
+const MRANGE_d27={waist:[50,200],belly:[50,200],chest:[60,180],shoulders:[80,180],neck:[25,60],bicepL:[20,60],bicepR:[20,60],forearm:[18,50],hips:[60,180],thighL:[30,100],thighR:[30,100],calf:[25,70]};
+const MHOW_d27={waist:'Around your belly button, relaxed, breathe out',belly:'Widest part of the belly',chest:'Across the nipples, arms down',shoulders:'Widest point around both shoulders',neck:'Just below the Adam’s apple',bicepL:'Left arm flexed, widest point',bicepR:'Right arm flexed, widest point',forearm:'Widest part below the elbow',hips:'Widest part of the bottom',thighL:'Left leg, just under the bottom',thighR:'Right leg, just under the bottom',calf:'Widest part of the calf'};
+function micon_d27(k,big){const L=MLINE_d27[k]||[];return `<svg class="micon${big?' big':''}" viewBox="0 0 40 60" aria-hidden="true"><g class="sil"><circle cx="20" cy="7" r="4.6"/><path d="M13 14.5h14l2 18.5H11z"/><path d="M13 15.5 7.2 30 5.8 38M27 15.5 32.8 30 34.2 38M15 33l-1.2 25M25 33l1.2 25"/></g>${L.map(l=>`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" class="hl"/>`).join('')}</svg>`}
+const badM_d27=(k,v)=>{const r=MRANGE_d27[k];return r&&v!=null&&v!==''&&(+v<r[0]||+v>r[1])};
+
+/* decorate the Body tab after it renders */
+const _renderHealth_d27=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d27();const el=$('#p-health');if(!el||hTab_d26!=='body')return;
+ const byLabel={};MEAS_d26.forEach(([k,l])=>byLabel[l]=k);
+ el.querySelectorAll('.hmeas>div').forEach(t=>{const l=t.querySelector('span')?.textContent,k=byLabel[l];if(!k)return;t.dataset.x='hmedit';t.dataset.k=k;t.classList.add('tap');t.insertAdjacentHTML('afterbegin',micon_d27(k));
+  const v=+(t.querySelector('b')?.firstChild?.textContent||0);if(badM_d27(k,v)){t.classList.add('bad');t.insertAdjacentHTML('beforeend','<i class="mwarn">⚠️ check · tap to fix</i>')}});
+ const wc=[...el.querySelectorAll('.card .hsh b')].find(b=>/Weight/.test(b.textContent));if(wc){const h=wc.parentElement;if(!h.querySelector('[data-x="hwedit"]'))h.insertAdjacentHTML('beforeend','<button type="button" class="btn2 sm" data-x="hwedit">Edit</button>')}
+ const mc=[...el.querySelectorAll('.card .hsh b')].find(b=>/Measurements/.test(b.textContent));if(mc){const h=mc.parentElement;if(!h.querySelector('[data-x="hmall"]'))h.insertAdjacentHTML('beforeend','<button type="button" class="btn2 sm" data-x="hmall">History</button>')}};
+
+/* edit one measurement: every value you ever entered for it */
+function openMeasEdit_d27(k){const lab=(MEAS_d26.find(x=>x[0]===k)||[k,k])[1];const R=H_().meas.filter(x=>!x.deleted&&x[k]!=null&&x[k]!=='').sort((a,b)=>b.date.localeCompare(a.date));
+ sheet(head(lab,'scale','bg-o')+`<div class="mhead">${micon_d27(k,true)}<div><b>${lab}</b><small>${MHOW_d27[k]||''}</small><small class="faint">Normal range ${MRANGE_d27[k]?MRANGE_d27[k].join('–')+' cm':''}</small></div></div>
+ <div class="mrows">${R.map(r=>`<div class="mrow" data-id="${r.id}"><input class="inp" type="date" value="${r.date}" data-f="date"><input class="inp ${badM_d27(k,r[k])?'bad':''}" type="number" step="0.1" inputmode="decimal" value="${r[k]}" data-f="v"><span>cm</span><button type="button" class="vbtn" data-x="hmrowdel" title="Delete">${ic('trash')}</button></div>`).join('')||'<div class="xs faint">No values yet</div>'}</div>
+ <div class="mrow new"><input class="inp" type="date" value="${nowD().date}" id="mnd"><input class="inp" type="number" step="0.1" inputmode="decimal" placeholder="new value" id="mnv"><span>cm</span></div>
+ <div class="xs faint" id="mmsg"></div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="mesave">Save</button></div>`);
+ $$('#sheet [data-x="hmrowdel"]').forEach(b=>b.onclick=()=>{const row=b.closest('.mrow');row.classList.toggle('del');b.innerHTML=row.classList.contains('del')?'↺':ic('trash')});
+ $('#mesave').onclick=()=>{const t=new Date().toISOString();let bad=null;
+  $$('#sheet .mrow[data-id]').forEach(row=>{const v=row.querySelector('[data-f="v"]').value;if(!row.classList.contains('del')&&v&&badM_d27(k,v))bad=v});const nv=$('#mnv').value;if(nv&&badM_d27(k,nv))bad=nv;
+  if(bad!=null&&!$('#mesave').dataset.ok){$('#mmsg').innerHTML=`⚠️ <b>${bad} cm</b> looks wrong for ${lab.toLowerCase()} (normal ${MRANGE_d27[k].join('–')} cm). Tap Save again to keep it anyway.`;$('#mesave').dataset.ok='1';return}
+  $$('#sheet .mrow[data-id]').forEach(row=>{const r=H_().meas.find(x=>x.id===row.dataset.id);if(!r)return;const v=row.querySelector('[data-f="v"]').value,d=row.querySelector('[data-f="date"]').value;
+   if(row.classList.contains('del')||!v){delete r[k]}else{r[k]=+v}if(d&&d!==r.date){if(MEAS_d26.filter(([kk])=>kk!==k&&r[kk]!=null).length&&!row.classList.contains('del')){const val=r[k];delete r[k];H_().meas.push({id:hid_d26(),date:d,[k]:val,created:t,updated:t})}else r.date=d}
+   if(!MEAS_d26.some(([kk])=>r[kk]!=null&&r[kk]!==''))r.deleted=true;r.updated=t});
+  if(nv){const d=$('#mnd').value||nowD().date,ex=H_().meas.find(x=>!x.deleted&&x.date===d);if(ex){ex[k]=+nv;ex.updated=t}else H_().meas.push({id:hid_d26(),date:d,[k]:+nv,created:t,updated:t})}
+  HS.queue();closeSheet();toast('Updated ✓');rerenderHealth_d26()}}
+/* all measurement entries (history) */
+function openMeasAll_d27(){const R=H_().meas.filter(x=>!x.deleted).sort((a,b)=>b.date.localeCompare(a.date));
+ sheet(head('Measurement history','scale','bg-o')+(R.length?R.map(r=>`<div class="mhist"><div class="mhd"><b>${fd(r.date,{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</b><button type="button" class="btn2 sm danger" data-x="hmentdel" data-id="${r.id}">${ic('trash')}</button></div><div class="mhv">${MEAS_d26.filter(([k])=>r[k]!=null&&r[k]!=='').map(([k,l])=>`<button type="button" class="${badM_d27(k,r[k])?'bad':''}" data-x="hmedit" data-k="${k}">${micon_d27(k)}<span>${l.replace(/ \(.*\)/,'')}</span><b>${r[k]}</b></button>`).join('')}</div></div>`).join(''):'<div class="xs faint">Nothing yet</div>')+`<button type="button" class="btn2 pri" style="width:100%;margin-top:10px" data-x="hmeas">+ New measurements</button>`)}
+/* weigh-ins */
+function openWeighEdit_d27(){const R=H_().weights.filter(x=>!x.deleted).sort((a,b)=>b.date.localeCompare(a.date));
+ sheet(head('Weigh-ins','scale','bg-g')+`<div class="mrows">${R.map(r=>`<div class="mrow" data-id="${r.id}"><input class="inp" type="date" value="${r.date}" data-f="date"><input class="inp" type="number" step="0.1" inputmode="decimal" value="${r.kg}" data-f="v"><span>kg</span><button type="button" class="vbtn" data-x="hmrowdel">${ic('trash')}</button></div>`).join('')||'<div class="xs faint">No weigh-ins yet</div>'}</div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="wesave">Save</button></div>`);
+ $$('#sheet [data-x="hmrowdel"]').forEach(b=>b.onclick=()=>{const row=b.closest('.mrow');row.classList.toggle('del');b.innerHTML=row.classList.contains('del')?'↺':ic('trash')});
+ $('#wesave').onclick=()=>{const t=new Date().toISOString();$$('#sheet .mrow[data-id]').forEach(row=>{const r=H_().weights.find(x=>x.id===row.dataset.id);if(!r)return;const v=+row.querySelector('[data-f="v"]').value;
+  if(row.classList.contains('del')||!v||v<30||v>250)r.deleted=true;else{r.kg=v;r.date=row.querySelector('[data-f="date"]').value||r.date}r.updated=t});HS.queue();closeSheet();toast('Updated ✓');rerenderHealth_d26()}}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hmedit"],[data-x="hmall"],[data-x="hwedit"],[data-x="hmentdel"]');if(!a)return;e.stopPropagation();const x=a.dataset.x;
+ if(x==='hmedit')openMeasEdit_d27(a.dataset.k);else if(x==='hmall')openMeasAll_d27();else if(x==='hwedit')openWeighEdit_d27();
+ else{if(a.dataset.sure!=='1'){a.dataset.sure='1';a.textContent='Delete?';return}const r=H_().meas.find(z=>z.id===a.dataset.id);if(r){r.deleted=true;r.updated=new Date().toISOString();HS.queue()}openMeasAll_d27();rerenderHealth_d26()}},true);
+
+/* new-measurement form: icon + how-to + range check */
+openMeas_d26=function(){const last=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)).pop()||{};
+ sheet(head('Measurements','scale','bg-o')+`<div class="xs faint" style="margin-bottom:8px">Tape measure, in cm. Fill what you can — waist + biceps is already great.</div>
+ <div class="mform">${MEAS_d26.map(([k,l])=>`<label class="mf">${micon_d27(k)}<div><span>${l}</span><small>${MHOW_d27[k]}</small></div><input class="inp" type="number" step="0.1" inputmode="decimal" data-mk="${k}" placeholder="${last[k]||'cm'}"></label>`).join('')}</div>
+ <div class="fld"><label>Date</label><input id="mmdate" class="inp" type="date" value="${nowD().date}"></div><div class="xs" id="mmmsg"></div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="mmsave">Save</button></div>`);
+ $$('#sheet [data-mk]').forEach(i=>i.oninput=()=>i.classList.toggle('bad',badM_d27(i.dataset.mk,i.value)));
+ $('#mmsave').onclick=()=>{const o={},bad=[];$$('#sheet [data-mk]').forEach(i=>{if(i.value){o[i.dataset.mk]=+i.value;if(badM_d27(i.dataset.mk,i.value))bad.push((MEAS_d26.find(x=>x[0]===i.dataset.mk)||[])[1]+' '+i.value)}});
+  if(!Object.keys(o).length){toast('Enter at least one');return}
+  if(bad.length&&!$('#mmsave').dataset.ok){$('#mmmsg').innerHTML=`⚠️ These look wrong: <b>${esc(bad.join(', '))}</b> cm. Fix them, or tap Save again to keep.`;$('#mmsave').dataset.ok='1';return}
+  const t=new Date().toISOString(),d=$('#mmdate').value||nowD().date,ex=H_().meas.find(x=>!x.deleted&&x.date===d);if(ex){Object.assign(ex,o);ex.updated=t}else H_().meas.push({id:hid_d26(),date:d,...o,created:t,updated:t});
+  HS.queue();closeSheet();toast('Measurements saved ✓');rerenderHealth_d26()}};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
