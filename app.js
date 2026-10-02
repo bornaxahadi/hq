@@ -1626,6 +1626,14 @@ const _closeSheet19=closeSheet;closeSheet=function(){micStop();return _closeShee
 (function(){if(location.hash&&location.hash!=='#today'&&!/[?&]keep=1/.test(location.search))history.replaceState(null,'',location.pathname+location.search+'#today');
  let hid=0;document.addEventListener('visibilitychange',()=>{if(document.hidden){hid=Date.now();return}
   if(hid&&Date.now()-hid>10*60*1000&&curPage()!=='today'){location.hash='#today';window.scrollTo(0,0)}hid=0})})();
+/* ================= v21: one-tap WhatsApp to Farnaz on Today ================= */
+const FZ_MSGS=[['☀️','Good morning','صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی'],['👧','Kids?','سلام عزیزم ❤️ بچه‌ها چطورن؟'],['🍽','Lunch?','سلام عزیزم ❤️ ناهار چی داریم امروز؟'],['🚗','Coming home','دارم میام خونه عزیزم ❤️ چیزی لازم نداری؟'],['❤️','Love you','دوستت دارم عزیزم ❤️']];
+function fzCard(){const P=people(),f=P.find(x=>x.id==='p-farnaz')||P.find(x=>/farnaz/i.test(x.name||''));if(!f)return '';
+ const num=f.phone?waNum(f.phone):'',h=nowD().mins,first=h<11*60?0:h>=17*60?3:-1;
+ const L=FZ_MSGS.map((m,i)=>({m,i})).sort((a,b)=>(b.i===first)-(a.i===first));
+ return `<div class="card mb fzq"><div class="fzh"><b>💑 Message Farnaz</b>${num?'':`<button type="button" class="xs faint fzadd" data-person="${esc(f.id)}">Add her number ›</button>`}</div><div class="fzrow">${L.map(({m,i})=>`<a class="fzc${i===first?' on':''}" href="https://wa.me/${num}?text=${encodeURIComponent(m[2])}" target="_blank" rel="noopener">${m[0]} ${esc(m[1])}</a>`).join('')}</div></div>`}
+const _renderToday21=renderToday;renderToday=function(G){_renderToday21(G);const t=$('#p-today .v8top');if(!t)return;t.querySelectorAll('.fzq').forEach(x=>x.remove());const h=fzCard();if(!h)return;const x=document.createElement('div');x.innerHTML=h;t.insertBefore(x.firstElementChild,t.children[1]||null)};
+const _openTalk21=openTalk;openTalk=function(pre){_openTalk21(pre);const v=$('.tkv');if(v)v.textContent='App v21'};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
