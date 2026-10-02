@@ -1895,6 +1895,95 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&D&&Date.n
 setInterval(()=>{if(!document.hidden&&D&&Date.now()-lastRf>10*60000)refreshAll(false)},60000);
 document.addEventListener('click',e=>{const s=e.target.closest('.fresh');if(s){e.preventDefault();openRefresh()}});
 const _openTalk22=openTalk;openTalk=function(pre){_openTalk22(pre);const v=$('.tkv');if(v)v.textContent='App v22'};
+
+/* ================= v23: Notes easy to find + Evernote-style home, templates, checklists, copy ================= */
+/* 1. Put Notes right after Today in the bottom bar and rebuild the bars (v22 forgot this) */
+(function(){const i=PAGES.findIndex(p=>p.id==='notes');if(i>-1){const [n]=PAGES.splice(i,1);PAGES.splice(1,0,n)}
+ buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p})})();
+/* + sheet: New note / Voice note at the top */
+if($('#fab'))$('#fab').onclick=()=>openActions();
+const _openActions_n23=openActions;openActions=function(){_openActions_n23();const a=$('#sheet .actions');if(!a)return;
+ a.insertAdjacentHTML('afterbegin',`<button class="action" data-x="nnew"><span class="qi bg-v">${ic('note')}</span><b>New note</b><small>Text, emails, links, lists</small></button><button class="action" data-x="dnew" data-voice="1"><span class="qi bg-p">${ic('diary')}</span><b>Dear diary</b><small>Say what happened today</small></button>`)};
+
+/* 2. Templates */
+const NTPL=[['📝','Blank','',''],['☑️','Checklist','Checklist','☐ \n☐ \n☐ '],['🤝','Meeting notes','Meeting — ','Who: \nWhere: \nGoal: \n\nNotes:\n• \n\nNext steps:\n☐ '],['💡','Idea','Idea: ','What: \nWhy it can make money: \nFirst step:\n☐ '],['🛒','Shopping list','Shopping','☐ \n☐ \n☐ '],['✈️','Travel','Trip to ','Dates: \nFlight: \nHotel: \n\nPacking:\n☐ Passport\n☐ Charger\n☐ '],['🔑','Login / account','',''],['📧','Email & contact','','Name: \nEmail: \nPhone: \nCompany: \nNotes: ']];
+function openTemplates(){sheet(head('New note','note','bg-v')+`<div class="tpls">${NTPL.map((t,i)=>`<button type="button" class="tpl" data-tpl="${i}"><span>${t[0]}</span><b>${t[1]}</b></button>`).join('')}</div>`);
+ $$('#sheet [data-tpl]').forEach(b=>b.onclick=()=>{const t=NTPL[+b.dataset.tpl];if(t[1]==='Login / account'){closeSheet();nTab='vault';location.hash='#notes';setTimeout(()=>{renderNotes();if(VK)openVaultItem(null)},80);return}openNote(null,false,{title:t[2],body:t[3]})})}
+
+/* 3. Checklists + quick copy helpers */
+function checkStats(b){const m=(b||'').match(/^[☐☑]/gm)||[];return m.length?{done:m.filter(x=>x==='☑').length,all:m.length}:null}
+function copyChips(text){const out=[],seen=new Set();const add=(k,v,l)=>{if(!v||seen.has(v))return;seen.add(v);out.push({k,v,l})};
+ (text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/g)||[]).slice(0,4).forEach(e=>add('📧',e,e));
+ (text.match(/(?:pass(?:word)?|pwd|pin|رمز|پسورد)\s*[:=]\s*\S+/gi)||[]).slice(0,4).forEach(m=>{const v=m.split(/[:=]/).slice(1).join(':').trim();add('🔑',v,'••••••')});
+ (text.match(/\b(?:user(?:name)?|login)\s*[:=]\s*\S+/gi)||[]).slice(0,3).forEach(m=>{const v=m.split(/[:=]/).slice(1).join(':').trim();add('👤',v,v)});
+ (text.match(/\+?\d[\d\s-]{7,}\d/g)||[]).slice(0,3).forEach(p=>add('📞',p.replace(/\s+/g,' ').trim(),p.trim()));
+ return out}
+async function copyText(v,label){try{await navigator.clipboard.writeText(v);toast((label||'Copied')+' ✓')}catch(e){const t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();try{document.execCommand('copy');toast('Copied ✓')}catch(_){toast('Could not copy')}t.remove()}}
+
+/* 4. New note editor (Evernote-like) */
+openNote=function(id,voice,tpl){const n=(NB.notes||[]).find(x=>x.id===id)||{nb:nBook!=='all'?nBook:'b-personal',tags:[],title:tpl?.title||'',body:tpl?.body||''};let nb=n.nb;
+ sheet(head(id?'Note':'New note','note','bg-v')+`
+ <input id="ntitle" class="inp ntitle" placeholder="Title" value="${esc(n.title||'')}">
+ <div class="ntool"><button type="button" data-ins="☐ " title="Checkbox">☑️</button><button type="button" data-ins="• " title="Bullet">•</button><button type="button" data-ins="# " title="Heading">H</button><button type="button" data-ins="date" title="Date">📅</button><button type="button" data-ins="---" title="Line">—</button><button type="button" id="ncopyall" title="Copy note">${ic('copy')}</button><button type="button" class="tk-mic" id="nmic" aria-label="Dictate">${ic('mic')}</button></div>
+ <textarea id="nbody" class="inp nbody" rows="12" placeholder="Write anything — notes, emails, passwords, links, lists…">${esc(n.body||'')}</textarea><div class="tk-hint" id="nhint"></div>
+ <div class="nchips" id="nchips"></div>
+ <div class="nchk" id="nchk"></div>
+ <div class="fld"><label>Notebook</label><div class="nbooks sm2">${books().map(b=>`<button type="button" class="${nb===b.id?'on':''}" data-nb="${b.id}">${b.e} ${esc(b.n)}</button>`).join('')}</div></div>
+ <div class="two"><div class="fld"><label>Tags</label><input id="ntags" class="inp" placeholder="travel, watches" value="${esc((n.tags||[]).join(', '))}"></div><div class="fld"><label>⏰ Remind me</label><input id="nrem" class="inp" type="date" value="${esc(n.remind||'')}"></div></div>
+ <div class="ntoggles"><label class="chk"><input type="checkbox" id="npin" ${n.pinned?'checked':''}> 📌 Pin</label><label class="chk"><input type="checkbox" id="nfav" ${n.fav?'checked':''}> ⭐ Shortcut</label></div>
+ ${id&&PWD_RX.test(n.body||'')?`<button type="button" class="btn2 ghost" style="width:100%;margin-top:8px" data-x="n2vault" data-id="${id}">${ic('lock')} Lock this note in the Vault</button>`:''}
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="ndel" data-id="${id}">${ic('trash')}</button><button type="button" class="btn2" data-x="ndup" data-id="${id}" title="Duplicate">⧉</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="nsave">Save</button></div>
+ ${id?`<div class="xs faint" style="margin-top:8px;text-align:center">Created ${fd((n.created||nowISO()).slice(0,10))} · edited ${ago(n.updated)}</div>`:''}`);
+ const body=$('#nbody');
+ const refresh=()=>{const C=copyChips(body.value),L=(body.value.match(/https?:\/\/[^\s]+/g)||[]).slice(0,5);
+  $('#nchips').innerHTML=C.map((c,i)=>`<button type="button" class="nchip" data-ci="${i}">${c.k} <span>${esc(c.l.length>28?c.l.slice(0,26)+'…':c.l)}</span> ${ic('copy')}</button>`).join('')+L.map(u=>`<a class="nchip lnk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">🔗 <span>${esc(u.replace(/^https?:\/\/(www\.)?/,'').slice(0,30))}</span></a>`).join('');
+  $$('#nchips [data-ci]').forEach(b=>b.onclick=()=>copyText(C[+b.dataset.ci].v,C[+b.dataset.ci].k==='🔑'?'Password copied':'Copied'));
+  const lines=body.value.split('\n'),cl=lines.map((l,i)=>({l,i})).filter(x=>/^[☐☑]/.test(x.l));
+  $('#nchk').innerHTML=cl.length?`<div class="xs faint" style="margin:6px 0 4px">Tap to tick · ${cl.filter(x=>x.l[0]==='☑').length}/${cl.length} done</div>`+cl.map(x=>`<button type="button" class="nck ${x.l[0]==='☑'?'on':''}" data-li="${x.i}"><i>${x.l[0]==='☑'?'✓':''}</i><span>${esc(x.l.slice(1).trim()||'…')}</span></button>`).join(''):'';
+  $$('#nchk [data-li]').forEach(b=>b.onclick=()=>{const L2=body.value.split('\n'),k=+b.dataset.li;L2[k]=(L2[k][0]==='☑'?'☐':'☑')+L2[k].slice(1);body.value=L2.join('\n');if(navigator.vibrate)navigator.vibrate(8);refresh()})};
+ refresh();body.addEventListener('input',()=>{clearTimeout(body._t);body._t=setTimeout(refresh,250)});
+ $$('#sheet [data-ins]').forEach(b=>b.onclick=()=>{let ins=b.dataset.ins;if(ins==='date')ins=fd(nowD().date,{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' ';if(ins==='---')ins='\n────────\n';
+  const s=body.selectionStart??body.value.length,v=body.value,ls0=v.lastIndexOf('\n',s-1)+1;
+  if(/^(☐ |• |# )$/.test(ins)&&s===ls0){body.value=v.slice(0,s)+ins+v.slice(s)}else if(/^(☐ |• |# )$/.test(ins)){body.value=v.slice(0,s)+'\n'+ins+v.slice(s);ins='\n'+ins}else body.value=v.slice(0,s)+ins+v.slice(s);
+  body.focus();body.setSelectionRange(s+ins.length,s+ins.length);refresh()});
+ body.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const s=body.selectionStart,v=body.value,ls0=v.lastIndexOf('\n',s-1)+1,cur=v.slice(ls0,s),m=cur.match(/^(☐ |☑ |• )/);if(!m)return;
+  e.preventDefault();if(cur.trim()===m[1].trim()){body.value=v.slice(0,ls0)+v.slice(s);body.setSelectionRange(ls0,ls0);return}const p=m[1]==='☑ '?'☐ ':m[1];body.value=v.slice(0,s)+'\n'+p+v.slice(s);body.setSelectionRange(s+1+p.length,s+1+p.length)});
+ $('#ncopyall').onclick=()=>copyText(($('#ntitle').value?$('#ntitle').value+'\n\n':'')+body.value,'Note copied');
+ $('#nmic').onclick=()=>dictate($('#nmic'),body,$('#nhint'));
+ $$('#sheet [data-nb]').forEach(b=>b.onclick=()=>{nb=b.dataset.nb;$$('#sheet [data-nb]').forEach(x=>x.classList.toggle('on',x===b))});
+ $('#nsave').onclick=()=>{stopDict();const title=$('#ntitle').value.trim(),text=body.value;if(!title&&!text.trim()){closeSheet();return}const t=nowISO();
+  const o={title,body:text,nb,tags:$('#ntags').value.split(',').map(s=>s.trim().replace(/^#/,'')).filter(Boolean),pinned:$('#npin').checked,fav:$('#nfav').checked,remind:$('#nrem').value||'',updated:t};
+  if(id)Object.assign(n,o);else NB.notes.push({id:nid(),created:t,...o});nbQueue();closeSheet();if(curPage()==='notes')renderNotes();else if(curPage()==='today')rerender();toast('Saved ✓')};
+ if(voice)setTimeout(()=>$('#nmic').click(),250);else if(!id)setTimeout(()=>(tpl?.body?body:$('#ntitle')).focus(),200)};
+
+/* 5. Notes home (Evernote-style): scratch pad, shortcuts, recent, notebooks, all notes */
+const _renderNotes_n23=renderNotes;renderNotes=function(){_renderNotes_n23();const el=$('#p-notes');if(!el||!nbLoaded||nTab!=='notes')return;
+ const N=notesList(),fav=N.filter(n=>n.fav||n.pinned).slice(0,8),rec=N.slice().sort((a,b)=>(b.updated||'').localeCompare(a.updated||'')).slice(0,6),sp=(NB.notes||[]).find(n=>n.id==='scratch');
+ const act=el.querySelector('.nact');if(act)act.innerHTML=`<button type="button" class="bigadd" data-x="ntpl">${ic('plus')}New note</button><button type="button" class="bigadd alt2" data-x="nnew" data-voice="1">${ic('mic')}Voice note</button><label class="bigadd alt3">${ic('down')}Import Evernote<input type="file" accept=".enex,application/xml,text/xml" id="enex" hidden multiple></label>`;
+ const w=el.querySelector('.nwarn');if(w&&!nPwdOnly){const k=notesList().filter(n=>PWD_RX.test(n.body||'')).length;w.classList.add('soft');w.innerHTML=`🔑 ${k} note${k>1?'s have':' has'} a password — fine to keep here; for extra safety you can lock ${k>1?'them':'it'} in the Vault ›`}
+ const ei=$('#enex');if(ei)ei.onchange=ev=>importEnex(ev.target.files);
+ if(nQ||nBook!=='all'||nPwdOnly)return;
+ const home=`<div class="nhome">
+  <div class="card scratch"><div class="sch"><b>✏️ Scratch pad</b><span class="xs faint" id="spst">quick notes · saves by itself</span></div><textarea id="spad" class="inp" rows="3" placeholder="Jot anything — a number, an email, a thought…">${esc(sp?.body||'')}</textarea><div class="scbtn"><button type="button" class="btn2 sm" data-x="sp2note">Make it a note</button><button type="button" class="btn2 sm" id="spcopy">${ic('copy')} Copy</button></div></div>
+  ${fav.length?`<div class="nsec">⭐ Shortcuts & pinned</div><div class="nrow">${fav.map(n=>`<button type="button" class="nmini" data-x="nopen" data-id="${n.id}"><b>${esc(n.title||'Untitled')}</b><small>${esc(snip(n.body,40))}</small></button>`).join('')}</div>`:''}
+  ${rec.length?`<div class="nsec">🕘 Recent</div><div class="nrow">${rec.map(n=>{const c=checkStats(n.body);return `<button type="button" class="nmini" data-x="nopen" data-id="${n.id}"><b>${esc(n.title||'Untitled')}</b><small>${c?`☑ ${c.done}/${c.all}`:esc(snip(n.body,40))}</small></button>`}).join('')}</div>`:''}
+  <div class="nsec">📚 All notes</div></div>`;
+ const list=$('#nlist');if(list)list.insertAdjacentHTML('beforebegin',home);
+ const spad=$('#spad');if(spad){spad.oninput=()=>{clearTimeout(spad._t);$('#spst').textContent='saving…';spad._t=setTimeout(()=>{let s=(NB.notes||[]).find(n=>n.id==='scratch');const t=nowISO();if(!s){s={id:'scratch',title:'Scratch pad',body:'',nb:'b-personal',tags:[],created:t,hidden:true};NB.notes.push(s)}s.body=spad.value;s.updated=t;nbQueue();$('#spst').textContent='saved ✓'},700)};$('#spcopy').onclick=()=>copyText(spad.value,'Copied')}};
+const _notesList_n23=notesList;notesList=function(){return _notesList_n23().filter(n=>n.id!=='scratch')};
+const _noteCard_n23=noteCard;noteCard=function(n){let h=_noteCard_n23(n);const c=checkStats(n.body);if(c)h=h.replace('<div class="nm">',`<div class="nm"><span class="tag ok">☑ ${c.done}/${c.all}</span>`);if(n.fav)h=h.replace('<div class="nt">','<div class="nt">⭐ ');if(n.remind)h=h.replace('<div class="nm">',`<div class="nm"><span class="tag ${n.remind<=nowD().date?'warn':''}">⏰ ${fd(n.remind,{day:'numeric',month:'short'})}</span>`);return h};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="ntpl"],[data-x="sp2note"],[data-x="ndup"]');if(!a)return;const x=a.dataset.x;
+ if(x==='ntpl'){loadNB().then(openTemplates);return}
+ if(x==='sp2note'){const v=($('#spad')?.value||'').trim();if(!v){toast('Scratch pad is empty');return}const s=NB.notes.find(n=>n.id==='scratch');if(s){s.body='';s.updated=nowISO()}openNote(null,false,{title:v.split('\n')[0].slice(0,50),body:v});return}
+ if(x==='ndup'){const n=NB.notes.find(z=>z.id===a.dataset.id);if(!n)return;const t=nowISO();NB.notes.push({...n,id:nid(),title:(n.title||'')+' (copy)',created:t,updated:t,pinned:false});nbQueue();closeSheet();renderNotes();toast('Duplicated')}},true);
+/* "+ New note" buttons elsewhere open the template picker */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="nnew"]:not([data-voice])');if(!a)return;e.stopImmediatePropagation();loadNB().then(openTemplates)},true);
+
+/* 6. Today: note reminders + a Notes shortcut */
+const _renderToday_n23=renderToday;renderToday=function(G){_renderToday_n23(G);const el=$('#p-today');if(!el||!nbLoaded)return;const d=nowD().date;
+ const due=notesList().filter(n=>n.remind&&n.remind<=d);const t=el.querySelector('.v8top');
+ const html=`<div class="card mb nquick"><button type="button" class="nq1" data-x="ntpl">${ic('note')}<span><b>Notes</b><small>${notesList().length} notes${due.length?` · ⏰ ${due.length} due`:''}</small></span></button><button type="button" class="nq2" onclick="location.hash='#notes'">Open ›</button></div>`+due.slice(0,3).map(n=>`<div class="card mb nremind" data-x="nopen" data-id="${n.id}">⏰ <b>${esc(n.title||'Note')}</b><span class="xs faint">${esc(snip(n.body,60))}</span></div>`).join('');
+ if(t)t.insertAdjacentHTML('afterend',html)};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
