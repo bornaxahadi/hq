@@ -2543,6 +2543,46 @@ function interview_d31(){const L=people().filter(p=>!p.circleOk&&ringOf_d31(p)>0
 document.addEventListener('click',e=>{const a=e.target.closest('[data-cp],[data-cx]');if(!a)return;e.preventDefault();e.stopPropagation();
  if(a.dataset.cp)openCP_d31(a.dataset.cp);else if(a.dataset.cx==='interview')interview_d31();else if(a.dataset.cx==='me'){const b=$('.bcsky');b&&b.classList.remove('pulse');void b?.offsetWidth;b?.classList.add('pulse')}},true);
 
+
+/* ================= v32: people profiles from the interview · ready-to-send messages · circle links ================= */
+const MSGP_d32={omid:'p-omid',fereshte:'p-fereshte',ibrahim:'p-ibrahim',yusuf:'p-yusuf',ancel:'p-ansel'};
+const TRUST_d32=['','Careful','Low','OK','High','Total'];
+function msgFor_d32(pid){return (D.alerts||[]).filter(a=>a.type==='msg'&&!(U.seen||{})[a.id]).find(a=>{const k=(a.id.match(/^al-([a-z]+)-/)||[])[1];return MSGP_d32[k]===pid})}
+const trustHTML_d32=t=>t?`<span class="trust t${t}" title="Trust: ${TRUST_d32[t]}">${'●'.repeat(t)}${'○'.repeat(5-t)}<em>${TRUST_d32[t]} trust</em></span>`:'';
+function profileHTML_d32(p){const L=(p.links||[]).map(personById).filter(Boolean),m=msgFor_d32(p.id),r=ringOf_d31(p),R=RINGS_d31[r-1];
+ return `<div class="pprof">${R?`<span class="pring" style="--c:${R[3]}">${R[2]} ${R[1]}</span>`:''}${trustHTML_d32(p.trust)}
+ ${p.story?`<p class="pstory">${esc(p.story)}</p>`:''}
+ ${p.biz?`<div class="pline"><b>💼 Business</b><span>${esc(p.biz)}</span></div>`:''}
+ ${p.warn?`<div class="pwarn">⚠️ ${esc(p.warn)}</div>`:''}
+ ${L.length?`<div class="plinks"><b>Knows</b>${L.map(x=>`<button type="button" data-plink="${x.id}">${avatar(x,22)}${esc(short_d31(x.name))}</button>`).join('')}</div>`:''}
+ ${m?`<a class="pmsg" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer" data-msgsent="${m.id}"><span>💬 Today’s message is ready</span><q dir="auto">${esc(m.text)}</q><b>Send on WhatsApp ↗</b></a>`:''}</div>`}
+/* person sheet */
+const _openPerson_d32=openPerson;openPerson=function(id){_openPerson_d32(id);const p=personById(id);if(!p)return;const h=$('#sheet .phead');if(h&&!$('#sheet .pprof'))h.insertAdjacentHTML('afterend',profileHTML_d32(p))};
+/* circle sheet */
+const _openCP_d32=openCP_d31;openCP_d31=function(id){_openCP_d32(id);const p=personById(id);if(!p)return;const h=$('#sheet .cph');if(h&&!$('#sheet .pprof'))h.insertAdjacentHTML('afterend',profileHTML_d32(p).replace('<div class="pprof">','<div class="pprof sm">'))};
+/* person cards: trust dots + ring colour */
+const _personCard_d32=personCard;personCard=function(p){const r=ringOf_d31(p),R=RINGS_d31[r-1];return _personCard_d32(p).replace('<div class="ptags">',`<div class="ptags">${R?`<span class="pill" style="border-color:${R[3]};color:${R[3]}">${R[2]} ${R[1]}</span>`:''}${p.trust?`<span class="pill tdots t${p.trust}">${'●'.repeat(p.trust)}</span>`:''}`)};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-plink],[data-msgsent]');if(!a)return;
+ if(a.dataset.plink){e.preventDefault();e.stopPropagation();closeSheet();setTimeout(()=>openPerson(a.dataset.plink),80);return}
+ const id=a.dataset.msgsent;setTimeout(()=>{U.seen=U.seen||{};U.seen[id]={updated:new Date().toISOString()};queueSave();toast('Marked as sent ✓');if(curPage()==='today')rerender()},600)},true);
+
+/* Today: messages ready to send, one tap each */
+const _renderToday_d32=renderToday;renderToday=function(G){_renderToday_d32(G);const el=$('#p-today');if(!el||el.querySelector('.msgready'))return;
+ const M=(D.alerts||[]).filter(a=>a.type==='msg'&&!(U.seen||{})[a.id]);if(!M.length)return;
+ const html=`<div class="card mb msgready"><div class="hsh"><b>💬 Ready to send</b><span class="xs faint">${M.length} message${M.length>1?'s':''} · tap → WhatsApp → send</span></div>
+  ${M.map(a=>{const k=(a.id.match(/^al-([a-z]+)-/)||[])[1],p=personById(MSGP_d32[k]);return `<div class="mr32">${p?avatar(p,38):'<span class="av" style="width:38px;height:38px">💬</span>'}<div class="mt32"><b>${esc(p?short_d31(p.name):a.title)}</b><q dir="auto">${esc(a.text||'')}</q></div><a class="btn2 sm pri" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" data-msgsent="${a.id}">Send ↗</a><button type="button" class="x" data-seen="${a.id}" aria-label="Skip">${ic('x')}</button></div>`}).join('')}</div>`;
+ const t=el.querySelector('.v8top');if(t){const r=t.querySelector('.reward');(r||t.firstElementChild)?.insertAdjacentHTML('afterend',html)}else el.insertAdjacentHTML('afterbegin',html)};
+/* bell: msg alerts get a proper send button */
+const _alertRow_d32=alertRow;alertRow=function(a){const h=_alertRow_d32(a);return a.type==='msg'?h.replace('>Open ↗</a>',` data-msgsent="${a.id}">Send on WhatsApp ↗</a>`).replace(`<div>${esc(a.text)}</div>`,`<div dir="auto">${esc(a.text)}</div>`):h};
+
+/* circle: tap & hold the core to show who knows whom */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-cx="links"]');if(!a)return;e.preventDefault();const s=$('.bcsky');if(s)s.classList.toggle('showlinks')},true);
+const _circleHTML_d32=circleHTML_d31;circleHTML_d31=function(){let h=_circleHTML_d32();const P=people(),pos={};
+ [...h.matchAll(/data-cp="([^"]+)" style="left:([\d.]+)%;top:([\d.]+)%/g)].forEach(m=>pos[m[1]]=[+m[2],+m[3]]);const seen=new Set();let L='';
+ P.forEach(p=>(p.links||[]).forEach(q=>{const k=[p.id,q].sort().join('|');if(seen.has(k)||!pos[p.id]||!pos[q])return;seen.add(k);const bad=(p.beef||[]).includes(q)||(personById(q)?.beef||[]).includes(p.id);L+=`<line x1="${pos[p.id][0]}" y1="${pos[p.id][1]}" x2="${pos[q][0]}" y2="${pos[q][1]}" class="${bad?'beef':''}"/>`}));
+ h=h.replace('<g class="blines">',`<g class="xlinks">${L}</g><g class="blines">`);
+ return h.replace('<div class="bleg">','<div class="bleg"><button type="button" class="bclink" data-cx="links">🕸 Who knows whom</button>')};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

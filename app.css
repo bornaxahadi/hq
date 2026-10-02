@@ -1088,3 +1088,29 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 @keyframes bctw{from{opacity:.5}to{opacity:1}}
 @keyframes bcpulse{50%{transform:translate(-50%,-50%) scale(1.12)}}
 @media (prefers-reduced-motion:reduce){.bscan,.blines line,.bcore,.cnode,.bcstars{animation:none}}
+
+/* v32 */
+.pprof{margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pring{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;border:1.5px solid var(--c);color:var(--c)}
+.trust{font-size:12px;letter-spacing:1px;padding:4px 10px;border-radius:20px;background:rgba(127,127,127,.1)}
+.trust em{font-style:normal;letter-spacing:0;margin-left:6px;opacity:.75}
+.trust.t5,.tdots.t5{color:#10b981}.trust.t4,.tdots.t4{color:#22c55e}.trust.t3,.tdots.t3{color:#f59e0b}.trust.t2,.tdots.t2{color:#f97316}.trust.t1,.tdots.t1{color:#ef4444}
+.tdots{letter-spacing:1px;font-size:9px!important}
+.pstory{flex-basis:100%;margin:2px 0 0;font-size:13.5px;line-height:1.5}
+.pline{flex-basis:100%;font-size:13px;line-height:1.45}.pline b{display:block;font-size:12px;opacity:.7;margin-bottom:2px}
+.pwarn{flex-basis:100%;font-size:12.5px;padding:8px 12px;border-radius:12px;background:rgba(239,68,68,.1);color:#ef4444}
+.plinks{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.plinks b{font-size:12px;opacity:.7;margin-right:2px}
+.plinks button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:transparent;color:inherit;border-radius:20px;padding:3px 10px 3px 3px;font:inherit;font-size:12px;cursor:pointer}
+.plinks .av{margin:0!important;border:0}
+.pmsg{flex-basis:100%;display:block;text-decoration:none;color:inherit;padding:12px 14px;border-radius:14px;background:linear-gradient(120deg,rgba(37,211,102,.12),rgba(16,185,129,.06));border:1px solid rgba(37,211,102,.35)}
+.pmsg span{display:block;font-size:12px;opacity:.7}.pmsg q{display:block;quotes:none;margin:6px 0;font-size:14px;line-height:1.5}.pmsg b{color:#16a34a;font-size:13px}
+.pprof.sm{margin:10px 0 0}.pprof.sm .pstory{font-size:12.5px}
+.msgready .mr32{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.msgready .mt32{flex:1;min-width:0}.msgready .mt32 b{display:block;font-size:13.5px}
+.msgready q{display:block;quotes:none;font-size:12.5px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msgready .x{background:none;border:0;opacity:.45;color:inherit;padding:4px;cursor:pointer}.msgready .x svg{width:16px;height:16px}
+.msgready .btn2.pri{background:#25d366!important;border-color:#25d366!important;color:#fff!important;text-decoration:none;white-space:nowrap}
+.xlinks line{stroke:#67e8f9;stroke-width:.25;opacity:0;transition:opacity .4s}.xlinks line.beef{stroke:#ef4444;stroke-dasharray:1 1}
+.bcsky.showlinks .xlinks line{opacity:.75}.bcsky.showlinks .blines{opacity:.25}
+.bclink{border:1px solid rgba(103,232,249,.4);background:rgba(103,232,249,.1);color:#cffafe;border-radius:20px;padding:3px 10px;font:inherit;font-size:10.5px;cursor:pointer}
+.msgready .mr32 .av{margin:0!important}.msgready .mr32 .av img{width:100%;height:100%;object-fit:cover}
