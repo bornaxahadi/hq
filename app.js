@@ -169,7 +169,7 @@ function game(){
   {n:'AI 20h',d:'Study AI for 20 hours',icn:'ai',bg:'bg-v',ok:H.ai>=20},
   {n:'Iron will',d:'12 gym sessions',icn:'gym',bg:'bg-g',ok:L.filter(e=>e.gym).length>=12},
   {n:'Arabic 50',d:'Learn 50 words',icn:'ar',bg:'bg-c',ok:words>=50},
-  {n:'Healthy week',d:'7 days with 5+ habits',icn:'heart',bg:'bg-g',ok:healthyWeek()},
+  {n:'Healthy week',d:'7 days with 5+ habits',icn:'heart',bg:'bg-g',ok:healthyWeek()},{n:'Smoke-down',d:'7 days under your smoking limit',icn:'shield',bg:'bg-r',ok:smokeStats().streak>=7},
   {n:'Networker',d:'Attend 10 meetings',icn:'users',bg:'bg-a',ok:L.reduce((a,e)=>a+e.met,0)>=10},
   {n:'Follow-through',d:'Log 5 meeting results',icn:'check',bg:'bg-c',ok:logged>=5},
   {n:'Hunter',d:'Log 5 new opportunities',icn:'target',bg:'bg-o',ok:allDeals.length>=6},
@@ -343,11 +343,11 @@ function whereCard(){const P=places(),n=nowD(),S=stays(n.date),l=lastVisit(),her
 
 /* ================= talk to Claude ================= */
 function openTalk(pre){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-8).reverse(),st=D.inbox_status||{},SR=window.SpeechRecognition||window.webkitSpeechRecognition,lang=ls.get('hq.lang')||'en-US';
- sheet(head('Talk to Claude','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app within the hour.</div>
+ sheet(head('Talk to the app','mic','bg-grad')+`<div class="sm muted" style="margin:-4px 0 12px">Say anything — a meeting, a task, a project idea, a change you want in this app, or a question. Habits (gym, swim, slept 8h…) are logged instantly. <b>Ask now</b> opens Claude for an instant answer; <b>Send</b> lets Claude act on it in your app (checked every 30 min). Messages to people come back as a ready WhatsApp button.</div>
   <div class="micwrap">${SR?`<button type="button" class="micbig" id="micbtn" aria-label="Start talking">${ic('mic')}</button><div class="xs faint" id="micst">Tap and speak</div><div class="opts" style="justify-content:center;margin-top:10px">${[['en-US','English'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="opt ${lang===l?'on':''}" data-lang="${l}">${n}</button>`).join('')}</div>`:`<div class="xs faint">Tip: tap the microphone key on your keyboard to dictate.</div>`}</div>
   <form id="tk"><div class="fld"><textarea class="inp" name="t" id="tktext" style="min-height:96px" placeholder="e.g. Tomorrow 4pm meeting with Ali at Business Bay about the website">${esc(pre||'')}</textarea></div>
   <div class="btnrow"><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button><button type="button" class="btn2" data-x="asknow">${ic('msg')} Ask now</button><button type="submit" class="btn2 pri">${ic('spark')} Send</button></div></form>
-  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.reply||r.note||'Done'):'Claude replies within the hour — you’ll get a notification'}</div></div></div>`}).join('')}`:''}`);
+  ${I.length?`<div class="xs faint" style="margin:16px 0 6px;font-weight:800;letter-spacing:.07em;text-transform:uppercase">Recent</div>${I.map(x=>{const r=st[x.id];return `<div class="row"><div class="ico ${r?'bg-g':'bg-a'}">${ic(r?'check':'clock')}</div><div class="tx"><b>${esc(x.text)}</b><div>${r?esc(r.reply||r.note||'Done')+(r&&r.wa&&safeWa(r.wa.url)?`<br><a class="pill g" href="${esc(safeWa(r.wa.url))}" target="_blank" rel="noopener" style="margin-top:6px;display:inline-flex">${ic('msg')}${esc(r.wa.label||'Send on WhatsApp')}</a>`:''):'Claude picks this up at '+nextCheck()+' — you’ll get a notification'}</div></div></div>`}).join('')}`:''}`);
  const b=$('#micbtn');if(b)b.onclick=()=>{if(rec){try{rec.stop()}catch(e){}return}const R=new SR();rec=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=true;const pre0=$('#tktext').value.trim();
   R.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('#tktext').value=(pre0?pre0+' ':'')+t};
   R.onend=()=>{rec=null;b.classList.remove('on');const m=$('#micst');if(m)m.textContent='Tap to talk again'};
@@ -373,11 +373,11 @@ function projCard(p,nt){const pr=Math.max(0,Math.min(100,+p.progress||0)),st=p.s
   ${nt?`<div class="note"><b>${ic('spark')}Claude</b>${esc(nt.text||nt)}</div>`:''}</div>`}
 function renderProjects(){const P=projects(),notes=D.project_notes||{},by=x=>P.filter(p=>(p.status||'Active')===x);
  $('#p-projects').innerHTML=`<div class="pt">Projects <span>what you're building and thinking about</span></div>
- <div class="bizbar"><button class="bigadd alt2" data-act="project">${ic('plus')}New project</button><button class="bigadd alt3" data-act="talk">${ic('mic')}Talk to Claude</button></div>
+ <div class="bizbar"><button class="bigadd alt2" data-act="project">${ic('plus')}New project</button><button class="bigadd alt3" data-act="talk">${ic('mic')}Talk to the app</button></div>
  <div class="stats" style="margin-bottom:14px">${PST.map(x=>stat(by(x).length,x,PIC[x])).join('')}</div>
  <div class="g3">${PST.filter(x=>by(x).length).map(x=>`<div class="card s3"><div class="ch"><div class="ic ${PBG[x]}">${ic(PIC[x])}</div><h3>${x}</h3><span class="aside">${by(x).length}</span></div><div class="projs">${by(x).map(p=>projCard(p,notes[p.id])).join('')}</div></div>`).join('')||`<div class="s3">${empty('Add your first project','folder')}</div>`}
   ${card('Where projects come from','share','bg-grad',`<div class="row"><div class="ico bg-grad">${ic('spark')}</div><div class="tx"><b>Claude</b><div>Claude keeps the projects from your Claude chats, memory and this assistant up to date here.</div></div></div>
-   <div class="row"><div class="ico bg-g">${ic('msg')}</div><div class="tx"><b>ChatGPT</b><div>ChatGPT can't be connected directly. In ChatGPT ask: “List all my projects and ideas with status and next step”, copy the answer, and paste it into Talk to Claude — Claude adds them here.</div></div></div>
+   <div class="row"><div class="ico bg-g">${ic('msg')}</div><div class="tx"><b>ChatGPT</b><div>ChatGPT can't be connected directly. In ChatGPT ask: “List all my projects and ideas with status and next step”, copy the answer, and paste it into Talk to the app — Claude adds them here.</div></div></div>
    <div class="row"><div class="ico bg-p">${ic('edit')}</div><div class="tx"><b>You</b><div>Tap “New project”, or tap any project to update its status, next step and progress.</div></div></div>`,'','s3')}
  </div>`}
 function openProject(id){const p=id?{...(projects().find(x=>x.id===id)||{})}:{status:'Active',area:'Business',progress:0};
@@ -528,7 +528,7 @@ function openTxn(type,id){const t=id?(U.txns||[]).find(x=>x.id===id)||{}:{type,d
  sheet(head(t.type==='out'?'Money spent':'Money received','money',t.type==='out'?'bg-r':'bg-g')+`<form id="txf"><div class="two"><div class="fld"><label>AED</label><input class="inp" name="a" inputmode="numeric" value="${t.amount||''}" required></div><div class="fld"><label>Date</label><input class="inp" type="date" name="d" value="${esc(t.date||'')}"></div></div><div class="fld"><label>For</label><input class="inp" name="l" value="${esc(t.label||'')}" placeholder="${t.type==='out'?'e.g. Car service':'e.g. Mojeh – September'}"></div>
  <div class="btnrow">${id?`<button type="button" class="btn2 del" data-deltxn="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button class="btn2 pri">Save</button></div></form>`);
  $('#txf').onsubmit=e=>{e.preventDefault();const f=e.target,now=new Date().toISOString(),r={type:t.type,amount:+String(f.a.value).replace(/[^\d.]/g,''),date:f.d.value||nowD().date,label:f.l.value.trim(),updated:now};U.txns=U.txns||[];if(id)Object.assign(t,r);else U.txns.push({id:uid(),...r});queueSave();closeSheet();rerender();toast('Saved')}}
-function openMore(){sheet(head('More','list','bg-grad')+`<div class="actions">${PAGES.filter(p=>!MAIN.includes(p.id)).map(p=>`<button class="action" data-go="${p.id}"><span class="qi bg-v">${ic(p.i)}</span><b>${p.l}</b></button>`).join('')}<button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to Claude</b></button><button class="action" data-act="settings"><span class="qi bg-c">${ic('gear')}</span><b>Settings</b></button></div>`)}
+function openMore(){sheet(head('More','list','bg-grad')+`<div class="actions">${PAGES.filter(p=>!MAIN.includes(p.id)).map(p=>`<button class="action" data-go="${p.id}"><span class="qi bg-v">${ic(p.i)}</span><b>${p.l}</b></button>`).join('')}<button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to the app</b></button><button class="action" data-act="settings"><span class="qi bg-c">${ic('gear')}</span><b>Settings</b></button></div>`)}
 function ovSet(id,o){U.pipe=U.pipe||[];const ex=U.pipe.find(x=>x.id===id);if(ex)Object.assign(ex,o);else U.pipe.push({id,...o})}
 
 /* ================= nav ================= */
@@ -828,7 +828,7 @@ function closeSheet(){stopRec();$('#scrim').classList.remove('on');$('#sheet').c
 $('#scrim').onclick=closeSheet;
 const head=(t,i,bg)=>`<h2><span class="ic ${bg}">${ic(i)}</span>${t}<button data-act="close" aria-label="Close">${ic('x')}</button></h2>`;
 function openActions(){sheet(head('Add','plus','bg-grad')+`<div class="actions">
- <button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to Claude</b><small>Say it — Claude does it</small></button>
+ <button class="action" data-act="talk"><span class="qi bg-grad">${ic('mic')}</span><b>Talk to the app</b><small>Say it — Claude does it</small></button>
  <button class="action" data-act="meet"><span class="qi bg-o">${ic('users')}</span><b>New meeting</b><small>Who, where, when, agenda</small></button>
  <button class="action" data-act="checkin"><span class="qi bg-v">${ic('moon')}</span><b>Log my day</b><small>Hours, gym, meetings</small></button>
  <button class="action" data-act="newtask"><span class="qi bg-p">${ic('list')}</span><b>New to-do</b><small>Task with category & date</small></button>
@@ -991,7 +991,7 @@ const HAB=[
  {k:'post',n:'Posted content',i:'play',bg:'bg-o'},
  {k:'family',n:'Family time',i:'users',bg:'bg-g'}];
 const MOOD=['','Low','Meh','OK','Good','Great'];
-function habDay(d){const h={...((U?.habits||{})[d]||{})},c=(U?.checkins||{})[d];
+function habDay(d){const h={...((D?.habit_log||{})[d]||{}),...((U?.habits||{})[d]||{})},c=(U?.checkins||{})[d];
  if(h.gym==null&&(gymMin(d)>=20||(c&&c.gymMin>0)))h.gym=1;
  if(h.claude==null&&c&&+(c.study?.ai||0)>=1)h.claude=1;
  if(h.arabic==null&&c&&+(c.study?.arabic||0)>=0.5)h.arabic=1;
@@ -1048,6 +1048,7 @@ function renderMe(){const el=$('#p-me');if(!el||!D)return;const M=D.me||{},n=now
 function quickHabits(t){const s=t.toLowerCase(),hit=[];const on=(k,re)=>{if(re.test(s)&&!/\b(no|not|didn'?t|skip)\b/.test(s)){setHab(k,1);hit.push(HAB.find(x=>x.k===k).n)}};
  on('gym',/\bgym|workout|trained\b/);on('swim',/swim|pool/);on('food',/healthy (food|meal|eat)/);on('water',/water/);on('family',/family|kids|daughters/);on('claude',/claude|learned ai|studied ai/);on('arabic',/arabic/);
  const sl=s.match(/slept (\d+(\.\d)?)/);if(sl){setHab('sleepH',Math.round(+sl[1]));if(+sl[1]>=7){setHab('sleep',1);hit.push('Sleep')}}
+ const sm=s.match(/(?:smoked|cigarettes?|cigs|sigar\S*)\D{0,8}(\d{1,2})|(\d{1,2})\s*(?:cigarettes?|cigs|sigar\S*)/);if(sm){const v=+(sm[1]||sm[2]);setHab('cigs',v);hit.push('Smoking '+v)}
  if(hit.length)rerender();return hit.length?'Logged '+hit.join(', ')+' ✓ · ':''}
 function askNow(){const t=($('#tktext')?.value||'').trim();const ctx='(I am Borna, using my Borna HQ app.) ';window.open('https://claude.ai/new?q='+encodeURIComponent(ctx+(t||'Help me plan my day')),'_blank','noopener')}
 
@@ -1099,6 +1100,540 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a
   fetch('https://ntfy.sh/',{method:'POST',body:JSON.stringify({topic:t,title:'Borna HQ',message:'Test from your app — notifications work ✓',tags:['white_check_mark'],click:location.origin+location.pathname})}).then(r=>toast(r.ok?'Sent — check your phone':'Could not send')).catch(()=>toast('Could not send'));return}
 });
 
+/* ================= v9: smoking tracker · scrolling nav ================= */
+function SP(){return{start:'2026-10-01',base:40,goal:10,end:'2026-12-31',price:1.25,...(D.smoke_plan||{})}}
+function smokeLimit(d){const p=SP(),t=daysBetween(p.start,d||nowD().date),tot=Math.max(1,daysBetween(p.start,p.end));if(t<0)return p.base;return Math.max(p.goal,Math.ceil(p.base-(p.base-p.goal)*Math.min(1,t/tot)))}
+function cigs(d){const v=habDay(d||nowD().date).cigs;return v==null?null:+v}
+function smokeStats(){const p=SP(),n=nowD().date,days=[];let d=p.start;while(d<=n&&days.length<400){days.push(d);d=addDays(d,1)}
+ const logged=days.filter(x=>cigs(x)!=null),avoided=logged.reduce((a,x)=>a+Math.max(0,p.base-cigs(x)),0);
+ let streak=0;for(let i=days.length-1;i>=0;i--){const x=days[i];if(x===n&&cigs(x)==null)continue;if(cigs(x)!=null&&cigs(x)<=smokeLimit(x))streak++;else break}
+ const wk=logged.filter(x=>x>=addDays(n,-6)),avg=wk.length?wk.reduce((a,x)=>a+cigs(x),0)/wk.length:null;
+ const urges=days.reduce((a,x)=>a+(+habDay(x).urges||0),0);
+ return{avoided,saved:Math.round(avoided*p.price),streak,avg,urges,week:Math.floor(daysBetween(p.start,n)/7)+1}}
+const SMOKE_TIPS=['Delay your first cigarette — wait at least 30 minutes after waking, then push it later each week.','When a craving hits, use the 4 Ds: Delay 5 minutes, Deep breaths, Drink water, Do something else. Cravings pass in 3–5 minutes.','Make places smoke-free: no smoking in the car or inside the home.','Break the links: no cigarette with the first coffee or straight after meals — take a short walk instead.','Late work + smoking + little sleep = cough. Set a cut-off time for the last cigarette.','Nicotine gum, lozenges or patches can be used while cutting down — ask a pharmacist or doctor which strength fits ~40 a day.','The pool and the gym are your best craving killers — go when the urge is strongest.','Smoke only half of each cigarette this week.','Buy one pack at a time, never a carton. Leave the pack in another room.','If the cough lasts more than 2–3 weeks, or you see blood or feel chest pain or breathlessness, see a doctor.'];
+function smokeTip(){const i=daysBetween('2026-01-01',nowD().date)%SMOKE_TIPS.length;return SMOKE_TIPS[(i+SMOKE_TIPS.length)%SMOKE_TIPS.length]}
+function smokeCard(full){const n=nowD().date,c=cigs(n)||0,L=smokeLimit(n),pct=Math.min(1,c/L),over=c>L,S=smokeStats(),p=SP();
+ const bars=Array.from({length:14},(_,j)=>{const d=addDays(n,j-13),v=cigs(d),lim=smokeLimit(d);return `<div class="sb" title="${d}: ${v??'—'} / ${lim}"><i style="height:${v==null?0:Math.min(100,v/p.base*100)}%;background:${v==null?'transparent':v<=lim?'var(--green)':'var(--red,#f87171)'}"></i><em style="bottom:${lim/p.base*100}%"></em></div>`}).join('');
+ return `<div class="card ${full?'s2':''} mb smoke"><div class="ch"><div class="ic bg-r">${ic('flame')}</div><h3>Smoking</h3><span class="aside">week ${S.week} · goal ${p.goal}/day by ${fd(p.end)}</span></div>
+ <div class="smrow"><div class="smbig ${over?'over':''}"><b>${c}</b><small>of ${L} today</small></div>
+  <div class="smbtns"><button type="button" class="btn2 pri" data-x="cig" data-v="1">+1 smoked</button><button type="button" class="btn2" data-x="urge">${ic('shield')} Beat a craving</button><button type="button" class="btn2 ghost" data-x="cig" data-v="-1">−1</button></div></div>
+ <div class="bar" style="margin:10px 0 4px"><i style="width:${pct*100}%;background:${over?'var(--red,#f87171)':'var(--green)'}"></i></div>
+ <div class="xs faint">${over?`Over today’s limit by ${c-L}. Tomorrow is a new start.`:`${L-c} left for today.`} ${habDay(n).first?'First one at '+habDay(n).first+'.':''}</div>
+ <div class="smstats">${stat(S.streak+' '+ic('flame'),'Days under limit','check')}${stat(S.avg==null?'—':S.avg.toFixed(1),'7-day average','chart')}${stat(S.avoided,'Not smoked','heart')}${stat('AED '+S.saved,'Saved','money')}</div>
+ ${full?`<div class="sbars">${bars}</div><div class="xs faint" style="margin-top:4px">Last 14 days · line = your daily limit (slowly going from ${p.base} to ${p.goal})</div>`:''}
+ <div class="note" style="margin-top:10px"><b>${ic('bulb')}Today’s tip</b>${esc(smokeTip())}</div>
+ ${full?`<details class="wk"><summary>The 3-month plan</summary><div class="sm" style="line-height:1.7;margin-top:6px">${[0,2,4,6,8,10,12].map(w=>`Week ${w+1}: up to <b>${smokeLimit(addDays(p.start,w*7))}</b> a day`).join('<br>')}<br>Then hold at ${p.goal} and decide with Claude whether to go to zero.</div><div class="xs faint" style="margin-top:8px">Method: “cut down to quit” — reduce a little each week, track every cigarette, delay the first one, replace triggers, and use nicotine gum/patches if a pharmacist or doctor agrees.</div></details>`:''}</div>`}
+
+/* nav: all pages in a swipeable bar */
+function buildNav(){const b=$('#bottom');if(!b)return;b.classList.add('scroller');b.innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}<span>${p.l}</span></button>`).join('');
+ $$('#bottom [data-p]').forEach(x=>x.onclick=()=>{location.hash=x.dataset.p})}
+buildNav();
+const _show=show;show=function(){_show();const a=$('#bottom .on');if(a)a.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})};
+
+/* wrappers */
+const _renderToday9=renderToday;renderToday=function(G){_renderToday9(G);const t=$('#p-today .v8top');if(t){const x=document.createElement('div');x.innerHTML=smokeCard(false);t.insertBefore(x.firstElementChild,t.children[1]||null)}};
+const _renderMe9=renderMe;renderMe=function(){_renderMe9();const g=$('#p-me .g3');if(!g)return;const x=document.createElement('div');x.innerHTML=`<div class="pt sub s3" style="margin:4px 0 0">Bad habits <span>track it, shrink it</span></div>`+smokeCard(true);[...x.children].forEach((c,i)=>g.insertBefore(c,g.children[1+i]||null));const h=document.createElement('div');h.className='pt sub s3';h.style.margin='0';h.innerHTML='Good habits <span>keep the streaks</span>';g.insertBefore(h,g.firstElementChild)};
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset,n=nowD().date;
+ if(d.x==='cig'){const c=Math.max(0,(cigs(n)||0)+(+d.v));setHab('cigs',c);if(+d.v>0&&!habDay(n).first){const t=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());setHab('first',t)}rerender();const L=smokeLimit(n);if(+d.v>0)toast(c>L?`${c} today — over your limit of ${L}`:c===L?`That’s your limit for today (${L})`:`${c} of ${L} today`);return}
+ if(d.x==='urge'){setHab('urges',(+habDay(n).urges||0)+1);rerender();toast('Craving beaten 💪 +3 XP');return}
+});
+const _habXP=habXP;habXP=function(){const p=SP();let x=_habXP();Object.entries(U?.habits||{}).forEach(([d,h])=>{x+=(+h.urges||0)*3;if(h.cigs!=null&&d>=p.start&&+h.cigs<=smokeLimit(d))x+=10});return x};
+
+/* ================= v10: Talk to the app — instant message drafts, live status ================= */
+function nextCheck(){const n=nowD().mins,m=n%60,add=m<10?10-m:m<40?40-m:70-m,t=n+add;return String(Math.floor(t/60)%24).padStart(2,'0')+':'+String(t%60).padStart(2,'0')}
+function safeWa(u){return /^https:\/\/wa\.me\//.test(u||'')?u:''}
+function quickMsg(t){const s=t.trim(),STOP=/^(and|my|the|a|an|to|on|in|via|me|him|her|them|it|this|that|message|whatsapp|good|morning)$/i,m=[...s.matchAll(/\b(?:send|message|text|tell|whatsapp)\s+(?:to\s+)?([A-Za-z؀-ۿ]+)/gi)].find(x=>!STOP.test(x[1]));if(!m&&!/\b(send|message|text|tell|whatsapp)\b/i.test(s))return null;
+ const low=s.toLowerCase(),COMMON=/^(mr|mrs|dr|the|and|from|team|magazine|final)$/i,P=people(),hit=P.find(x=>[x.name,x.aka].filter(Boolean).join(' ').toLowerCase().split(/[\s\/,().]+/).some(w=>w.length>=3&&!COMMON.test(w)&&new RegExp('\\b'+w.replace(/[^\w]/g,'')+'\\b').test(low)));
+ if(!hit)return null;
+ const nm=hit?'':(m?m[1]:'').toLowerCase(),p=hit||P.find(x=>[x.name,x.aka].filter(Boolean).some(v=>String(v).toLowerCase().split(/[\s\/,()]+/).includes(nm)));
+ const fam=(p&&p.rel==='family')||/farnaz/i.test(nm);let body=(s.split(/\bthat\b|\bsaying\b|:/i)[1]||'').trim();
+ if(!body||/good ?morning|greeting|salam|صبح/i.test(s)){body=/good ?morning|صبح/i.test(s)?(fam?'صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی':'Good morning! Wishing you a great day ☀️'):(fam?'سلام عزیزم ❤️':'Hi '+(p?(/^(mr|dr)\.?$/i.test(p.name.split(' ')[0])?p.name:p.name.split(' ')[0]):'')+', warm greetings — hope you are doing well!')}
+ const num=p&&typeof waNum==='function'?waNum(p.phone||''):'';const url='https://wa.me/'+(num||'')+'?text='+encodeURIComponent(body);
+ return{name:p?p.name:(m?m[1]:'them'),text:body,url}}
+const _sendTalk10=sendTalk;sendTalk=function(){const t=($('#tktext')?.value||'').trim();const q=t?quickMsg(t):null;_sendTalk10();
+ if(q)sheet(head('Ready to send','msg','bg-g')+`<div class="note" style="margin-bottom:12px"><b>${ic('msg')}To ${esc(q.name)}</b>${esc(q.text)}</div><a class="btn2 pri wa-go" href="${q.url}" target="_blank" rel="noopener">${ic('msg')} Open WhatsApp and send</a><div class="xs faint" style="margin-top:10px">WhatsApp opens with the message ready — just tap send. Claude also got your request and will reply here.</div>`)};
+
+/* ================= v11: new Talk to the app — chat, instant actions ================= */
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let rec11=null;
+const TK_CHIPS=[['What’s next today?','sun'],['Any updates?','bell'],['Add a to-do: ','list'],['Send a WhatsApp to ','msg'],['Slept 7 hours','moon'],['I smoked 1 cigarette','flame']];
+function tkThread(){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-12),st=D.inbox_status||{};
+ if(!I.length)return `<div class="tk-empty">${ic('spark')}<b>Talk to me like a person.</b><span>“Meeting tomorrow 4pm with Ali at Business Bay” · “Remind me to call Yusuf” · “Send Farnaz good morning” · “What did I promise Emmanuel?”</span></div>`;
+ return I.map(x=>{const r=st[x.id],wa=(r&&r.wa&&safeWa(r.wa.url))?r.wa:(x.wa&&safeWa(x.wa.url)?x.wa:null);
+  const when=x.created?new Date(x.created).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'}):'';
+  const claude=r?`<div class="bub c">${esc(r.reply||r.note||'Done ✓')}</div>`:`<div class="bub c pend">${x.ack?esc(x.ack)+'<br>':''}<span>${ic('clock')} Claude finishes this by ${nextCheck()}</span></div>`;
+  return `<div class="bub me">${esc(x.text)}<small>${when}</small></div>${claude}${wa?`<a class="bub wa" href="${esc(safeWa(wa.url))}" target="_blank" rel="noopener">${ic('msg')}<span><b>${esc(wa.label||'Send on WhatsApp')}</b><small>${esc(decodeURIComponent((wa.url.split('text=')[1]||'')).slice(0,90))}</small></span></a>`:''}`}).join('')}
+function tkRefresh(){const t=$('#tk-thread');if(t){t.innerHTML=tkThread();t.scrollTop=t.scrollHeight}}
+openTalk=function(pre){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ sheet(head('Talk to the app','spark','bg-grad')+`
+ <a class="tk-direct" href="${esc(D.claude_link||'https://claude.ai/code/session_01WrLRPGYd7DhCMPBzWkg7ap')}" target="_blank" rel="noopener">${ic('spark')}<span><b>Chat with Claude now — live</b><small>Opens your Borna HQ chat in the Claude app: instant answers, and Claude can use your laptop (WhatsApp, Chrome, email)</small></span>${ic('chev')}</a>
+ <div class="tk-chips">${TK_CHIPS.map(([t,i])=>`<button type="button" class="tkc" data-x="tkchip" data-t="${esc(t)}">${ic(i)}${esc(t.replace(/[: ]+$/,''))}</button>`).join('')}</div>
+ <div class="tk-thread" id="tk-thread">${tkThread()}</div>
+ <form id="tk11" class="tk-bar"><textarea id="tktext" class="inp" rows="1" placeholder="Type or dictate…">${esc(pre||'')}</textarea>
+  <button type="button" class="tk-mic" id="tkmic" aria-label="Speak">${ic('mic')}</button><button type="submit" class="tk-send" aria-label="Send">${ic('chev')}</button></form>
+ <div class="tk-hint" id="tkhint">${IOS?'Tip: tap the 🎙 key on your iPhone keyboard to dictate — it understands you best (Persian too).':''}</div>
+ <div class="tk-more"><button type="button" class="btn2" data-x="asknow">${ic('msg')} Ask now (instant)</button><button type="button" class="btn2" data-act="tkmeet">${ic('users')} Meeting</button><button type="button" class="btn2" data-act="tktodo">${ic('list')} To-do</button></div>`);
+ const ta=$('#tktext');tkRefresh();
+ ta.addEventListener('input',()=>{ta.style.height='auto';ta.style.height=Math.min(140,ta.scrollHeight)+'px'});
+ ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!IOS){e.preventDefault();sendTalk()}});
+ $('#tk11').onsubmit=e=>{e.preventDefault();sendTalk()};
+ $('#tkmic').onclick=()=>{
+  if(IOS||!SR){ta.focus();$('#tkhint').innerHTML='Tap the <b>🎙 microphone key</b> on your keyboard (bottom right), speak, then tap the send arrow.';return}
+  if(rec11){try{rec11.stop()}catch(e){}return}
+  const R=new SR();rec11=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=false;const pre0=ta.value.trim();
+  R.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;ta.value=(pre0?pre0+' ':'')+t};
+  R.onend=()=>{rec11=null;$('#tkmic')?.classList.remove('on')};R.onerror=()=>{rec11=null;$('#tkmic')?.classList.remove('on');$('#tkhint').textContent='Could not hear you — try again or type.'};
+  try{R.start();$('#tkmic').classList.add('on');$('#tkhint').textContent='Listening… tap the mic again to stop'}catch(e){rec11=null}};
+ if(!IOS)setTimeout(()=>ta.focus(),200)};
+sendTalk=function(){const ta=$('#tktext'),t=(ta?.value||'').trim();if(!t)return;if(rec11){try{rec11.stop()}catch(e){}}
+ const now=new Date().toISOString(),acks=[];let wa=null;
+ const h=quickHabits(t);if(h)acks.push(h.replace(/ · $/,''));
+ const q=quickMsg(t);if(q){wa={label:'Send to '+q.name+' on WhatsApp',url:q.url};acks.push('Message for '+q.name+' is ready below — tap to send.')}
+ const td=t.match(/^(?:add (?:a )?(?:to-?do|task)|to-?do|remind me(?: to)?)[:\s]+(.+)/i);if(td){U.todos.push({id:uid(),text:td[1].trim(),cat:/deal|client|meet|call|invoice|business/i.test(td[1])?'Business':'Personal',due:nowD().date,done:false,updated:now});acks.push('Added to your To-do ✓')}
+ const mm=/\b(meeting|meet)\b/i.test(t)&&typeof parseMeet==='function'?parseMeet(t):null;if(mm&&mm.date&&mm.time)acks.push(`Meeting noted for ${fd(mm.date)} ${mm.time} — Claude will add it to your calendar.`);
+ U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now,ack:acks.join(' · '),wa});queueSave();
+ ta.value='';ta.style.height='auto';tkRefresh();rerender();toast(acks.length?'Done ✓ — Claude got it too':(TOKEN?'Sent to Claude ✓':'Saved — connect saving in Settings'))};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="tkchip"]');if(!a)return;const t=a.dataset.t,ta=$('#tktext');if(!ta)return;
+ if(/^I smoked 1/.test(t)){setHab('cigs',(cigs(nowD().date)||0)+1);rerender();toast('Logged 1 cigarette');return}
+ ta.value=t;ta.focus();if(!/[: ]$/.test(t))sendTalk()});
+
+
+/* ================= v12: Talk to the app — instant answers from your data ================= */
+const APPV='v13';
+const AED=n=>'AED '+Math.round(+n||0).toLocaleString('en-US');
+function hhmm(m){return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function toM(t){const[a,b]=(t||'0:0').split(':');return(+a)*60+(+b||0)}
+function openTodos(lim){const n=nowD().date;return todos().filter(t=>!t.done&&(!lim||!t.due||t.due<=n))}
+function ansPlan(){const n=nowD(),L=[],T=D.today&&D.today.date===n.date?D.today:null;
+ if(T&&T.headline)L.push('🎯 '+T.headline);
+ const ev=eventsOn(n.date).filter(e=>e.kind!=='pending');
+ L.push(ev.length?'📅 Today: '+ev.map(e=>(e.time?e.time+' ':'')+e.title).join(' · '):'📅 No meetings today.');
+ const s=(D.schedule||[]).find(b=>toM(b.start)<=n.mins&&n.mins<toM(b.end)),nx=(D.schedule||[]).find(b=>toM(b.start)>n.mins);
+ if(s)L.push('⏱ Now: '+s.block+(s.what?' — '+s.what:''));if(nx)L.push('➡️ Next at '+nx.start+': '+nx.block);
+ const td=openTodos(true).slice(0,4);if(td.length)L.push('✅ Top to-dos: '+td.map(t=>t.text).join(' · '));
+ return L}
+function ansTodos(){const a=openTodos(true),b=openTodos(false);if(!b.length)return['No open to-dos 🎉'];
+ return [`You have ${a.length} due now/overdue (${b.length} open in total):`,...a.slice(0,8).map(t=>'• '+t.text+(t.due?` (${fd(t.due)})`:''))]}
+function ansMeet(){const up=meetings().filter(m=>['upcoming','now'].includes(mState(m))).slice(0,4);if(!up.length)return['No upcoming meetings. Tap “Meeting” below to add one.'];
+ return up.map(m=>`• ${mName(m)} — ${fd(m.date)} ${m.time||''} (${untilTxt(m)})${m.place?' · '+m.place:''}`)}
+function ansDeals(){const p=(D.pipeline||[]).filter(x=>x.stage!=='Won'&&x.stage!=='Lost');if(!p.length)return['No open deals.'];
+ return p.slice(0,6).map(x=>`• ${x.name} (${x.stage}${x.prob?', '+x.prob+'%':''}) → ${x.next||'—'}`)}
+function ansMoney(){const M=D.money||{},L=[];(M.costs||[]).forEach(c=>L.push(`• ${c.name}: ${AED(c.amount)}${c.paidUntil?' — paid until '+fd(c.paidUntil):''}`));
+ (M.receivables||[]).slice(0,4).forEach(r=>L.push(`• Expected: ${r.label} — your share ${AED(r.yours)} (${r.prob}%)`));
+ if(M.target)L.unshift('Monthly target: '+AED(M.target));return L.length?L:['No money data yet.']}
+function ansSmoke(){const n=nowD().date,c=cigs(n)||0,L=smokeLimit(n);return[`🚬 ${c} of ${L} today — ${c>L?'over by '+(c-L):(L-c)+' left'}.`,'Tip: '+smokeTip()]}
+function ansUpdates(){const L=[],al=alerts();al.forEach(a=>L.push('• '+a.title+(a.text?' — '+a.text:'')));
+ const st=D.inbox_status||{},last=Object.values(st).filter(r=>r.reply).sort((a,b)=>(b.updated||'')<(a.updated||'')?-1:1).slice(0,2);
+ last.forEach(r=>L.push('💬 '+r.reply.slice(0,160)));if(D.updated)L.push('Last update from Claude: '+new Date(D.updated).toLocaleString('en-GB',{timeZone:TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}));
+ return L.length?L:['Nothing new right now.']}
+function ansPerson(t){const low=t.toLowerCase(),p=people().find(x=>[x.name,x.aka].filter(Boolean).join(' ').toLowerCase().split(/[\s\/,().]+/).some(w=>w.length>=3&&!/^(mr|mrs|dr|the|and)$/.test(w)&&new RegExp('\\b'+w.replace(/[^\w]/g,'')+'\\b').test(low)));
+ if(!p)return null;const L=[`👤 ${p.name}${p.role?' — '+p.role:''}`];if(p.notes)L.push(String(p.notes).slice(0,200));
+ (D.pipeline||[]).filter(d=>(d.people||[]).includes(p.id)).forEach(d=>L.push(`• ${d.name}: ${d.next||d.stage}`));
+ openTodos(false).filter(x=>new RegExp('\\b'+p.name.split(' ').pop()+'\\b','i').test(x.text)).slice(0,3).forEach(x=>L.push('✅ '+x.text));
+ meetings().filter(m=>m.person&&m.person.includes(p.name.split(' ')[0])&&mState(m)==='upcoming').slice(0,2).forEach(m=>L.push(`📅 ${mName(m)} ${fd(m.date)} ${m.time||''}`));return L}
+const HELP=['I answer instantly from your Borna HQ data. Try:','• What’s my plan today?','• My to-dos · Next meeting · Deals · Money','• Any updates?','• Tell me about Yusuf','• Add a to-do: call Emmanuel','• Send good morning to Farnaz','• Slept 7 hours · Gym done · Smoked 1','Anything else is saved for Claude.'];
+function answer(t){const s=t.toLowerCase();
+ if(/^(help|\?|what can you do)/.test(s))return HELP;
+ if(/plan|today|schedule|what.?s next|agenda for (the )?day|برنامه/.test(s)&&!/meeting with/.test(s))return ansPlan();
+ if(/to-?dos?|tasks?|what (do|should) i do|pending/.test(s)&&!/^(add|remind)/.test(s))return ansTodos();
+ if(/meeting|appointment|calendar|جلسه/.test(s)&&/next|when|today|tomorrow|upcoming|my|any|\?/.test(s))return ansMeet();
+ if(/deals?|pipeline|business|en590|warehouse|qatar|sudan/.test(s))return ansDeals();
+ if(/money|cash|rent|budget|income|pay|salary|پول/.test(s))return ansMoney();
+ if(/smok|cigar|سیگار/.test(s)&&!/smoked \d|^\+?\d/.test(s))return ansSmoke();
+ if(/update|news|what.?s new|anything new|alert/.test(s))return ansUpdates();
+ if(/who is|about|tell me|info on|status of/.test(s))return ansPerson(t);
+ return null}
+tkThread=function(){const I=(U.inbox||[]).filter(x=>!x.deleted).slice(-12),st=D.inbox_status||{},P=people();
+ if(!I.length)return `<div class="tk-empty">${ic('spark')}<b>Ask me anything — I answer right away.</b><span>${HELP.slice(1,8).map(esc).join('<br>')}</span></div>`;
+ return I.map(x=>{const r=st[x.id],okWa=w=>w&&safeWa(w.url)&&(r&&r.wa===w||P.some(p=>(w.label||'').includes(p.name)))?w:null,wa=okWa(r&&r.wa)||okWa(x.wa);
+  const when=x.created?new Date(x.created).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'}):'';
+  let bot='';if(x.ans&&x.ans.length)bot+=`<div class="bub c">${x.ans.map(esc).join('<br>')}</div>`;
+  if(r)bot+=`<div class="bub c"><small class="who">Claude</small>${esc(r.reply||r.note||'Done ✓')}</div>`;
+  else if(!x.ans||!x.ans.length)bot+=`<div class="bub c pend">${x.ack?esc(x.ack)+'<br>':''}<span>${ic('clock')} Saved for Claude — answer here by ${nextCheck()}. Need it now? Tap <b>Live chat</b> above.</span></div>`;
+  return `<div class="bub me">${esc(x.text)}<small>${when}</small></div>${bot}${wa?`<a class="bub wa" href="${esc(safeWa(wa.url))}" target="_blank" rel="noopener">${ic('msg')}<span><b>${esc(wa.label||'Send on WhatsApp')}</b><small>${esc(decodeURIComponent((wa.url.split('text=')[1]||'')).slice(0,90))}</small></span></a>`:''}`}).join('')};
+const TK12=[['What’s my plan today?','sun'],['My to-dos','list'],['Next meeting','users'],['Deals','chart'],['Any updates?','bell'],['Add a to-do: ','plus'],['Send good morning to ','msg'],['Slept 7 hours','moon'],['I smoked 1 cigarette','flame'],['Help','spark']];
+const _openTalk12=openTalk;openTalk=function(pre){_openTalk12(pre);
+ const ch=$('.tk-chips');if(ch)ch.innerHTML=TK12.map(([t,i])=>`<button type="button" class="tkc" data-x="tkchip" data-t="${esc(t)}">${ic(i)}${esc(t.replace(/[: ]+$/,''))}</button>`).join('');
+ const dl=$('.tk-direct');if(dl){dl.querySelector('b').textContent='Live chat with Claude';dl.querySelector('small').textContent='For WhatsApp sending, laptop & anything complex — opens Claude'}
+ const ta=$('#tktext');if(ta)ta.placeholder='Ask or tell me anything…';
+ const mo=$('.tk-more');if(mo){const a=mo.querySelector('[data-x="asknow"]');if(a)a.remove();mo.insertAdjacentHTML('beforeend',`<span class="xs faint tkv">App ${APPV}</span>`)}};
+sendTalk=function(){const ta=$('#tktext'),t=(ta?.value||'').trim();if(!t)return;if(typeof rec11!=='undefined'&&rec11){try{rec11.stop()}catch(e){}}
+ const now=new Date().toISOString(),acks=[];let wa=null;
+ const h=quickHabits(t);if(h)acks.push(h.replace(/ · $/,'')+' ✓');
+ const ask=/^(tell me|who is|what|info|status|how)/i.test(t),q=ask?null:quickMsg(t);if(q){wa={label:'Send to '+q.name+' on WhatsApp',url:q.url};acks.push('Message for '+q.name+' is ready — tap the green button to send.')}
+ else if(!ask&&/\b(send|message|text|whatsapp)\b/i.test(t))acks.push('I couldn’t find that person in People. Add them there (with phone), or use Live chat.');
+ const td=t.match(/^(?:add (?:a )?(?:to-?do|task)|to-?do|remind me(?: to)?)[:\s]+(.+)/i);if(td){U.todos.push({id:uid(),text:td[1].trim(),cat:/deal|client|meet|call|invoice|business/i.test(td[1])?'Business':'Personal',due:nowD().date,done:false,updated:now});acks.push('Added to your To-do ✓')}
+ const mm=/\b(meeting|meet)\b/i.test(t)&&typeof parseMeet==='function'?parseMeet(t):null;if(mm&&mm.date&&mm.time)acks.push(`Meeting noted for ${fd(mm.date)} ${mm.time} — Claude adds it to your calendar.`);
+ let ans=acks.length?acks:(answer(t)||[]);const local=ans.length>0&&!mm&&!/change|fix|add .* (page|button|feature)|research|find|check my|email|reply/i.test(t);
+ U.inbox=U.inbox||[];U.inbox.push({id:uid(),text:t,created:now,updated:now,ans,ack:'',wa,local});queueSave();
+ ta.value='';ta.style.height='auto';tkRefresh();rerender();if(wa)setTimeout(()=>{const b=$('#tk-thread .bub.wa:last-of-type');b&&b.classList.add('pulse')},50)};
+
+/* ================= v14: Shopping — orders from email, deliveries, returns, spending, advice ================= */
+P.bag='<path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>';
+P.box='<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>';
+P.truck='<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>';
+PAGES.splice(PAGES.findIndex(p=>p.id==='money')+1,0,{id:'shop',l:'Shopping',i:'bag'});
+buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
+let SH=null,shLoad=null,shF={st:'all',store:'all'},shOpen={};
+const SST={ordered:['On the way','b','truck'],shipped:['On the way','b','truck'],out_for_delivery:['Out for delivery','b','truck'],delivered:['Delivered','g','check'],returned_part:['Part returned','w','refresh'],return_pending:['Return in progress','w','refresh'],refunded:['Refunded','v','refresh'],cancelled:['Cancelled','r','x'],rejected:['Rejected','r','x']};
+const SCOL={Amazon:'#f59e0b','Amazon Now':'#fbbf24',Temu:'#f97316',SHEIN:'#111827',noon:'#facc15',Offline:'#10b981','Lime (Uber)':'#22d3ee','Careem Quik':'#34d399','App Store':'#8b5cf6','Google Play':'#60a5fa',Anthropic:'#d97706',"Hardee's":'#ef4444'};
+const AEDf=n=>'AED '+(Math.round((+n||0)*100)/100).toLocaleString('en-US',{maximumFractionDigits:2});
+async function loadShop(force){if(SH&&!force&&SH.updated===(D.shop_summary||{}).updated)return SH;if(shLoad)return shLoad;
+ shLoad=(async()=>{try{const j=await pagesJSON('shop.enc');if(j)SH=await dec(j)}catch(e){console.warn(e)}shLoad=null;return SH})();return shLoad}
+function manual(){return(U.shop_manual||[]).filter(x=>!x.deleted)}
+function shopRows(){if(!SH)return[];const r=[];(SH.orders||[]).forEach(o=>{if(o.net)r.push({d:o.date,store:o.store,amt:o.net,cat:o.cat,kind:'order'})});
+ (SH.spend||[]).forEach(x=>r.push({d:x.d,store:x.store,amt:x.amt,cat:x.cat,kind:'spend'}));manual().forEach(x=>r.push({d:x.d,store:x.store||'Offline',amt:+x.amt||0,cat:x.cat||'other',kind:'manual'}));return r}
+function shopSum(days){const from=addDays(nowD().date,-days);return shopRows().filter(x=>x.d>=from).reduce((a,x)=>a+x.amt,0)}
+function monthSum(m){return shopRows().filter(x=>x.d.startsWith(m)).reduce((a,x)=>a+x.amt,0)}
+function thumbOf(it){return it&&it.t!=null&&SH.th[it.t]?SH.th[it.t]:''}
+function incoming(){return(SH?SH.orders:[]).filter(o=>['ordered','shipped','out_for_delivery'].includes(o.status))}
+function orderCard(o){const st=SST[o.status]||['',''],its=o.items||[],imgs=its.filter(i=>i.t!=null).slice(0,5),more=its.length-imgs.length,rate=(U.shop_rate||{})[o.id],open=shOpen[o.id];
+ return `<div class="card shop-o ${open?'open':''}" data-x="shopen" data-id="${esc(o.id)}">
+  <div class="so-top"><span class="so-store" style="--sc:${SCOL[o.store]||'#888'}">${esc(o.store)}</span><span class="pill ${st[1]}">${ic(st[2]||'box')}${esc(o.label||st[0])}</span><b class="so-amt">${o.total?AEDf(o.total):''}</b></div>
+  <div class="so-imgs">${imgs.map(i=>`<img src="${thumbOf(i)}" alt="" loading="lazy">`).join('')}${more>0?`<span class="so-more">+${more}</span>`:''}${!imgs.length?`<span class="so-noimg">${ic('box')}</span>`:''}</div>
+  <div class="so-meta">${fd(o.date,{day:'numeric',month:'short'})} · ${its.length} item${its.length===1?'':'s'}${o.eta?` · <b>arrives by ${fd(o.eta)}</b>`:''}${o.due?` · cash ${AEDf(o.due)}`:''}${o.refund?` · refund ${AEDf(o.refund)}${o.refundPending?' (pending)':''}`:''}</div>
+  ${o.note?`<div class="xs faint so-note">${esc(o.note)}</div>`:''}
+  ${open?`<div class="so-items">${its.map(i=>`<div class="so-it">${i.t!=null?`<img src="${thumbOf(i)}" alt="">`:`<span class="so-noimg sm">${ic('box')}</span>`}<span>${esc(i.name)}${i.note?` <em>(${esc(i.note)})</em>`:''}</span><b>${i.price?AEDf(i.price):''}</b></div>`).join('')}
+   ${(o.returned||[]).length?`<div class="xs faint" style="margin-top:8px"><b>Sent back:</b> ${o.returned.map(esc).join(' · ')}</div>`:''}
+   <div class="so-act"><span class="xs faint">Quality?</span><button type="button" class="btn2 ${rate===1?'pri':''}" data-x="shrate" data-id="${esc(o.id)}" data-v="1">👍 Good</button><button type="button" class="btn2 ${rate===-1?'pri':''}" data-x="shrate" data-id="${esc(o.id)}" data-v="-1">👎 Bad</button>${o.mail?`<a class="btn2" href="${esc(o.mail)}" target="_blank" rel="noopener">${ic('msg')} Email</a>`:''}</div>`:`<div class="xs faint so-tap">Tap to see all items</div>`}
+ </div>`}
+function renderShop(){const el=$('#p-shop');if(!el||!D)return;
+ if(SH&&D.shop_summary&&SH.updated!==D.shop_summary.updated&&!shLoad)loadShop(true).then(()=>{if(curPage()==='shop'){renderShop();draw('shop')}});
+ if(!SH){el.innerHTML=`<div class="pt">Shopping <span>loading your orders…</span></div><div class="card">${ic('bag')} Reading your orders…</div>`;loadShop().then(s=>{if(s&&curPage()==='shop'){renderShop();draw('shop')}else if(!s)el.innerHTML=`<div class="pt">Shopping</div><div class="card">No shopping data yet — Claude adds it on the next check.</div>`});return}
+ const I=SH.insights||{},n=nowD().date,m=n.slice(0,7),ms=monthSum(m),bud=I.budget||800,inc=incoming(),O=SH.orders||[];
+ const fil=O.filter(o=>(shF.store==='all'||o.store.startsWith(shF.store))&&(shF.st==='all'||(shF.st==='way'&&inc.includes(o))||(shF.st==='done'&&o.status==='delivered')||(shF.st==='ret'&&['returned_part','return_pending','refunded'].includes(o.status))||(shF.st==='x'&&['cancelled','rejected'].includes(o.status)))).sort((a,b)=>a.date<b.date?1:-1);
+ const subsM=(SH.subs||[]).reduce((a,s)=>a+(s.cycle==='year'?s.amt/12:s.amt),0),items=O.reduce((a,o)=>a+(o.items||[]).length,0),retN=O.reduce((a,o)=>a+((o.returned||[]).length||(['refunded','return_pending'].includes(o.status)?1:0)),0);
+ const R=U.shop_rate||{},good=Object.values(R).filter(v=>v===1).length,bad=Object.values(R).filter(v=>v===-1).length;
+ el.innerHTML=`<div class="pt">Shopping <span>from your 3 Gmail accounts · updated ${ago(SH.updated)}</span></div>
+ <div class="grid g3">
+ <div class="card s3 shop-verdict ${I.level||'w'}"><div class="ch"><div class="ic bg-o">${ic('bag')}</div><h3>${esc(I.verdict||'Your shopping')}</h3><span class="aside">${ic('spark')} Claude’s advice</span></div>
+  <div class="sm" style="line-height:1.55">${esc(I.headline||'')}</div>
+  <div class="bar" style="margin:12px 0 4px"><i style="width:${Math.min(100,ms/bud*100)}%;background:${ms>bud?'var(--red)':ms>bud*.8?'var(--amber)':'var(--green)'}"></i></div>
+  <div class="xs faint">This month: <b>${AEDf(ms)}</b> of your ${AEDf(bud)} budget${ms>bud?' — over budget':ms>bud*.8?' — almost at the limit':''}${(()=>{const pm=addDays(m+'-01',-1).slice(0,7),v=monthSum(pm);return v?` · last month ${AEDf(Math.round(v))}${v>bud?' (over budget)':''}`:''})()}</div>
+  ${I.should?`<div class="note"><b>${ic('bulb')}Should you keep shopping?</b>${esc(I.should)}</div>`:''}</div>
+ <div class="card s3"><div class="stats">${stat(AEDf(Math.round(shopSum(30))),'Last 30 days','money')}${stat(AEDf(Math.round(shopSum(110))),'Since mid-June','chart')}${stat(items,'Items ordered','box')}${stat(retN,'Sent back / refunded','refresh')}</div></div>
+ ${inc.length?`<div class="card s3"><div class="ch"><div class="ic bg-b">${ic('truck')}</div><h3>On the way</h3><span class="aside">${inc.length}</span></div>${inc.map(o=>`<div class="row"><img class="so-th" src="${thumbOf((o.items||[]).find(i=>i.t!=null))}" alt=""><div class="tx"><b>${esc(o.store)} · ${(o.items||[]).length} items</b><div class="xs faint">${o.etaFrom?fd(o.etaFrom)+'–':''}${fd(o.eta)}${o.pay?' · '+esc(o.pay):''}</div></div></div>`).join('')}</div>`:''}
+ ${(I.points||[]).length?`<div class="card s3"><div class="ch"><div class="ic bg-v">${ic('spark')}</div><h3>What I see</h3></div>${I.points.map(p=>`<div class="row"><div class="tx sm">${esc(p)}</div></div>`).join('')}</div>`:''}
+ <div class="card s3"><div class="ch"><div class="ic bg-a">${ic('chart')}</div><h3>Where the money goes</h3></div><div class="chartbox sm"><canvas id="c-shop-store"></canvas></div><div class="legend" id="lg-shop"></div><div class="chartbox sm" style="margin-top:12px"><canvas id="c-shop-month"></canvas></div></div>
+ <div class="card s3"><div class="ch"><div class="ic bg-g">${ic('star')}</div><h3>Quality by store</h3></div>${(I.quality||[]).map(q=>`<div class="row"><span class="pill ${q.score==='good'?'g':q.score==='bad'?'r':'w'}">${esc(q.store)}</span><div class="tx sm">${esc(q.text)}</div></div>`).join('')}${good+bad?`<div class="xs faint" style="margin-top:6px">Your ratings: ${good} 👍 · ${bad} 👎</div>`:''}</div>
+ <div class="pt sub s3" style="margin:6px 0 0">Orders <span>${fil.length}</span></div>
+ <div class="s3 shop-f">${[['all','All'],['way','On the way'],['done','Delivered'],['ret','Returns'],['x','Cancelled']].map(([k,l])=>`<button type="button" class="tkc ${shF.st===k?'on':''}" data-x="shf" data-k="st" data-v="${k}">${l}</button>`).join('')}<span class="sep"></span>${['all','Amazon','Temu','SHEIN','noon'].map(s=>`<button type="button" class="tkc ${shF.store===s?'on':''}" data-x="shf" data-k="store" data-v="${s}">${s==='all'?'All stores':s}</button>`).join('')}</div>
+ <div class="s3 shop-list">${fil.map(orderCard).join('')||'<div class="card">Nothing here.</div>'}</div>
+ <div class="card s3"><div class="ch"><div class="ic bg-c">${ic('refresh')}</div><h3>Subscriptions</h3><span class="aside">≈ ${AEDf(subsM)}/month</span></div>${(SH.subs||[]).map(s=>`<div class="row"><div class="tx"><b>${esc(s.name)}</b> <span class="pill ${s.verdict==='keep'?'g':s.verdict==='cancel'?'r':'w'}">${s.verdict}</span><div class="xs faint">${AEDf(s.amt)}/${s.cycle} · via ${esc(s.via)} · next ${fd(s.next)}<br>${esc(s.why)}</div></div></div>`).join('')}${(SH.failed||[]).length?`<div class="note"><b>${ic('bell')}Payment problems</b>${SH.failed.map(esc).join('<br>')}</div>`:''}</div>
+ <div class="card s3"><div class="ch"><div class="ic bg-o">${ic('money')}</div><h3>Everyday spending</h3><span class="aside">apps · rides · groceries · offline</span></div>
+  ${[...manual().map(x=>({...x,store:x.store||'Offline',what:x.what,m:1})),...(SH.spend||[])].sort((a,b)=>a.d<b.d?1:-1).slice(0,14).map(x=>`<div class="row"><div class="tx"><b>${esc(x.what||x.cat)}</b><div class="xs faint">${esc(x.store)} · ${fd(x.d)} · ${esc(x.cat)}</div></div><b>${AEDf(x.amt)}</b>${x.m?`<button class="x" data-x="shdel" data-id="${x.id}" aria-label="Delete">${ic('x')}</button>`:''}</div>`).join('')}
+  <button type="button" class="btn2 pri" data-x="shadd" style="margin-top:10px;width:100%">${ic('plus')} Add an offline purchase</button></div>
+ ${(I.rules||[]).length?`<div class="card s3"><div class="ch"><div class="ic bg-g">${ic('shield')}</div><h3>Your shopping rules</h3></div>${I.rules.map((r,i)=>`<div class="row"><b>${i+1}</b><div class="tx sm">${esc(r)}</div></div>`).join('')}</div>`:''}
+ </div>`}
+function shopCharts(){if(!SH)return;const by={};shopRows().forEach(x=>{const k=x.store.startsWith('Amazon')?'Amazon':x.store;by[k]=(by[k]||0)+x.amt});const E=Object.entries(by).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]);
+ mk('c-shop-store',{type:'doughnut',data:{labels:E.map(e=>e[0]),datasets:[{data:E.map(e=>Math.round(e[1])),backgroundColor:E.map((e,i)=>SCOL[e[0]]||ACOL[i%8]),borderColor:css('--card'),borderWidth:3}]},options:{cutout:'66%'}});
+ const lg=$('#lg-shop');if(lg)lg.innerHTML=E.map(e=>`<span><i style="background:${SCOL[e[0]]||'#888'}"></i>${esc(e[0])} · ${AEDf(Math.round(e[1]))}</span>`).join('');
+ const M=[...new Set(shopRows().map(x=>x.d.slice(0,7)))].sort(),cats=['shopping','subscriptions & apps','daily'];const g=(m,f)=>Math.round(shopRows().filter(x=>x.d.startsWith(m)&&f(x)).reduce((a,x)=>a+x.amt,0));
+ mk('c-shop-month',{type:'bar',data:{labels:M.map(m=>fd(m+'-15',{month:'short'})),datasets:[{label:'Shopping',data:M.map(m=>g(m,x=>x.kind==='order'||x.kind==='manual')),backgroundColor:'#f97316',borderRadius:6,stack:'s'},{label:'Apps & subscriptions',data:M.map(m=>g(m,x=>['subscription','games'].includes(x.cat))),backgroundColor:'#8b5cf6',borderRadius:6,stack:'s'},{label:'Rides, food & groceries',data:M.map(m=>g(m,x=>['transport','groceries','food'].includes(x.cat))),backgroundColor:'#22d3ee',borderRadius:6,stack:'s'}]},options:{plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:css('--line')}}}}})}
+const _draw14=draw;draw=function(pg){_draw14(pg);if(pg==='shop'){if(!$('#p-shop .shop-list'))renderShop();shopCharts()}};
+const _render14=render;render=function(keep){renderShop();_render14(keep)};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset;
+ if(d.x==='shopen'){if(e.target.closest('button,a'))return;shOpen[d.id]=!shOpen[d.id];renderShop();draw('shop');return}
+ if(d.x==='shf'){shF[d.k]=d.v;renderShop();draw('shop');return}
+ if(d.x==='shrate'){U.shop_rate=U.shop_rate||{};U.shop_rate[d.id]=U.shop_rate[d.id]===+d.v?0:+d.v;queueSave();renderShop();draw('shop');toast('Thanks — Claude uses this to judge quality');return}
+ if(d.x==='shdel'){const x=(U.shop_manual||[]).find(x=>x.id===d.id);if(x){x.deleted=true;x.updated=new Date().toISOString();queueSave();renderShop();draw('shop')}return}
+ if(d.x==='shadd'){sheet(head('Offline purchase','bag','bg-o')+`<form id="shf14"><div class="fld"><label>What did you buy?</label><input class="inp" name="what" required placeholder="Shoes, groceries, gift…"></div>
+  <div class="fld"><label>Shop</label><input class="inp" name="store" placeholder="Dubai Mall, Carrefour…"></div>
+  <div class="fld"><label>Amount (AED)</label><input class="inp" name="amt" type="number" step="0.01" inputmode="decimal" required></div>
+  <div class="fld"><label>Type</label><select class="inp" name="cat">${['clothing','electronics','groceries','food','home','kids','health','gift','travel','other'].map(c=>`<option>${c}</option>`).join('')}</select></div>
+  <div class="fld"><label>Date</label><input class="inp" name="d" type="date" value="${nowD().date}"></div>
+  <button class="btn2 pri" style="width:100%">Save</button></form>`);
+  $('#shf14').onsubmit=ev=>{ev.preventDefault();const f=Object.fromEntries(new FormData(ev.target));U.shop_manual=U.shop_manual||[];U.shop_manual.push({id:uid(),...f,amt:+f.amt,updated:new Date().toISOString()});queueSave();$('#scrim').click();renderShop();draw('shop');toast('Saved ✓')};return}
+});
+/* Today: deliveries card · Talk: shopping answers */
+const _renderToday14=renderToday;renderToday=function(G){_renderToday14(G);const S=D.shop_summary;if(!S||!(S.incoming||[]).length)return;const t=$('#p-today .v8top');if(!t)return;const x=document.createElement('div');
+ x.innerHTML=`<a class="card mb shop-today" href="#shop"><div class="ch"><div class="ic bg-b">${ic('truck')}</div><h3>Deliveries</h3><span class="aside">Shopping ›</span></div>${S.incoming.map(o=>`<div class="sm"><b>${esc(o.store)}</b> · ${esc(o.what)} · ${esc(o.when)}${o.cash?` · <b>have ${esc(o.cash)} cash</b>`:''}</div>`).join('')}</a>`;t.appendChild(x.firstElementChild)};
+function ansShop(){const S=D.shop_summary||{},L=[];if(S.verdict)L.push('🛍 '+S.verdict+' — '+(S.headline||''));
+ (S.incoming||[]).forEach(o=>L.push(`📦 ${o.store}: ${o.what} · ${o.when}${o.cash?' · cash '+o.cash:''}`));(S.refunds||[]).forEach(r=>L.push('↩️ '+r));
+ L.push(`This month so far: ${AEDf(SH?monthSum(nowD().date.slice(0,7)):S.month||0)}`);L.push('Open Shopping for photos of everything you bought.');return L}
+const _answer14=answer;answer=function(t){if(/shop|deliver|order|package|parcel|receiv|amazon|temu|shein|noon|bought|purchas|refund|return|subscription/i.test(t))return ansShop();return _answer14(t)};
+
+/* ================= v15: speed · bell · habits redesign · live cash · more game ================= */
+/* --- 1. Speed: re-render only the page you are on --- */
+const PAGEFN={today:()=>renderToday(game()),me:()=>renderMe(),business:()=>renderBusiness(),money:()=>renderMoney(),people:()=>renderPeople(),tasks:()=>renderTasks(),calendar:()=>renderCalendar(),projects:()=>renderProjects(),social:()=>renderSocial(),growth:()=>renderGrowth(game()),shop:()=>renderShop()};
+const DIRTY=new Set();let rafR=0;
+const _render15=render;render=function(keep){
+ if(!keep||!D){DIRTY.clear();_render15(keep);bellUpdate();return}
+ cancelAnimationFrame(rafR);rafR=requestAnimationFrame(()=>{const pg=curPage(),y=scrollY;
+  Object.keys(PAGEFN).forEach(k=>{if(k!==pg)DIRTY.add(k)});
+  try{(PAGEFN[pg]||(()=>_render15(true)))()}catch(e){console.warn(e);_render15(true)}
+  $('#updated').innerHTML=`${fd(nowD().date,{weekday:'short',day:'numeric',month:'short'})} · updated ${ago(D.updated)} <span id="sync" class="sync"></span>`;setSync(syncState);
+  draw(pg);window.scrollTo(0,y);bellUpdate()})};
+const _show15=show;show=function(){const pg=curPage();if(DIRTY.has(pg)){DIRTY.delete(pg);try{PAGEFN[pg]()}catch(e){console.warn(e)}}_show15()};
+
+/* --- 2. Notification bell (top right, red dot) --- */
+(function(){const r=$('#refresh');if(!r||$('#bell'))return;const b=document.createElement('button');b.className='iconbtn bell';b.id='bell';b.setAttribute('aria-label','Notifications');
+ b.innerHTML=ic('bell')+'<i class="dot" id="belldot"></i>';r.parentNode.insertBefore(b,r);b.onclick=openBell})();
+function bellUpdate(){const c=D&&U?alertsAll().length:0,dot=$('#belldot');if(dot){dot.textContent=c>9?'9+':c||'';dot.classList.toggle('on',c>0)}}
+function alertsAll(){return (D.alerts||[]).filter(a=>!(U.seen||{})[a.id])}
+function openBell(){const A=alertsAll();
+ sheet(head('Notifications','bell','bg-o')+(A.length?`<div class="bell-list">${A.map(a=>alertRow(a).replace('class="alert','class="alert bl')).join('')}</div><button type="button" class="btn2" data-x="bellall" style="width:100%;margin-top:10px">${ic('check')} Mark all as read</button>`:`<div class="tk-empty">${ic('check')}<b>You’re all caught up</b><span>New updates from Claude appear here with a red dot.</span></div>`)+`<button type="button" class="btn2 ghost" data-act="close" onclick="setTimeout(()=>document.getElementById('refresh').click(),50)" style="width:100%;margin-top:8px">${ic('refresh')} Check for updates now</button>`)}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="bellall"]');if(!a)return;const now=new Date().toISOString();U.seen=U.seen||{};alertsAll().forEach(x=>U.seen[x.id]={updated:now});queueSave();closeSheet();bellUpdate();toast('All read ✓')});
+document.addEventListener('click',e=>{const s=e.target.closest('#sheet [data-seen]');if(s)setTimeout(()=>{const l=$('#sheet .bell-list');if(l){const it=s.closest('.alert');it&&it.remove();if(!l.children.length)closeSheet()}bellUpdate()},30)},true);
+
+/* --- 3. Habits: new look, instant taps, combo + confetti --- */
+const HABX={gym:['🏋️','#10b981','#059669'],swim:['🏊','#06b6d4','#0284c7'],sleep:['😴','#8b5cf6','#6d28d9'],food:['🥗','#84cc16','#16a34a'],water:['💧','#38bdf8','#2563eb'],arabic:['🕌','#f59e0b','#d97706'],claude:['🤖','#a78bfa','#7c3aed'],post:['🎬','#fb7185','#e11d48'],family:['👨‍👩‍👧‍👧','#f472b6','#db2777']};
+const MOODE=['','😞','😕','😐','🙂','🤩'];
+habChips=function(d){const h=habDay(d);return `<div class="habs2">${HAB.map(x=>{const X=HABX[x.k]||['⭐','#8b5cf6','#6d28d9'],on=!!h[x.k],s=habStreak(x.k);
+ return `<button type="button" class="hab2 ${on?'on':''}" data-x="hab" data-k="${x.k}" style="--a:${X[1]};--b:${X[2]}"><span class="he">${X[0]}</span><b>${x.n}</b>${s>1?`<small>🔥${s}</small>`:''}<em class="hk">✓</em></button>`}).join('')}</div>`};
+moodRow=function(d){const h=habDay(d);return `<div class="mood2"><span>Mood</span>${[1,2,3,4,5].map(v=>`<button type="button" class="${+h.mood===v?'on':''}" data-x="mood" data-v="${v}" title="${MOOD[v]}">${MOODE[v]}</button>`).join('')}</div>
+ <div class="mood2"><span>Energy</span>${[1,2,3,4,5].map(v=>`<button type="button" class="en ${+h.energy>=v?'on':''}" data-x="energy" data-v="${v}">⚡</button>`).join('')}</div>`};
+habCard=function(){const n=nowD().date,c=habCount(n),p=c/HAB.length,R=26,C=2*Math.PI*R;
+ return `<div class="card mb habcard"><div class="hc-top"><div class="hc-ring"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="${R}" class="bg"/><circle cx="32" cy="32" r="${R}" class="fg" style="stroke-dasharray:${C};stroke-dashoffset:${C*(1-p)}"/></svg><b>${c}<small>/${HAB.length}</small></b></div>
+ <div class="hc-t"><h3>Daily habits</h3><div class="xs faint">${c===HAB.length?'Perfect day! 🏆 +25 XP bonus':c>=5?`Great — ${HAB.length-c} to a perfect day`:'Tap what you did · +5 XP each'}</div></div><a href="#me" class="pill g">${ic('chart')}Report</a></div>
+ ${habChips(n)}${moodRow(n)}</div>`};
+function xpFly(el,txt){const r=el.getBoundingClientRect(),f=document.createElement('div');f.className='xpfly';f.textContent=txt;f.style.left=(r.left+r.width/2)+'px';f.style.top=(r.top+window.scrollY)+'px';document.body.appendChild(f);setTimeout(()=>f.remove(),1100)}
+function confetti(n=70){const box=document.createElement('div');box.className='confetti';const cols=['#f472b6','#fbbf24','#34d399','#60a5fa','#a78bfa','#fb923c'];
+ for(let i=0;i<n;i++){const s=document.createElement('i');s.style.left=Math.random()*100+'vw';s.style.background=cols[i%cols.length];s.style.animationDelay=Math.random()*.4+'s';s.style.transform=`rotate(${Math.random()*360}deg)`;box.appendChild(s)}
+ document.body.appendChild(box);setTimeout(()=>box.remove(),2600);if(navigator.vibrate)navigator.vibrate([20,40,20])}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hab"],[data-x="mood"],[data-x="energy"]');if(!a)return;e.stopImmediatePropagation();const d=a.dataset,n=nowD().date;
+ if(d.x==='hab'){const on=!habDay(n)[d.k],before=habCount(n);a.classList.toggle('on',on);setHab(d.k,on?1:0);if(navigator.vibrate)navigator.vibrate(12);
+  if(on){xpFly(a,'+5 XP');const c=habCount(n);if(c===HAB.length&&before<c){setTimeout(()=>{confetti();toast('Perfect day! 🏆 +25 XP')},250)}else if(c===5&&before<5)toast('5 habits — streak alive 🔥')}
+  setTimeout(()=>rerender(),180);return}
+ setHab(d.x,+d.v);a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',d.x==='energy'?+b.dataset.v<=+d.v:b===a));setTimeout(()=>rerender(),180)},true);
+const _habXP15=habXP;habXP=function(){let x=_habXP15();Object.keys(U?.habits||{}).forEach(d=>{if(habCount(d)===HAB.length)x+=25});const ds=(U?.kv?.daily?.v)||{};x+=Object.keys(ds).length*10;return x};
+
+/* --- 4. Daily reward + level-up celebration --- */
+function dailyStreak(){const ds=(U?.kv?.daily?.v)||{};let s=0,d=nowD().date;if(!ds[d])d=addDays(d,-1);while(ds[d]&&s<999){s++;d=addDays(d,-1)}return s}
+function rewardCard(){const ds=(U?.kv?.daily?.v)||{},n=nowD().date,got=!!ds[n],st=dailyStreak();
+ return `<div class="card mb reward ${got?'got':''}"><div class="rw-ic">${got?'✅':'🎁'}</div><div class="rw-t"><b>${got?'Daily reward collected':'Daily reward ready!'}</b><div class="xs faint">${got?`Come back tomorrow · 🔥 ${st}-day login streak`:`Open HQ every day · +10 XP · streak ${st} day${st===1?'':'s'}`}</div></div>${got?'':`<button type="button" class="btn2 pri" data-x="claim">Claim</button>`}</div>`}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="claim"]');if(!a)return;const n=nowD().date;U.kv=U.kv||{};const v={...((U.kv.daily||{}).v||{})};v[n]=1;U.kv.daily={v,updated:new Date().toISOString()};queueSave();xpFly(a,'+10 XP');confetti(40);setTimeout(()=>rerender(),300)});
+let lastLv=+(ls.get('hq.lv')||0);function checkLevel(){if(!D||!U)return;const G=game();if(lastLv&&G.level>lastLv){setTimeout(()=>{confetti(120);sheet(`<div class="lvup"><div class="lvb">LV ${G.level}</div><h2>Level up!</h2><p>You are now <b>${esc(G.title)}</b>. Keep the streak going.</p><button class="btn2 pri" data-act="close" style="width:100%">Let’s go 🚀</button></div>`)},400)}lastLv=G.level;ls.set('hq.lv',String(G.level))}
+
+/* --- 5. Today: alerts go to the bell; add reward card --- */
+const _renderToday15=renderToday;renderToday=function(G){_renderToday15(G);const el=$('#p-today');if(!el)return;el.querySelectorAll('.alerts').forEach(x=>x.remove());
+ const t=el.querySelector('.v8top');if(t){const x=document.createElement('div');x.innerHTML=rewardCard();t.insertBefore(x.firstElementChild,t.firstChild)}checkLevel()};
+
+/* --- 6. Money: cash moves with every spend / income --- */
+function liveCash(){const c=U?.kv?.cash;if(!c||c.v==null)return null;const since=c.updated||'';let v=+c.v;
+ (U.txns||[]).filter(t=>!t.deleted&&(t.created||t.updated||'')>since).forEach(t=>{v+=(t.type==='out'?-1:1)*(+t.amount||0)});return Math.round(v*100)/100}
+const _moneyCalc15=moneyCalc;moneyCalc=function(){const m=_moneyCalc15(),c=liveCash();if(c!=null){m.cash=c;m.runway=m.burn>0?c/m.burn:null}return m};
+
+/* --- 7. Social: show how fresh the numbers are --- */
+const _renderSocial15=renderSocial;renderSocial=function(){_renderSocial15();const el=$('#p-social .pt');if(el&&D.social_updated&&!el.querySelector('.fresh'))el.insertAdjacentHTML('beforeend',`<span class="fresh">${ic('refresh')} checked ${ago(D.social_updated)}</span>`)};
+
+/* ================= v16: dark/light mode + accent · Watch & Play tracker ================= */
+/* --- Theme --- */
+const ACCENTS={violet:['#8b5cf6','#22d3ee'],ocean:['#3b82f6','#06b6d4'],sunset:['#f97316','#ec4899'],emerald:['#10b981','#84cc16'],gold:['#f59e0b','#ef4444'],rose:['#ec4899','#8b5cf6']};
+function applyTheme(){const t=ls.get('hq.theme')||'auto',a=ls.get('hq.accent')||'violet',r=document.documentElement;
+ if(t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',t);
+ const A=ACCENTS[a]||ACCENTS.violet;r.style.setProperty('--violet',A[0]);r.style.setProperty('--cyan',A[1]);r.style.setProperty('--acc1',A[0]);r.style.setProperty('--acc2',A[1]);
+ const dark=t==='dark'||(t==='auto'&&!matchMedia('(prefers-color-scheme: light)').matches);let m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.content=dark?'#0b0d14':'#f4f5fb'}
+applyTheme();matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{applyTheme();if(D)draw(curPage())});
+function themeBlock(){const t=ls.get('hq.theme')||'auto',a=ls.get('hq.accent')||'violet';
+ return `<div class="fld"><label>Appearance</label><div class="seg3">${[['auto','🌓 Auto'],['dark','🌙 Dark'],['light','☀️ Light']].map(([k,l])=>`<button type="button" class="${t===k?'on':''}" data-x="theme" data-v="${k}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Accent colour</label><div class="accs">${Object.entries(ACCENTS).map(([k,c])=>`<button type="button" class="acc ${a===k?'on':''}" data-x="accent" data-v="${k}" style="background:linear-gradient(135deg,${c[0]},${c[1]})" aria-label="${k}"></button>`).join('')}</div></div>`}
+const _openSettings16=openSettings;openSettings=function(){_openSettings16();const s=$('#sheet'),h=s&&s.querySelector('h2');if(h){const x=document.createElement('div');x.innerHTML=themeBlock();h.after(...x.children)}};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="theme"],[data-x="accent"]');if(!a)return;ls.set(a.dataset.x==='theme'?'hq.theme':'hq.accent',a.dataset.v);applyTheme();
+ a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));if(D)draw(curPage());toast(a.dataset.x==='theme'?'Theme: '+a.dataset.v:'Accent changed')});
+/* quick toggle: double-tap the logo */
+(function(){const lg=document.querySelector('header .logo');if(lg)lg.addEventListener('dblclick',()=>{const t=(ls.get('hq.theme')||'auto'),n=t==='light'?'dark':'light';ls.set('hq.theme',n);applyTheme();if(D)draw(curPage());toast(n==='light'?'☀️ Light mode':'🌙 Dark mode')})})();
+
+/* --- Watch & Play --- */
+P.film='<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>';
+PAGES.splice(PAGES.findIndex(p=>p.id==='social')+1,0,{id:'fun',l:'Watch & Play',i:'film'});
+(function(){const sec=document.createElement('section');sec.className='page';sec.id='p-fun';$('#p-social')?.after(sec)})();
+buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
+const MT={movie:['🎬','Movie'],series:['📺','Series'],game:['🎮','Game']};
+function media(){return((U?.kv?.media?.v)||[]).filter(x=>!x.deleted).sort((a,b)=>(b.date||'')<(a.date||'')?-1:1)}
+function saveMedia(L){U.kv=U.kv||{};U.kv.media={v:L,updated:new Date().toISOString()};queueSave()}
+function addMedia(it){const L=((U?.kv?.media?.v)||[]).slice();const x={id:uid(),date:nowD().date,rating:0,...it};L.push(x);saveMedia(L);fetchPoster(x);return x}
+async function wikiLookup(title,type){const suf={movie:['(film)',''],series:['(TV series)',''],game:['(video game)','']}[type]||[''];
+ for(const sx of suf){try{const t=(title+(sx?' '+sx:'')).trim().replace(/ /g,'_');const r=await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(t));if(!r.ok)continue;const d=await r.json();
+  if(d.type!=='standard')continue;const ds=d.description||'';if(type==='game'&&!/game/i.test(ds))continue;if(type!=='game'&&!/film|series|movie|show|miniseries|sitcom|drama|animated/i.test(ds))continue;
+  return{poster:(d.thumbnail||{}).source||'',genre:ds.replace(/^\d{4}\s*/,'').slice(0,60),year:(ds.match(/\b(19|20)\d\d\b/)||[''])[0],plot:(d.extract||'').slice(0,220)}}catch(e){}}return null}
+async function fetchPoster(x){if(x.poster)return;const w=await wikiLookup(x.title,x.type||'movie');if(!w)return;
+ const L=((U.kv.media||{}).v||[]).slice(),i=L.findIndex(y=>y.id===x.id);if(i<0)return;L[i]={...L[i],...w,poster:w.poster||L[i].poster||''};saveMedia(L);if(curPage()==='fun')renderFun()}
+function stars(v,id){return `<span class="stars">${[1,2,3,4,5].map(n=>`<button type="button" data-x="mstar" data-id="${id||''}" data-v="${n}" class="${n<=v?'on':''}">★</button>`).join('')}</span>`}
+function mediaStats(){const L=media(),n=nowD().date,mon=n.slice(0,7),thisM=L.filter(x=>(x.date||'').startsWith(mon));const g={};L.forEach(x=>{if(x.genre)g[x.genre]=(g[x.genre]||0)+1});
+ const top=Object.entries(g).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);const rated=L.filter(x=>x.rating),avg=rated.length?rated.reduce((a,x)=>a+x.rating,0)/rated.length:0;
+ let st=0,d=n;const ds=new Set(L.map(x=>x.date));if(!ds.has(d))d=addDays(d,-1);while(ds.has(d)&&st<999){st++;d=addDays(d,-1)}
+ return{L,thisM,top,avg,st,movies:L.filter(x=>x.type==='movie').length,games:L.filter(x=>x.type==='game').length,series:L.filter(x=>x.type==='series').length}}
+function recCard(r){return `<div class="rec"><div class="rp">${r.poster?`<img src="${esc(r.poster)}" alt="" loading="lazy">`:`<span>${(MT[r.type]||MT.movie)[0]}</span>`}</div><div class="rt"><b>${esc(r.title)}</b><small>${esc([r.year,r.genre,r.where].filter(Boolean).join(' · '))}</small><p>${esc(r.why||'')}</p>
+ <div class="ra"><button type="button" class="btn2 pri" data-x="mwatch" data-t="${esc(r.title)}" data-k="${r.type||'movie'}">${r.type==='game'?'🎮 Played it':'✓ Watched'}</button><button type="button" class="btn2" data-x="mlater" data-t="${esc(r.title)}" data-k="${r.type||'movie'}">＋ List</button></div></div></div>`}
+let funTab='all';
+function renderFun(){const el=$('#p-fun');if(!el||!D)return;const S=mediaStats(),R=(D.media_recs||{}),recs=(R.items||[]),wl=S.L.filter(x=>x.later),hist=S.L.filter(x=>!x.later&&(funTab==='all'||x.type===funTab));
+ el.innerHTML=`<div class="pt">Watch & Play <span>your movies, series & games</span></div>
+ <div class="g3">
+ <div class="card s3 funhero"><div class="fh-big">🍿</div><div class="fh-t"><b>${S.thisM.filter(x=>!x.later).length} this month</b><div class="xs faint">${S.movies} movies · ${S.series} series · ${S.games} games${S.top.length?' · you love '+esc(S.top.join(', ')):''}</div>
+  <div class="chips2"><span>🔥 ${S.st}-night streak</span>${S.avg?`<span>⭐ avg ${S.avg.toFixed(1)}</span>`:''}<span>+3 XP per log</span></div></div></div>
+ <form class="card s3 madd" id="madd"><div class="seg3">${Object.entries(MT).map(([k,v],i)=>`<button type="button" class="${i===0?'on':''}" data-x="mtype" data-v="${k}">${v[0]} ${v[1]}</button>`).join('')}</div>
+  <div class="addline"><input class="inp" name="t" placeholder="What did you watch or play tonight?" enterkeyhint="done" required><button class="btn2 pri" style="flex:0 0 auto">Add</button></div><input type="hidden" name="k" value="movie"></form>
+ <div class="card s3"><div class="ch"><div class="ic bg-grad">${ic('spark')}</div><h3>Picked for you</h3><span class="aside">${R.updated?'by Claude · '+ago(R.updated):''}</span></div>
+  ${recs.length?`<div class="recs">${recs.slice(0,6).map(recCard).join('')}</div>`:empty('Log a few movies or games — Claude picks new ones for you every evening','spark')}
+  ${R.note?`<div class="note"><b>${ic('bulb')}Why these</b>${esc(R.note)}</div>`:''}</div>
+ ${wl.length?`<div class="card s3"><div class="ch"><div class="ic bg-a">${ic('list')}</div><h3>Watch list</h3><span class="aside">${wl.length}</span></div>${wl.map(x=>`<div class="row"><div class="tx"><b>${MT[x.type]?.[0]||'🎬'} ${esc(x.title)}</b></div><button class="btn2" data-x="mdone" data-id="${x.id}">✓ Done</button></div>`).join('')}</div>`:''}
+ <div class="pt sub s3" style="margin:6px 0 0">History <span>${S.L.filter(x=>!x.later).length}</span></div>
+ <div class="s3 shop-f">${[['all','All'],['movie','🎬 Movies'],['series','📺 Series'],['game','🎮 Games']].map(([k,l])=>`<button type="button" class="tkc ${funTab===k?'on':''}" data-x="mtab" data-v="${k}">${l}</button>`).join('')}</div>
+ <div class="s3 mgrid">${hist.map(x=>`<div class="mcard"><div class="mp">${x.poster?`<img src="${esc(x.poster)}" alt="" loading="lazy">`:`<span>${MT[x.type]?.[0]||'🎬'}</span>`}<button class="mdel" data-x="mdel" data-id="${x.id}" aria-label="Remove">×</button></div><b>${esc(x.title)}</b><small>${fd(x.date)}${x.genre?' · '+esc(x.genre):''}</small>${stars(x.rating||0,x.id)}</div>`).join('')||empty('Nothing logged yet','film')}</div>
+ </div>`;
+ const f=$('#madd');f.onsubmit=e=>{e.preventDefault();const t=f.t.value.trim();if(!t)return;addMedia({title:t,type:f.k.value});f.t.value='';xpFly(f.querySelector('.btn2'),'+3 XP');renderFun();toast('Logged ✓ — rate it with the stars')}}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x^="m"]');if(!a)return;const d=a.dataset;
+ const upd=(id,fn)=>{const L=((U.kv.media||{}).v||[]).map(x=>x.id===id?fn({...x}):x);saveMedia(L);renderFun()};
+ if(d.x==='mtype'){a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));$('#madd').k.value=d.v;return}
+ if(d.x==='mtab'){funTab=d.v;renderFun();return}
+ if(d.x==='mstar'&&d.id){upd(d.id,x=>(x.rating=+d.v,x));if(+d.v===5)confetti(30);return}
+ if(d.x==='mdel'){upd(d.id,x=>(x.deleted=true,x));toast('Removed');return}
+ if(d.x==='mdone'){upd(d.id,x=>(x.later=false,x.date=nowD().date,x));toast('Watched ✓ +3 XP');return}
+ if(d.x==='mwatch'){const r=((D.media_recs||{}).items||[]).find(y=>y.title===d.t)||{};addMedia({title:d.t,type:d.k,poster:r.poster,genre:r.genre,year:r.year});xpFly(a,'+3 XP');renderFun();toast('Logged — rate it ⭐');return}
+ if(d.x==='mlater'){addMedia({title:d.t,type:d.k,later:true});renderFun();toast('Added to your watch list');return}});
+const _habXP16=habXP;habXP=function(){return _habXP16()+media().filter(x=>!x.later).length*3};
+PAGEFN.fun=renderFun;
+const _render16=render;render=function(keep){_render16(keep);if(!keep)renderFun()};
+const _draw16=draw;draw=function(pg){_draw16(pg);if(pg==='fun'&&!$('#p-fun .mgrid'))renderFun()};
+/* Today: evening nudge */
+const _renderToday16=renderToday;renderToday=function(G){_renderToday16(G);const n=nowD();if(n.mins<19*60&&n.mins>4*60)return;const t=$('#p-today .v8top');if(!t)return;
+ const tonight=media().some(x=>x.date===n.date&&!x.later),r=((D.media_recs||{}).items||[])[0];const x=document.createElement('div');
+ x.innerHTML=`<a class="card mb movienight" href="#fun"><span class="mn-ic">${tonight?'✅':'🍿'}</span><div><b>${tonight?'Movie night logged':'Movie night?'}</b><div class="xs faint">${tonight?'Rate it and see new picks':r?'Tonight’s pick: '+esc(r.title)+(r.year?' ('+r.year+')':''):'Log what you watch or play tonight · +3 XP'}</div></div>${ic('chev')}</a>`;t.appendChild(x.firstElementChild)};
+/* Talk to the app: "watched X" / "played X" */
+const _answer16=answer;answer=function(t){const m=t.match(/^(?:i\s+)?(watched|watching|saw|played|playing)\s+(.+)/i);if(m){const g=/play/i.test(m[1]);addMedia({title:m[2].replace(/[.!]+$/,'').trim(),type:g?'game':'movie'});return[`${g?'🎮':'🎬'} Logged “${m[2].trim()}” in Watch & Play · +3 XP. Rate it there ⭐`]}
+ if(/movie|film|what (should|to) (i )?watch|recommend|game to play/i.test(t)){const R=((D.media_recs||{}).items||[]).slice(0,3);return R.length?['🍿 Picks for you:',...R.map(r=>`• ${r.title}${r.year?' ('+r.year+')':''} — ${r.why||r.genre||''}`)]:['Log a few movies first — then I suggest new ones every evening.']}
+ return _answer16(t)};
+
+/* ================= v17: movie diary — ask, photo, rate (me + Farnaz), taste profile, badges ================= */
+const REACT=[['😍','Loved it'],['🙂','Good'],['😐','OK'],['👎','Didn’t like']];
+const TAGS=['Great story','Acting','Action','Twist','Funny','Emotional','Visuals','Music','Too long','Boring','Confusing','Too violent'];
+function ymd(off){return addDays(nowD().date,off)}
+function askCard(where){const n=nowD(),morning=n.mins<16*60,L=media().filter(x=>!x.later),y=L.filter(x=>x.date===ymd(-1)),t=L.filter(x=>x.date===n.date),unrated=L.filter(x=>!x.rating).slice(0,1)[0];
+ if(unrated)return `<div class="card mb askm" data-x="mrate" data-id="${unrated.id}"><span class="am-ic">⭐</span><div><b>How was “${esc(unrated.title)}”?</b><div class="xs faint">Rate it${unrated.with==='farnaz'?' — you and Farnaz':''} · +2 XP</div></div><button class="btn2 pri" data-x="mrate" data-id="${unrated.id}">Rate</button></div>`;
+ const day=morning&&!y.length?-1:(!t.length?0:null);if(day===null)return '';
+ return `<div class="card mb askm"><span class="am-ic">🎬</span><div><b>What did you watch ${day===-1?'last night':'today'}?</b><div class="xs faint">Movie, series or game · add a photo · +3 XP</div></div><button class="btn2 pri" data-x="mlog" data-d="${day}">Add</button>${where==='today'&&day===-1?'':''}</div>`}
+function shrinkImg(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=240,s=W/im.width,c=document.createElement('canvas');c.width=W;c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};im.src=r.result};r.readAsDataURL(file)})}
+function openLog(day){day=+day||0;sheet(head('What did you watch?','film','bg-p')+`<form id="mlogf">
+ <div class="fld"><label>When</label><div class="seg3">${[[-1,'Yesterday'],[0,'Today']].map(([v,l])=>`<button type="button" class="${v===day?'on':''}" data-x="mpick" data-k="d" data-v="${v}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Type</label><div class="seg3">${Object.entries(MT).map(([k,v],i)=>`<button type="button" class="${i===0?'on':''}" data-x="mpick" data-k="k" data-v="${k}">${v[0]} ${v[1]}</button>`).join('')}</div></div>
+ <div class="fld"><label>Name</label><input class="inp" name="t" required placeholder="e.g. Ford v Ferrari" autocomplete="off"></div>
+ <div class="fld"><label>Who watched</label><div class="seg3">${[['me','🙋 Just me'],['farnaz','💑 With Farnaz'],['family','👨‍👩‍👧‍👧 Family']].map(([k,l],i)=>`<button type="button" class="${i===0?'on':''}" data-x="mpick" data-k="w" data-v="${k}">${l}</button>`).join('')}</div></div>
+ <div class="fld"><label>Photo / poster (optional)</label><label class="mphoto"><input type="file" name="ph" accept="image/*" hidden><span id="mphprev">📷 Tap to add a photo</span></label></div>
+ <input type="hidden" name="d" value="${day}"><input type="hidden" name="k" value="movie"><input type="hidden" name="w" value="me">
+ <button class="btn2 pri" style="width:100%">Next: rate it ⭐</button></form>`);
+ const f=$('#mlogf');let ph='';f.ph.onchange=async()=>{const fl=f.ph.files[0];if(!fl)return;ph=await shrinkImg(fl);$('#mphprev').innerHTML=`<img src="${ph}" alt="">`};
+ f.onsubmit=e=>{e.preventDefault();const x=addMedia({title:f.t.value.trim(),type:f.k.value,date:ymd(+f.d.value),with:f.w.value,photo:ph});xpFly(f.querySelector('.btn2'),'+3 XP');openRate(x.id)}}
+function openRate(id){const x=media().find(y=>y.id===id);if(!x)return;const two=x.with==='farnaz'||x.with==='family',sel=x.tags||[];
+ const starRow=(k,v)=>`<div class="bigstars" data-k="${k}">${[1,2,3,4,5].map(n=>`<button type="button" data-x="rstar" data-k="${k}" data-v="${n}" class="${n<=v?'on':''}">★</button>`).join('')}</div>`;
+ sheet(head('Rate it','star','bg-a')+`<div class="rate-top">${x.poster||x.photo?`<img src="${esc(x.photo||x.poster)}" alt="">`:`<span>${MT[x.type]?.[0]||'🎬'}</span>`}<div><b>${esc(x.title)}</b><div class="xs faint">${esc([x.year,x.genre].filter(Boolean).join(' · ')||'Looking it up online…')}</div></div></div>
+ <div class="fld"><label>Your rating</label>${starRow('rating',x.rating||0)}</div>
+ ${two?`<div class="fld"><label>Farnaz’s rating</label>${starRow('ratingF',x.ratingF||0)}</div>`:''}
+ <div class="fld"><label>How did it feel?</label><div class="reacts">${REACT.map(([e,l])=>`<button type="button" class="${x.react===e?'on':''}" data-x="rreact" data-v="${e}">${e}<small>${l}</small></button>`).join('')}</div></div>
+ <div class="fld"><label>What stood out</label><div class="mtags">${TAGS.map(t=>`<button type="button" class="tkc ${sel.includes(t)?'on':''}" data-x="rtag" data-v="${t}">${t}</button>`).join('')}</div></div>
+ <div class="fld"><label>Note (optional)</label><input class="inp" id="rnote" value="${esc(x.note||'')}" placeholder="One line — what you thought"></div>
+ <button type="button" class="btn2 pri" data-x="rsave" data-id="${id}" style="width:100%">Save · +2 XP</button>`);
+ window.__rd={id,rating:x.rating||0,ratingF:x.ratingF||0,react:x.react||'',tags:[...sel]}}
+document.addEventListener('click',async e=>{const a=e.target.closest('[data-x]');if(!a)return;const d=a.dataset;
+ if(d.x==='mlog'){e.stopPropagation();openLog(d.d);return}
+ if(d.x==='mrate'&&!a.closest('.stars')){e.stopPropagation();openRate(d.id);return}
+ if(d.x==='mpick'){a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));$('#mlogf')[d.k].value=d.v;return}
+ const R=window.__rd;if(!R)return;
+ if(d.x==='rstar'){R[d.k]=+d.v;a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.v<=+d.v));if(navigator.vibrate)navigator.vibrate(8);return}
+ if(d.x==='rreact'){R.react=d.v;a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));return}
+ if(d.x==='rtag'){const i=R.tags.indexOf(d.v);i<0?R.tags.push(d.v):R.tags.splice(i,1);a.classList.toggle('on');return}
+ if(d.x==='rsave'){const L=((U.kv.media||{}).v||[]).map(x=>x.id===R.id?{...x,rating:R.rating,ratingF:R.ratingF,react:R.react,tags:R.tags,note:($('#rnote')?.value||'').trim(),ratedAt:new Date().toISOString()}:x);saveMedia(L);
+  closeSheet();if(R.rating>=5)confetti(40);toast('Saved ⭐ +2 XP');window.__rd=null;const b=newBadge();if(b)setTimeout(()=>{confetti(80);toast('🏅 New badge: '+b)},600);rerender();if(curPage()==='fun')renderFun()}});
+/* taste profile */
+function taste(who){const k=who==='farnaz'?'ratingF':'rating',L=media().filter(x=>!x.later&&x[k]),g={};
+ L.forEach(x=>{const ws=((x.genre||'')+' '+(x.tags||[]).join(' ')).toLowerCase();['action','comedy','drama','thriller','crime','sci-fi','science fiction','horror','romance','animated','documentary','racing','war','biographical','fantasy','mystery'].forEach(t=>{if(ws.includes(t)){g[t]=g[t]||[0,0];g[t][0]+=x[k];g[t][1]++}})});
+ const E=Object.entries(g).map(([t,[s,c]])=>[t,s/c,c]);return{n:L.length,loves:E.filter(e=>e[1]>=4).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]),dislikes:E.filter(e=>e[1]<=2.5).sort((a,b)=>a[1]-b[1]).slice(0,3).map(e=>e[0]),top:L.filter(x=>x[k]>=5).slice(0,3).map(x=>x.title),low:L.filter(x=>x[k]<=2).slice(0,3).map(x=>x.title)}}
+const MBADGES=[['🍿 First night',L=>L.length>=1],['⭐ Critic',L=>L.filter(x=>x.rating).length>=10],['💑 Date night ×5',L=>L.filter(x=>x.with==='farnaz').length>=5],['🎞 Cinephile',L=>L.filter(x=>x.type==='movie').length>=30],['🔥 7-night streak',()=>mediaStats().st>=7],['🎮 Gamer',L=>L.filter(x=>x.type==='game').length>=5],['📝 Reviewer',L=>L.filter(x=>(x.tags||[]).length).length>=10]];
+function badgesNow(){const L=media().filter(x=>!x.later);return MBADGES.filter(([,f])=>f(L)).map(b=>b[0])}
+function newBadge(){const have=badgesNow(),seen=JSON.parse(ls.get('hq.mb')||'[]'),nw=have.find(b=>!seen.includes(b));ls.set('hq.mb',JSON.stringify(have));return nw}
+function tasteCard(){const me=taste('me'),fz=taste('farnaz'),P=D.media_profile||{},bs=badgesNow();
+ const col=(name,t,p)=>`<div class="tcol"><b>${name}</b>${(p&&p.loves||t.loves).length?`<div class="xs">❤️ ${esc((p&&p.loves||t.loves).join(', '))}</div>`:''}${(p&&p.dislikes||t.dislikes).length?`<div class="xs">👎 ${esc((p&&p.dislikes||t.dislikes).join(', '))}</div>`:''}${t.top.length?`<div class="xs faint">Top: ${esc(t.top.join(', '))}</div>`:''}${!t.n?'<div class="xs faint">Rate a few to learn</div>':''}</div>`;
+ return `<div class="card s3"><div class="ch"><div class="ic bg-p">${ic('heart')}</div><h3>Your taste</h3><span class="aside">${me.n} rated</span></div>
+ <div class="tcols">${col('🙋 Borna',me,P.me)}${col('💁‍♀️ Farnaz',fz,P.farnaz)}</div>${P.together?`<div class="note"><b>${ic('bulb')}Together</b>${esc(P.together)}</div>`:''}
+ <div class="mbadges">${MBADGES.map(([b])=>`<span class="${bs.includes(b)?'on':''}">${b}</span>`).join('')}</div></div>`}
+const _renderFun17=renderFun;renderFun=function(){_renderFun17();const el=$('#p-fun .g3');if(!el)return;
+ const madd=el.querySelector('#madd');if(madd){const x=document.createElement('div');x.className='s3';x.innerHTML=askCard('fun')||`<button class="btn2 pri mbig" data-x="mlog" data-d="0">🎬 Log a movie, series or game</button>`;madd.replaceWith(x)}
+ const recCardEl=[...el.querySelectorAll('.card')].find(c=>c.textContent.includes('Picked for you'));const t=document.createElement('div');t.innerHTML=tasteCard();(recCardEl||el.lastElementChild).after(t.firstElementChild);
+ el.querySelectorAll('.mcard').forEach((c,i)=>{const del=c.querySelector('[data-x="mdel"]');const id=del&&del.dataset.id;const x=media().find(y=>y.id===id);if(!x)return;c.dataset.x='mrate';c.dataset.id=id;
+  if(x.photo){const im=c.querySelector('.mp img');if(im)im.src=x.photo;else c.querySelector('.mp').insertAdjacentHTML('afterbegin',`<img src="${x.photo}" alt="">`)}
+  c.querySelector('small')?.insertAdjacentHTML('beforeend',`${x.with==='farnaz'?' · 💑':''}${x.react?' · '+x.react:''}`)})};
+/* Today: ask card (morning: last night · evening: tonight) */
+const _renderToday17=renderToday;renderToday=function(G){_renderToday17(G);const t=$('#p-today .v8top');if(!t)return;t.querySelectorAll('.movienight').forEach(x=>x.remove());const h=askCard('today');if(!h)return;const x=document.createElement('div');x.innerHTML=h;t.insertBefore(x.firstElementChild,t.children[1]||null)};
+const _habXP17=habXP;habXP=function(){return _habXP17()+media().filter(x=>x.rating).length*2};
+/* recs show who it's for */
+const _recCard17=recCard;recCard=function(r){return _recCard17(r).replace('<b>',`<b>${r.for==='together'?'<span class="forT">💑 For you two</span> ':''}`)};
+PAGEFN.fun=()=>renderFun();
+
+/* ================= v18: Log my day — remove "Other", add your own activities ================= */
+const SUBJ_BASE=SUBJ.filter(s=>s.k!=='other');
+const SUBJ_COL=[['bg-g','#10b981'],['bg-p','#ec4899'],['bg-o','#fb923c'],['bg-c','#22d3ee'],['bg-b','#60a5fa'],['bg-a','#fbbf24']];
+const SUBJ_EM=['📚','💻','🎨','🎸','✍️','📈','🧘','🗣️','🏃','🎬'];
+function subjCustom(){return ((U?.kv?.subj?.v)||[]).filter(s=>!s.deleted)}
+function syncSubj(){const c=subjCustom().map((s,i)=>({k:s.k,n:s.n,em:s.em||'⭐',i:'book',bg:SUBJ_COL[i%SUBJ_COL.length][0],c:SUBJ_COL[i%SUBJ_COL.length][1],custom:1}));SUBJ.length=0;SUBJ_BASE.concat(c).forEach(s=>SUBJ.push(s))}
+function saveSubj(list){U.kv=U.kv||{};U.kv.subj={v:list,updated:new Date().toISOString()};queueSave();syncSubj()}
+const _render18=render;render=function(k){if(U)syncSubj();return _render18(k)};
+const _openCheckin18=openCheckin;openCheckin=function(date){syncSubj();_openCheckin18(date);decorateSubj()};
+function decorateSubj(){const f=$('#cf .subj')?.parentElement;if(!f)return;const rows=f.querySelectorAll('.subj');
+ SUBJ.forEach((s,i)=>{const r=rows[i];if(!r||!s.custom)return;r.querySelector('.qi').textContent=s.em;r.querySelector('.qi').classList.add('emq');r.querySelector('.nm').insertAdjacentHTML('beforeend',`<button type="button" class="subjx" data-x="subjdel" data-k="${s.k}" aria-label="Remove">×</button>`)});
+ if(!f.querySelector('.subjadd'))f.insertAdjacentHTML('beforeend',`<button type="button" class="subjadd" data-x="subjnew">${ic('plus')} Add activity</button>`)}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="subjnew"],[data-x="subjsave"],[data-x="subjcancel"],[data-x="subjdel"],[data-x="subjem"]');if(!a)return;e.preventDefault();e.stopPropagation();const x=a.dataset.x;
+ if(x==='subjnew'){a.outerHTML=`<div class="subjform"><div class="ems">${SUBJ_EM.map((m,i)=>`<button type="button" class="${i?'':'on'}" data-x="subjem">${m}</button>`).join('')}</div><input class="inp" id="subjname" maxlength="20" placeholder="e.g. Reading, Guitar, Coding"><div class="btnrow"><button type="button" class="btn2" data-x="subjcancel">Cancel</button><button type="button" class="btn2 pri" data-x="subjsave">Add</button></div></div>`;setTimeout(()=>$('#subjname')?.focus(),50);return}
+ if(x==='subjem'){a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));return}
+ if(x==='subjcancel'){a.closest('.subjform').outerHTML=`<button type="button" class="subjadd" data-x="subjnew">${ic('plus')} Add activity</button>`;return}
+ const date=$('#cf [data-name="date"] .opt.on')?.dataset.v;
+ if(x==='subjsave'){const n=($('#subjname').value||'').trim();if(!n){$('#subjname').focus();return}
+  const all=(U?.kv?.subj?.v)||[];if(SUBJ.some(s=>s.n.toLowerCase()===n.toLowerCase())){toast('Already there');return}
+  const em=a.closest('.subjform').querySelector('.ems .on')?.textContent||'⭐';saveSubj(all.concat([{k:'c_'+uid(),n,em,created:new Date().toISOString()}]));
+  keepForm(()=>openCheckin(date));toast(`${em} ${n} added`);return}
+ if(x==='subjdel'){const s=SUBJ.find(z=>z.k===a.dataset.k);if(!s)return;if(a.dataset.sure!=='1'){a.dataset.sure='1';a.textContent='Remove?';a.classList.add('sure');setTimeout(()=>{if(a.isConnected){a.dataset.sure='';a.textContent='×';a.classList.remove('sure')}},2500);return}
+  saveSubj(((U.kv.subj||{}).v||[]).map(z=>z.k===s.k?{...z,deleted:true}:z));keepForm(()=>openCheckin(date));toast(`${s.n} removed`)}
+},true);
+/* keep what was already typed/selected when the form re-draws */
+function keepForm(redo){const f=$('#cf');if(!f){redo();return}const sel={},val={};
+ f.querySelectorAll('.opts').forEach(g=>{const o=g.querySelector('.opt.on');if(o&&g.dataset.name!=='date')sel[g.dataset.name]=o.dataset.v});
+ f.querySelectorAll('input[name],textarea[name]').forEach(i=>val[i.name]=i.type==='checkbox'?i.checked:i.value);
+ redo();const g=$('#cf');if(!g)return;
+ Object.entries(sel).forEach(([n,v])=>{const G=g.querySelector(`.opts[data-name="${n}"]`);if(!G)return;G.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b.dataset.v===v))});
+ Object.entries(val).forEach(([n,v])=>{const i=g.querySelector(`[name="${n}"]`);if(!i||i.disabled)return;if(i.type==='checkbox')i.checked=v;else i.value=v})}
+
+/* ================= v19: working microphone in Talk to the app (iPhone too) ================= */
+const MICL=[['en-US','EN'],['fa-IR','فارسی'],['ar-AE','عربي']];
+let mic19=null;
+function micStop(){if(mic19){try{mic19.stop()}catch(e){}}}
+function micUI(on,msg){const b=$('#tkmic');if(b){b.classList.toggle('on',on);b.innerHTML=on?'<span class="micbars"><i></i><i></i><i></i></span>':ic('mic')}if(msg!=null){const h=$('#tkhint');if(h)h.innerHTML=msg}}
+function micFallback(why){const ta=$('#tktext');ta&&ta.focus();micUI(false,`${why?why+'<br>':''}Tap the <b>🎙 key</b> on your keyboard (bottom right), speak, then tap send.`)}
+function micStart(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition,ta=$('#tktext');if(!ta)return;
+ if(mic19){micStop();return}
+ if(!SR){micFallback('Voice input isn’t supported in this browser.');return}
+ let R;try{R=new SR()}catch(e){micFallback();return}
+ mic19=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=!IOS;R.maxAlternatives=1;
+ const pre0=ta.value.trim();let finalT='',got=false;
+ R.onstart=()=>{micUI(true,'🔴 Listening… speak now · tap the mic to stop');if(navigator.vibrate)navigator.vibrate(15)};
+ R.onresult=e=>{got=true;let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)finalT+=r[0].transcript+' ';else interim+=r[0].transcript}
+  ta.value=((pre0?pre0+' ':'')+finalT+interim).replace(/\s+/g,' ').trimStart();ta.dispatchEvent(new Event('input'))};
+ R.onerror=e=>{const c=e.error||'';mic19=null;
+  if(c==='not-allowed'||c==='service-not-allowed')micFallback(IOS?'Microphone is blocked. On iPhone: Settings → Safari → Microphone → Allow, and make sure Siri & Dictation is on.':'Microphone permission was blocked — allow it in the browser’s site settings.');
+  else if(c==='no-speech')micUI(false,'I didn’t hear anything — tap the mic and try again.');
+  else if(c==='aborted')micUI(false,'');
+  else micFallback('Voice input had a problem ('+esc(c)+').')};
+ R.onend=()=>{mic19=null;micUI(false,got?'✓ Got it — check the text, then tap send.':($('#tkhint')?.textContent.startsWith('🔴')?'I didn’t hear anything — tap the mic and try again.':null))};
+ try{R.start()}catch(e){mic19=null;micFallback()}}
+const _openTalk19=openTalk;openTalk=function(pre){_openTalk19(pre);const b=$('#tkmic');if(!b)return;
+ const nb=b.cloneNode(true);b.replaceWith(nb);nb.addEventListener('click',e=>{e.preventDefault();micStart()});
+ const h=$('#tkhint');if(h){h.innerHTML='Tap the mic and speak · choose your language:';h.insertAdjacentHTML('afterend',`<div class="miclang">${MICL.map(([l,n])=>`<button type="button" class="${(ls.get('hq.lang')||'en-US')===l?'on':''}" data-x="miclang" data-l="${l}">${n}</button>`).join('')}</div>`)}
+ const v=$('.tkv');if(v)v.textContent='App v19'};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="miclang"]');if(!a)return;ls.set('hq.lang',a.dataset.l);a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));if(mic19){micStop()}toast('Voice language: '+a.textContent)});
+const _sendTalk19=sendTalk;sendTalk=function(){micStop();return _sendTalk19()};
+const _closeSheet19=closeSheet;closeSheet=function(){micStop();return _closeSheet19.apply(this,arguments)};
+
+/* ================= v20: always open on Today ================= */
+(function(){if(location.hash&&location.hash!=='#today'&&!/[?&]keep=1/.test(location.search))history.replaceState(null,'',location.pathname+location.search+'#today');
+ let hid=0;document.addEventListener('visibilitychange',()=>{if(document.hidden){hid=Date.now();return}
+  if(hid&&Date.now()-hid>10*60*1000&&curPage()!=='today'){location.hash='#today';window.scrollTo(0,0)}hid=0})})();
+/* ================= v21: one-tap WhatsApp to Farnaz on Today ================= */
+const FZ_MSGS=[['☀️','Good morning','صبح بخیر عزیزم ☀️❤️ امیدوارم روز خیلی خوبی داشته باشی'],['👧','Kids?','سلام عزیزم ❤️ بچه‌ها چطورن؟'],['🍽','Lunch?','سلام عزیزم ❤️ ناهار چی داریم امروز؟'],['🚗','Coming home','دارم میام خونه عزیزم ❤️ چیزی لازم نداری؟'],['❤️','Love you','دوستت دارم عزیزم ❤️']];
+function fzCard(){const P=people(),f=P.find(x=>x.id==='p-farnaz')||P.find(x=>/farnaz/i.test(x.name||''));if(!f)return '';
+ const num=f.phone?waNum(f.phone):'',h=nowD().mins,first=h<11*60?0:h>=17*60?3:-1;
+ const L=FZ_MSGS.map((m,i)=>({m,i})).sort((a,b)=>(b.i===first)-(a.i===first));
+ return `<div class="card mb fzq"><div class="fzh"><b>💑 Message Farnaz</b>${num?'':`<button type="button" class="xs faint fzadd" data-person="${esc(f.id)}">Add her number ›</button>`}</div><div class="fzrow">${L.map(({m,i})=>`<a class="fzc${i===first?' on':''}" href="https://wa.me/${num}?text=${encodeURIComponent(m[2])}" target="_blank" rel="noopener">${m[0]} ${esc(m[1])}</a>`).join('')}</div></div>`}
+const _renderToday21=renderToday;renderToday=function(G){_renderToday21(G);const t=$('#p-today .v8top');if(!t)return;t.querySelectorAll('.fzq').forEach(x=>x.remove());const h=fzCard();if(!h)return;const x=document.createElement('div');x.innerHTML=h;t.insertBefore(x.firstElementChild,t.children[1]||null)};
+const _openTalk21=openTalk;openTalk=function(pre){_openTalk21(pre);const v=$('.tkv');if(v)v.textContent='App v21'};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
