@@ -2335,6 +2335,92 @@ const _renderHealth_d28=renderHealth_d26;renderHealth_d26=function(){_renderHeal
 /* pose chips in the photo sheet get the same outline */
 const _openBodyPhoto_d28=openBodyPhoto_d26;openBodyPhoto_d26=function(pose){_openBodyPhoto_d28(pose);$$('#sheet [data-po]').forEach(b=>{if(!b.querySelector('.picon'))b.insertAdjacentHTML('afterbegin',picon_d28(b.dataset.po).replace('class="picon"','class="picon xs"'))});
  const tip=$('#sheet .xs.faint');const upd=()=>{const on=$('#sheet [data-po].on');if(on&&tip)tip.innerHTML=`<b>${esc(on.textContent.trim())}:</b> ${PHINT_d28[on.dataset.po]||''} · stand 2 m from the camera, same place and light each time.`};upd();$$('#sheet [data-po]').forEach(b=>b.addEventListener('click',()=>setTimeout(upd,0)))};
+
+/* ================= v29: Analyze my body · goal body (photo or preset) · progress & finish-date prediction ================= */
+const GPRE_d29={lean:{e:'🏃',n:'Lean & fit',d:'Flat belly, healthy, light',bf:18,waist:88,swr:1.4,gain:0},
+ athletic:{e:'⚡',n:'Athletic',d:'Visible abs outline, defined arms',bf:14,waist:84,swr:1.5,gain:2},
+ muscular:{e:'💪',n:'Muscular',d:'Big chest & arms, V-shape, abs',bf:12,waist:82,swr:1.55,gain:5}};
+const r1_d29=x=>Math.round(x*10)/10;
+const navy_d29=(w,n,h)=>w&&n&&w>n?r1_d29(495/(1.0324-0.19077*Math.log10(w-n)+0.15456*Math.log10(h))-450):null;
+function gb_d29(){return (H_().prof||{}).gb||null}
+function goalPhotos_d29(){return H_().photos.filter(x=>!x.deleted&&x.pose==='goal'&&x.img).sort((a,b)=>(b.created||'').localeCompare(a.created||''))}
+function goalT_d29(){const g=gb_d29();if(!g)return null;const base=GPRE_d29[g.preset]||GPRE_d29.athletic,ga=D.goal_analysis&&g.photoId&&D.goal_analysis.photoId===g.photoId?D.goal_analysis:null;
+ return{...base,...(ga?{bf:+ga.bf||base.bf,waist:+ga.waist||base.waist,swr:+ga.swr||base.swr,gain:ga.gain!=null?+ga.gain:base.gain}:{}),ga,g,name:g.label||(ga?'Your goal photo':base.n)}}
+function anCalc_d29(){const p=prof_d26(),w=p.weight,M=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)),f=M[0]||{},l=M[M.length-1]||{};
+ const ba=D.body_analysis,bfTape=navy_d29(+l.waist,+l.neck,p.height),bfPhoto=ba&&ba.bf?+ba.bf:null,bf=bfPhoto&&bfTape?r1_d29((bfPhoto*2+bfTape)/3):(bfPhoto||bfTape||r1_d29(1.2*w/((p.height/100)**2)+0.23*p.age-16.2));
+ const fat=r1_d29(w*bf/100),lean=r1_d29(w-fat),whtr=l.waist?+l.waist/p.height:null,swr=l.waist&&l.shoulders?+l.shoulders/+l.waist:null,arm=l.bicepL&&l.bicepR?r1_d29(Math.abs(l.bicepL-l.bicepR)):null;
+ const W=H_().weights.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date));let rate=0.7,rateSrc='typical safe pace on your 2,200 kcal plan';
+ if(W.length>1){const days=(new Date(W[W.length-1].date)-new Date(W[0].date))/864e5;if(days>=14){const r=(W[0].kg-W[W.length-1].kg)/(days/7);if(r>0.15){rate=Math.min(1.1,Math.max(0.3,r1_d29(r)));rateSrc='your real pace from your weigh-ins'}}}
+ const when=kg=>{const wk=Math.max(0,(w-kg)/rate);return{wk:Math.ceil(wk),date:addDays(nowD().date,Math.round(wk*7))}};
+ const miles=[[25,'Belly clearly smaller','👕'],[20,'Good shape — flat-ish belly','😎'],[15,'Abs outline shows','🔥'],[12,'Fitness-model lean','🏆']].filter(m=>m[0]<bf).map(([b,t,e])=>{const kg=r1_d29(lean/(1-b/100));return{bf:b,t,e,kg,...when(kg)}});
+ const T=goalT_d29();let goal=null;
+ if(T){const tw=r1_d29((lean+T.gain)/(1-T.bf/100)),wf=Math.max(0,(w-tw)/rate),wm=T.gain/0.15,wk=Math.ceil(Math.max(wf,wm));
+  const b0=(()=>{const fw=W[0]?.kg||w;return navy_d29(+f.waist,+f.neck,p.height)||bf})(),start=Math.max(p.start,w);
+  const pr=(a,b,c)=>a===b?100:Math.max(0,Math.min(100,(a-c)/(a-b)*100));
+  const parts=[['Weight',`${w} → ${tw} kg`,pr(start,tw,w)],['Body fat',`${bf}% → ${T.bf}%`,pr(Math.max(b0,bf),T.bf,bf)]];
+  if(l.waist)parts.push(['Waist',`${l.waist} → ${T.waist} cm`,pr(Math.max(+f.waist||0,+l.waist),T.waist,+l.waist)]);
+  if(swr)parts.push(['V-shape',`${swr.toFixed(2)} → ${T.swr}`,(()=>{const s0=f.waist&&f.shoulders?Math.min(f.shoulders/f.waist,swr):swr;return pr(-s0,-T.swr,-swr)})()]);
+  goal={T,tw,wk,date:addDays(nowD().date,wk*7),fast:addDays(nowD().date,Math.ceil(wk/1.25)*7),slow:addDays(nowD().date,Math.ceil(wk*1.35)*7),parts,pct:Math.round(parts.reduce((a,x)=>a+x[2],0)/parts.length)}}
+ return{p,w,l,bf,bfTape,bfPhoto,fat,lean,whtr,swr,arm,rate,rateSrc,miles,goal,ba,bmi:w/((p.height/100)**2)}}
+const mon_d29=d=>fd(d,{month:'short',year:'numeric'});
+const ring_d29=(pct,sz=64)=>{const r=26,c=2*Math.PI*r;return `<svg class="gring" viewBox="0 0 64 64" style="width:${sz}px;height:${sz}px"><circle cx="32" cy="32" r="${r}" class="bg"/><circle cx="32" cy="32" r="${r}" class="fg" stroke-dasharray="${c*pct/100} ${c}" transform="rotate(-90 32 32)"/><text x="32" y="37" text-anchor="middle">${pct}%</text></svg>`};
+
+/* ---------- Body tab: Analyze button + goal card ---------- */
+const _renderHealth_d29=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d29();const el=$('#p-health');if(!el||hTab_d26!=='body')return;const hb=el.querySelector('.hbody');if(!hb||el.querySelector('.ganal'))return;
+ const A=anCalc_d29(),G=A.goal,gp=goalPhotos_d29()[0];
+ hb.insertAdjacentHTML('afterend',`<button type="button" class="ganal" data-x="hanal"><span>🔍</span><div><b>Analyze my body</b><small>${A.ba?'Claude’s review · '+fd(A.ba.date.slice(0,10),{day:'numeric',month:'short'})+' · body fat ≈ '+A.bf+'%':'Numbers, photos & how long it will take'}</small></div><i>›</i></button>
+ ${G?`<div class="card mb gcard" data-x="hgoal">${ring_d29(G.pct)}<div class="gct"><small>🎯 Goal body</small><b>${esc(G.T.name)}</b><span>${G.wk?`≈ ${G.wk} weeks · <b>${mon_d29(G.date)}</b>`:'You’re there 🎉'}</span></div>${gp?`<img src="${gp.img}" alt="">`:`<span class="gemo">${G.T.e||'🎯'}</span>`}</div>`
+  :`<button type="button" class="card mb gset" data-x="hgoal"><span class="gemo">🎯</span><div><b>Set your goal body</b><small>Upload a photo of the body you want — or pick a style. I’ll track you there.</small></div><i>›</i></button>`}`)};
+
+/* ---------- Analysis sheet ---------- */
+function openAnal_d29(){const A=anCalc_d29(),G=A.goal,ba=A.ba,pf=(H_().prof||{}),pend=pf.anReq&&(!ba||pf.anReq>ba.date);
+ const lvl=(v,a,b)=>v==null?'':v<a?'g':v<b?'o':'b';
+ const stat=(k,v,s,c)=>`<div class="ast ${c||''}"><small>${k}</small><b>${v}</b><span>${s}</span></div>`;
+ sheet(head('Body analysis','heart','bg-v')+`
+ ${G?`<div class="agoal">${ring_d29(G.pct,78)}<div><small>Progress to your goal body</small><b>${esc(G.T.name)}</b><span>Finish ≈ <b>${mon_d29(G.date)}</b> (${G.wk} weeks)<br><em>fast ${mon_d29(G.fast)} · slow ${mon_d29(G.slow)}</em></span></div></div>
+  <div class="aparts">${G.parts.map(([n,v,p])=>`<div><div class="apt"><b>${n}</b><span>${v}</span></div><div class="abar"><i style="width:${Math.max(3,p)}%"></i></div></div>`).join('')}</div>`
+  :`<button type="button" class="btn2 pri" data-x="hgoal" style="width:100%;margin-bottom:12px">🎯 Set your goal body to track it</button>`}
+ <div class="ahd">📊 Your numbers</div>
+ <div class="astats">${stat('Body fat ≈',A.bf+'%',A.bfPhoto&&A.bfTape?`photo ${A.bfPhoto}% · tape ${A.bfTape}%`:A.bfTape?'tape method':'estimate',lvl(A.bf,20,28))}
+  ${stat('Fat',A.fat+' kg','to lose most of')}${stat('Lean mass',A.lean+' kg','muscle, bone, water — keep it','g')}
+  ${A.whtr?stat('Waist ÷ height',A.whtr.toFixed(2),A.whtr<.5?'healthy':'healthy is under 0.50 ('+Math.round(A.p.height/2)+' cm)',lvl(A.whtr,.5,.58)):''}
+  ${A.swr?stat('V-shape',A.swr.toFixed(2),'shoulders ÷ waist · aim 1.45+',A.swr>=1.45?'g':A.swr>=1.3?'o':'b'):''}
+  ${A.arm!=null?stat('Arms L / R',A.l.bicepL+' / '+A.l.bicepR,A.arm>2?A.arm+' cm apart — re-measure':'balanced',A.arm>2?'o':'g'):''}</div>
+ <div class="ahd">🗓 How long it takes</div><div class="xs faint" style="margin:-4px 0 8px">At ${A.rate} kg a week (${A.rateSrc}) and keeping your muscle:</div>
+ <div class="amiles">${A.miles.map(m=>`<div><span>${m.e}</span><div><b>${m.t}</b><small>~${m.bf}% fat · ${m.kg} kg</small></div><em>${m.wk} wk<br><b>${mon_d29(m.date)}</b></em></div>`).join('')||'<div class="xs">You’re already lean 🔥</div>'}</div>
+ <div class="ahd">🤖 Claude’s photo review ${ba?`<small>${fd(ba.date.slice(0,10),{day:'numeric',month:'short'})}</small>`:''}</div>
+ ${ba?`<div class="arev"><p>${esc(ba.summary||'')}</p>${ba.strengths?.length?`<b>💪 Strong points</b><ul>${ba.strengths.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${ba.focus?.length?`<b>🎯 Work on</b><ul>${ba.focus.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${ba.plan?.length?`<b>📋 Plan</b><ul>${ba.plan.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${ba.goalNote?`<p class="xs"><b>vs your goal:</b> ${esc(ba.goalNote)}</p>`:''}</div>`:'<div class="xs faint">No review yet.</div>'}
+ <button type="button" class="btn2 ${pend?'':'pri'}" data-x="hanreq" style="width:100%;margin-top:10px" ${pend?'disabled':''}>${pend?'⏳ Claude is looking at your photos — ready within the hour':'🔄 Analyze again with my latest photos'}</button>
+ <div class="xs faint" style="margin-top:8px">Estimates, not a medical test. Best to weigh in weekly and update measurements + photos every 2 weeks.</div>`)}
+
+/* ---------- Goal body sheet ---------- */
+function openGoal_d29(){const g=gb_d29()||{},gp=goalPhotos_d29();let sel=g.preset||'athletic',pid=g.photoId||gp[0]?.id||null;
+ const draw=()=>{const ga=D.goal_analysis&&pid&&D.goal_analysis.photoId===pid?D.goal_analysis:null;
+ sheet(head('Goal body','heart','bg-o')+`
+ <div class="ahd">📸 Photo of the body you want</div>
+ <div class="gphotos">${gp.map(x=>`<figure class="${x.id===pid?'on':''}" data-gp="${x.id}"><img src="${x.img}" alt=""><button type="button" data-gdel="${x.id}">×</button></figure>`).join('')}<label class="gadd">＋<small>Add photo</small><input type="file" accept="image/*" id="gpin" hidden></label></div>
+ ${ga?`<div class="arev xs"><b>Claude read this photo:</b> ~${ga.bf}% body fat, waist ≈ ${ga.waist} cm at your height, V-shape ${ga.swr}. ${esc(ga.notes||'')}</div>`:pid?'<div class="xs faint">Claude studies this photo within the hour and sets your exact targets from it.</div>':'<div class="xs faint">Any photo works — an athlete, an actor, or an old photo of you. It stays encrypted and private.</div>'}
+ <div class="ahd">Or pick a style ${pid?'<small>(used until the photo is read)</small>':''}</div>
+ <div class="gpre">${Object.entries(GPRE_d29).map(([k,v])=>`<button type="button" class="${sel===k?'on':''}" data-gpre="${k}"><span>${v.e}</span><b>${v.n}</b><small>${v.d}</small><em>${v.bf}% fat · waist ${v.waist}</em></button>`).join('')}</div>
+ <div class="fld"><label>Name it (optional)</label><input id="glab" class="inp" placeholder="e.g. Summer 2027 body" value="${esc(g.label||'')}"></div>
+ <div class="btnrow">${g.preset?'<button type="button" class="btn2 danger" id="gclr">Remove goal</button>':''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="gsave">Save goal</button></div>`);
+ $$('#sheet [data-gpre]').forEach(b=>b.onclick=()=>{sel=b.dataset.gpre;$$('#sheet [data-gpre]').forEach(x=>x.classList.toggle('on',x===b))});
+ $$('#sheet [data-gp]').forEach(f=>f.onclick=ev=>{if(ev.target.closest('[data-gdel]'))return;pid=pid===f.dataset.gp?null:f.dataset.gp;draw()});
+ $$('#sheet [data-gdel]').forEach(b=>b.onclick=()=>{const ph=H_().photos.find(z=>z.id===b.dataset.gdel);if(ph){ph.deleted=true;delete ph.img;ph.updated=new Date().toISOString();HS.queue()}if(pid===b.dataset.gdel)pid=null;gp.splice(gp.findIndex(z=>z.id===b.dataset.gdel),1);draw()});
+ $('#gpin').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;toast('Adding…');const img=await shrinkTo_d26(f,640,.78);if(!img)return;const t=new Date().toISOString(),ph={id:hid_d26(),date:nowD().date,pose:'goal',img,created:t,updated:t};H_().photos.push(ph);gp.unshift(ph);pid=ph.id;HS.queue();draw()};
+ $('#gclr')&&($('#gclr').onclick=()=>{const p=H_().prof||{};delete p.gb;p.updated=new Date().toISOString();H_().prof=p;HS.queue();closeSheet();rerenderHealth_d26()});
+ $('#gsave').onclick=()=>{const t=new Date().toISOString(),p=H_().prof||{...prof_d26()};const isNew=!p.gb;p.gb={preset:sel,photoId:pid,label:$('#glab').value.trim(),set:(p.gb&&p.gb.set)||nowD().date,updated:t};
+  if(pid&&!(D.goal_analysis&&D.goal_analysis.photoId===pid))p.anReq=t;p.updated=t;H_().prof=p;HS.queue();closeSheet();if(isNew){confetti(50);xpFly(document.body,'+20 XP')}toast(pid?'Goal saved 🎯 — Claude will study your goal photo':'Goal saved 🎯');rerenderHealth_d26()}};
+ draw()}
+
+/* keep goal + review request when the profile is edited */
+const _openProf_d29=openProf_d26;openProf_d26=function(){_openProf_d29();const b=$('#psave');if(!b)return;const old=b.onclick;b.onclick=()=>{const keep=H_().prof||{},gb=keep.gb,ar=keep.anReq;old();const p=H_().prof;if(gb)p.gb=gb;if(ar)p.anReq=ar;HS.queue()}};
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hanal"],[data-x="hgoal"],[data-x="hanreq"]');if(!a)return;e.preventDefault();const x=a.dataset.x;
+ if(x==='hanal')HS.load().then(openAnal_d29);
+ else if(x==='hgoal')HS.load().then(openGoal_d29);
+ else{const p=H_().prof||{...prof_d26()},t=new Date().toISOString();p.anReq=t;p.updated=t;H_().prof=p;HS.queue();a.disabled=true;a.classList.remove('pri');a.textContent='⏳ Requested — Claude will look within the hour';toast('Sent to Claude 🤖')}});
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
