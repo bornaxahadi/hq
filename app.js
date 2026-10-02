@@ -2583,6 +2583,51 @@ const _circleHTML_d32=circleHTML_d31;circleHTML_d31=function(){let h=_circleHTML
  h=h.replace('<g class="blines">',`<g class="xlinks">${L}</g><g class="blines">`);
  return h.replace('<div class="bleg">','<div class="bleg"><button type="button" class="bclink" data-cx="links">🕸 Who knows whom</button>')};
 
+
+/* ================= v33: type any food (no photo needed) · your usual meals · eating-pattern insights ================= */
+const DISH_d33=[[/spag|pasta|macaroni|ماکارونی|lasagn/i,'🍝',650,28],[/meat ?ball|کوفته/i,'🧆',250,18],[/burger|همبرگر/i,'🍔',650,30],[/pizza|پیتزا/i,'🍕',700,28],[/shawarma|شاورما/i,'🌯',550,30],[/koobideh|kubideh|kabab|kebab|کباب/i,'🍢',600,35],[/joojeh|jujeh|جوجه/i,'🍗',550,45],[/ghormeh|قورمه/i,'🍲',650,25],[/gheymeh|قیمه/i,'🍲',650,22],[/zereshk|زرشک/i,'🍛',700,40],[/biryani|بریانی/i,'🍛',700,30],[/(^|\s)rice|polo|chelo|برنج|پلو|چلو/i,'🍚',350,7],[/chicken|مرغ/i,'🍗',350,40],[/steak|beef|گوشت/i,'🥩',450,40],[/fish|salmon|ماهی/i,'🐟',350,35],[/sushi/i,'🍣',450,20],[/salad|سالاد/i,'🥗',200,5],[/sandwich|ساندویچ/i,'🥪',450,20],[/fries|سیب زمینی/i,'🍟',400,4],[/soup|آش|سوپ/i,'🥣',250,8],[/egg|omelet|تخم/i,'🍳',220,14],[/bread|nan|نان/i,'🫓',160,5],[/yogurt|ماست/i,'🥛',150,12],[/fruit|میوه|apple|banana/i,'🍎',100,1],[/cake|کیک|sweet|شیرینی|chocolate/i,'🍰',400,5],[/dates|خرما/i,'🌴',140,1],[/nuts|آجیل/i,'🥜',300,9],[/protein|whey/i,'🥤',150,25]];
+function guess_d33(t){t=String(t||'');let k=0,p=0,e='🍽',hit=0;DISH_d33.forEach(([re,em,kc,pr])=>{if(re.test(t)){k+=kc;p+=pr;if(!hit)e=em;hit++}});const n=+((t.match(/(\d+)\s*(x|×|pieces|portion|plate)/i)||[])[1]||1);return hit?{kcal:Math.round(k*Math.min(n,4)),p:Math.round(p*Math.min(n,4)),e}:null}
+const mealName_d33=m=>(m.items&&m.items.length?m.items.map(i=>(i.q>1?i.q+'× ':'')+i.n).join(' + '):(m.text||'')).trim();
+const mealKcal_d33=m=>{const e=(D.food_est||{})[m.id];return e&&e.kcal?e.kcal:(m.kcal||null)};
+function usual_d33(slot){const from=addDays(nowD().date,-60),G={};H_().meals.filter(m=>!m.deleted&&!m.skipped&&m.date>=from&&(!slot||m.slot===slot)).forEach(m=>{const n=mealName_d33(m);if(!n)return;const k=n.toLowerCase();const g=G[k]||(G[k]={n,c:0,last:m,kc:[]});g.c++;if((m.date+m.time)>(g.last.date+g.last.time))g.last=m;const kc=mealKcal_d33(m);if(kc)g.kc.push(kc)});
+ return Object.values(G).sort((a,b)=>b.c-a.c||(b.last.date).localeCompare(a.last.date)).slice(0,8).map(g=>({...g,kcal:g.kc.length?Math.round(g.kc.reduce((a,b)=>a+b,0)/g.kc.length):null}))}
+
+const _openMeal_d33=openMeal_d26;openMeal_d26=function(id,opt={}){_openMeal_d33(id,opt);const q=$('#mq'),tx=$('#mtext'),kc=$('#mkcal');if(!q||!tx)return;
+ q.placeholder='Type what you ate — e.g. spaghetti with meatballs';
+ /* typed food that isn't in the list → one tap to use it */
+ const useTyped=()=>{const v=q.value.trim();if(!v)return;tx.value=tx.value.trim()?tx.value.trim()+', '+v:v;const g=guess_d33(tx.value);if(g&&!kc.value&&!$('#hsel .hchip'))kc.value=g.kcal;q.value='';q.dispatchEvent(new Event('input'));tx.dispatchEvent(new Event('input'));hint()};
+ const hint=()=>{const g=guess_d33(tx.value);const h=$('#mhint');if(h&&tx.value&&!$('#hsel .hchip'))h.innerHTML=g?`≈ <b>${g.kcal} kcal</b> · ${g.p} g protein (quick guess) — Claude will check it.`:'Claude will estimate the calories within the hour.'};
+ const addBtn=()=>{const v=q.value.trim(),box=$('#hfoods');if(!box)return;box.querySelector('.huse')?.remove();if(!v)return;const g=guess_d33(v);
+  box.insertAdjacentHTML('afterbegin',`<button type="button" class="huse">${g?g.e:'➕'} Use “${esc(v)}”${g?`<small>≈${g.kcal}</small>`:''}</button>`);box.querySelector('.huse').onclick=useTyped};
+ q.addEventListener('input',()=>setTimeout(addBtn,0));q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();useTyped()}});tx.addEventListener('input',hint);
+ /* your usual meals for this slot */
+ const slotNow=()=>$('#sheet [data-sl].on')?.dataset.sl||'lunch';
+ const drawUsual=()=>{$('#husual')?.remove();const U=usual_d33(slotNow()).filter(u=>u.c>=1).slice(0,6);if(!U.length)return;
+  q.insertAdjacentHTML('beforebegin',`<div id="husual"><div class="hul">⭐ Your usual ${esc((SLOTS_d26.find(s=>s[0]===slotNow())||[])[2]||'')}</div><div class="husl">${U.map((u,i)=>`<button type="button" data-us="${i}">${esc(u.n.length>34?u.n.slice(0,32)+'…':u.n)}<small>${u.c>1?u.c+'× · ':''}${u.kcal?u.kcal+' kcal':''}</small></button>`).join('')}</div></div>`);
+  $$('#husual [data-us]').forEach(b=>b.onclick=()=>{const u=U[+b.dataset.us],m=u.last;
+   if(m.items&&m.items.length&&m.items.every(it=>$(`#hfoods [data-fd="${CSS.escape(it.n)}"]`)||true)){let ok=true;q.value='';q.dispatchEvent(new Event('input'));
+    m.items.forEach(it=>{for(let k=0;k<(it.q||1);k++){q.value=it.n;q.dispatchEvent(new Event('input'));const fb=[...$$('#hfoods [data-fd]')].find(x=>x.dataset.fd===it.n);if(fb)fb.click();else ok=false}});q.value='';q.dispatchEvent(new Event('input'));
+    if(!ok){tx.value=u.n;if(u.kcal)kc.value=u.kcal}}
+   else{tx.value=m.text||u.n;if(u.kcal)kc.value=u.kcal;tx.dispatchEvent(new Event('input'))}
+   b.classList.add('on');toast('Added: '+u.n.slice(0,40))})};
+ drawUsual();$$('#sheet [data-sl]').forEach(b=>b.addEventListener('click',()=>setTimeout(drawUsual,0)));
+ /* save: typed-but-not-added text counts too */
+ const sv=$('#msave'),orig=sv.onclick;sv.onclick=ev=>{if(q.value.trim())useTyped();if(!kc.value&&tx.value.trim()&&!$('#hsel .hchip')){/* leave kcal empty → Claude estimates */}return orig(ev)};
+ if(tx.value)hint()};
+
+/* Food tab: what you really eat */
+function patternHTML_d33(){const from=addDays(nowD().date,-13),M=H_().meals.filter(m=>!m.deleted&&!m.skipped&&m.date>=from);if(M.length<3)return '';
+ const days=new Set(M.map(m=>m.date)).size,T={};M.filter(m=>m.slot!=='drink').forEach(m=>{(m.items&&m.items.length?m.items.map(i=>i.n):[m.text]).filter(Boolean).forEach(n=>{const k=n.trim().toLowerCase();T[k]=T[k]||{n:n.trim(),c:0};T[k].c++})});
+ const top=Object.values(T).sort((a,b)=>b.c-a.c).slice(0,6),avgT=s=>{const L=M.filter(m=>m.slot===s&&m.time).map(m=>{const[h,mi]=m.time.split(':');return +h*60+ +mi});if(!L.length)return null;const a=Math.round(L.reduce((x,y)=>x+y,0)/L.length);return String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0')};
+ const coffee=M.filter(m=>m.slot==='drink'&&/coffee|espresso|latte|cappuccino|americano|flat|nescaf|turkish/i.test(m.text||'')).reduce((a,m)=>a+(m.q||1),0),late=M.filter(m=>m.time&&m.time>='22:00'&&m.slot!=='drink').length;
+ const kc=[...new Set(M.map(m=>m.date))].map(d=>M.filter(m=>m.date===d).reduce((a,m)=>a+(mealKcal_d33(m)||0),0)).filter(Boolean),avgK=kc.length?Math.round(kc.reduce((a,b)=>a+b,0)/kc.length):null;
+ const tips=[];if(top[0]&&top[0].c>=Math.max(3,days*0.6))tips.push(`You eat ${top[0].n.toLowerCase()} almost every day — I’ll keep it one tap away.`);if(coffee/days>=3)tips.push(`About ${Math.round(coffee/days)} coffees a day — try to stop after 4 pm for better sleep.`);if(late>=2)tips.push(`${late} late meals (after 10 pm) in 2 weeks — late eating slows belly-fat loss.`);if(avgK&&avgK>targets_d26().kcal+150)tips.push(`Average ≈ ${avgK} kcal a day — about ${avgK-targets_d26().kcal} over your target.`);
+ return `<div class="card mb hpat"><div class="hsh"><b>🧠 Your eating pattern</b><span class="xs faint">last 14 days · ${days} day${days>1?'s':''} logged</span></div>
+  <div class="hpt">${[['🍳 Breakfast',avgT('breakfast')],['🍛 Lunch',avgT('lunch')],['🍽 Dinner',avgT('dinner')],['☕ Coffee/day',days?(Math.round(coffee/days*10)/10):0],['🔥 Avg kcal',avgK||'—']].map(([l,v])=>`<div><small>${l}</small><b>${v??'—'}</b></div>`).join('')}</div>
+  ${top.length?`<div class="hptop">${top.map(t=>`<span>${esc(t.n)} <b>×${t.c}</b></span>`).join('')}</div>`:''}
+  ${tips.length?`<ul class="hptips">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`}
+const _renderHealth_d33=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d33();const el=$('#p-health');if(!el||hTab_d26!=='food'||el.querySelector('.hpat'))return;const h=patternHTML_d33();if(!h)return;const s=el.querySelector('.hslot');(s||el.lastElementChild)?.insertAdjacentHTML('beforebegin',h)};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
