@@ -2639,6 +2639,14 @@ const _wireVault_d34=wireVault;wireVault=function(){_wireVault_d34();const pw=$(
  pw.addEventListener('input',live);pw2&&pw2.addEventListener('input',live);pw2&&(pw2.onkeydown=e=>{if(e.key==='Enter')go.click()});
  go.addEventListener('click',()=>{pw.value=clean(pw.value);if(pw2)pw2.value=clean(pw2.value)},true)};
 
+
+/* ================= v35: Notes — no Evernote import; quick Checklist button instead ================= */
+function fixNact_d35(){const l=document.querySelector('#p-notes .nact label.alt3');if(!l||!l.querySelector('#enex'))return;
+ l.outerHTML=`<button type="button" class="bigadd alt3" data-x="nchk_d35">☑️ Checklist</button>`}
+new MutationObserver(()=>fixNact_d35()).observe(document.body,{childList:true,subtree:true});
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="nchk_d35"]');if(!a)return;e.preventDefault();e.stopPropagation();
+ openNote(null);setTimeout(()=>{const t=$('#ntitle'),b=$('#nbody');if(t&&!t.value)t.value='Checklist';if(b&&!b.value){b.value='☐ \n☐ \n☐ ';b.focus();b.setSelectionRange(2,2)}},80)},true);
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
