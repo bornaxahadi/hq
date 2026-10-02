@@ -2421,6 +2421,74 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hanal"]
  else if(x==='hgoal')HS.load().then(openGoal_d29);
  else{const p=H_().prof||{...prof_d26()},t=new Date().toISOString();p.anReq=t;p.updated=t;H_().prof=p;HS.queue();a.disabled=true;a.classList.remove('pri');a.textContent='⏳ Requested — Claude will look within the hour';toast('Sent to Claude 🤖')}});
 
+
+/* ================= v30: Supplements — what you take, daily check-off, streaks, history ================= */
+const sEmpty_d30=()=>({v:1,items:[],logs:[],updated:null});
+const SS=makeStore_d26('supps.enc','hq.supps',sEmpty_d30,(a,b)=>{a=a||sEmpty_d30();b=b||sEmpty_d30();return{v:1,items:mergeArr(a.items,b.items),logs:mergeArr(a.logs,b.logs),updated:(a.updated||'')>(b.updated||'')?a.updated:b.updated}});
+const S_=()=>SS.data||sEmpty_d30();
+const SWHEN_d30=[['morning','🌅 Morning'],['breakfast','🍳 With breakfast'],['pregym','🏋️ Before gym'],['postgym','💪 After gym'],['lunch','🍛 With lunch'],['evening','🌇 Evening'],['night','🌙 Before bed']];
+const SFREQ_d30=[['daily','Every day'],['gym','Gym days'],['weekly','Once a week'],['cycle','On / off cycle']];
+const SPRE_d30=[['☀️','Vitamin D3','IU'],['⚡','Creatine','g'],['🥤','Whey protein','scoop'],['🐟','Omega-3','capsule'],['🧲','Magnesium','mg'],['💊','Multivitamin','tablet'],['🦴','Zinc','mg'],['🌿','Ashwagandha','mg'],['☕','Pre-workout','scoop'],['🍊','Vitamin C','mg'],['🩸','Iron','mg'],['💉','Injection','IU']];
+const sActive_d30=()=>S_().items.filter(x=>!x.deleted&&!x.stop).sort((a,b)=>(SWHEN_d30.findIndex(w=>w[0]===a.when)-SWHEN_d30.findIndex(w=>w[0]===b.when))||a.name.localeCompare(b.name));
+const sPast_d30=()=>S_().items.filter(x=>!x.deleted&&x.stop).sort((a,b)=>(b.stop||'').localeCompare(a.stop||''));
+const sLog_d30=(d,id)=>S_().logs.find(l=>l.id===d+'_'+id&&!l.deleted&&l.taken);
+const sDue_d30=(it,d)=>{if(it.start&&d<it.start)return false;if(it.freq==='weekly'){const s=it.start||d;return Math.round((new Date(d)-new Date(s))/864e5)%7===0}return it.freq!=='gym'};
+function sStreak_d30(it){let s=0,d=nowD().date;if(!sLog_d30(d,it.id))d=addDays(d,-1);while(sLog_d30(d,it.id)&&s<999){s++;d=addDays(d,it.freq==='weekly'?-7:-1)}return s}
+function sWeek_d30(){const A=sActive_d30().filter(x=>x.freq!=='gym'&&x.freq!=='weekly');if(!A.length)return null;let due=0,ok=0;for(let i=0;i<7;i++){const d=addDays(nowD().date,-i);A.forEach(it=>{const s0=it.start||(it.created||'').slice(0,10);if(s0&&d<s0)return;due++;if(sLog_d30(d,it.id))ok++})}return due?Math.round(ok/due*100):null}
+const sDays_d30=it=>{const a=it.start,b=it.stop||nowD().date;return a?Math.max(1,Math.round((new Date(b)-new Date(a))/864e5)+1):null};
+function sToggle_d30(id,d){d=d||nowD().date;const k=d+'_'+id,t=new Date().toISOString();let l=S_().logs.find(x=>x.id===k);
+ if(l&&l.taken&&!l.deleted){l.taken=false;l.updated=t}else{if(l){l.taken=true;l.deleted=false;l.time=hNow_d26();l.updated=t}else S_().logs.push({id:k,date:d,item:id,taken:true,time:hNow_d26(),created:t,updated:t});xpFly(document.body,'+2 XP')}
+ SS.queue();const A=sActive_d30().filter(x=>sDue_d30(x,d));if(A.length&&A.every(x=>sLog_d30(d,x.id))){confetti(30);toast('All supplements done today 💊✓')}rerenderHealth_d26()}
+function suppsHTML_d30(){const n=nowD().date,A=sActive_d30(),P=sPast_d30(),wk=sWeek_d30(),due=A.filter(x=>sDue_d30(x,n)),done=due.filter(x=>sLog_d30(n,x.id)).length;
+ return `<div class="card mb stoday"><div class="hsh"><b>💊 Today</b><span class="xs faint">${due.length?done+' / '+due.length+' taken':'nothing due'}${wk!=null?' · this week '+wk+'%':''}</span></div>
+  ${A.length?A.map(it=>{const on=!!sLog_d30(n,it.id),st=sStreak_d30(it),d=sDue_d30(it,n),l=sLog_d30(n,it.id);return `<div class="srow ${on?'on':''} ${d?'':'nd'}"><button type="button" class="scheck" data-x="stake" data-id="${it.id}">${on?'✓':''}</button><div class="sinfo" data-x="sedit" data-id="${it.id}"><b>${esc(it.emoji||'💊')} ${esc(it.name)}</b><small>${esc([it.dose?it.dose+' '+(it.unit||''):'',(SWHEN_d30.find(w=>w[0]===it.when)||['',''])[1].replace(/^\S+ /,''),it.freq==='gym'?'gym days':it.freq==='weekly'?'weekly':it.freq==='cycle'?'cycle':''].filter(Boolean).join(' · '))}${on&&l.time?' · taken '+esc(l.time):''}</small></div>${st>1?`<span class="sst">🔥${st}</span>`:''}</div>`}).join(''):'<div class="xs faint">Add what you take — tap ＋ below.</div>'}
+  <button type="button" class="btn2 pri" data-x="sadd" style="width:100%;margin-top:10px">＋ Add supplement</button></div>
+ ${A.length?`<div class="card mb"><div class="hsh"><b>📅 Last 14 days</b><span class="xs faint">tap a day to fix it</span></div><div class="sgrid">${A.map(it=>`<div class="sgr"><span>${esc(it.emoji||'💊')}</span><div>${Array.from({length:14},(_,i)=>{const d=addDays(n,i-13),ok=!!sLog_d30(d,it.id),pre=it.start&&d<it.start;return `<i class="${ok?'ok':''} ${pre?'pre':''}" data-x="sday" data-id="${it.id}" data-d="${d}" title="${d}"></i>`}).join('')}</div></div>`).join('')}</div></div>`:''}
+ <div class="card mb"><div class="hsh"><b>🗂 Past supplements</b><span class="xs faint">${P.length} stopped</span></div>
+  ${P.length?P.map(it=>`<div class="spast" data-x="sedit" data-id="${it.id}"><b>${esc(it.emoji||'💊')} ${esc(it.name)}</b><small>${esc([it.dose?it.dose+' '+(it.unit||''):'',it.start?fd(it.start,{month:'short',year:'numeric'}):'',it.stop&&it.stop!=='?'?'→ '+fd(it.stop,{month:'short',year:'numeric'}):'stopped',sDays_d30(it)&&it.start?sDays_d30(it)+' days':''].filter(Boolean).join(' · '))}${it.notes?'<br>'+esc(it.notes):''}</small></div>`).join(''):'<div class="xs faint">Supplements you stop move here, with dates — so you always know what you took and when.</div>'}</div>
+ <div class="xs faint" style="margin:0 4px 12px">Your list is encrypted in its own private file. Tell your doctor what you take, especially anything injected or hormonal.</div>`}
+
+function openSupp_d30(id){const it=id?S_().items.find(x=>x.id===id):null,v=it||{when:'morning',freq:'daily',start:nowD().date};let emo=v.emoji||'💊';
+ sheet(head(it?'Edit supplement':'Add supplement','heart','bg-g')+`
+ ${it?'':`<div class="spre">${SPRE_d30.map(([e,n,u],i)=>`<button type="button" data-sp="${i}">${e} ${n}</button>`).join('')}</div>`}
+ <div class="hmform">
+  <label class="wide"><span>Name</span><input id="sname" class="inp" value="${esc(v.name||'')}" placeholder="e.g. Vitamin D3"></label>
+  <label><span>Dose</span><input id="sdose" class="inp" inputmode="decimal" value="${esc(v.dose||'')}" placeholder="5000"></label>
+  <label><span>Unit</span><input id="sunit" class="inp" value="${esc(v.unit||'')}" placeholder="IU / g / mg"></label>
+  <label><span>When</span><select id="swhen" class="inp">${SWHEN_d30.map(([k,l])=>`<option value="${k}" ${v.when===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label><span>How often</span><select id="sfreq" class="inp">${SFREQ_d30.map(([k,l])=>`<option value="${k}" ${v.freq===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label><span>Started</span><input id="sstart" class="inp" type="date" value="${esc(v.start&&v.start!=='?'?v.start:'')}"></label>
+  <label><span>Stopped</span><input id="sstop" class="inp" type="date" value="${esc(v.stop&&v.stop!=='?'?v.stop:'')}"></label>
+  <label class="wide"><span>Brand / notes</span><input id="snotes" class="inp" value="${esc(v.notes||'')}" placeholder="brand, why you take it, how you feel"></label></div>
+ ${it&&!it.stop?`<button type="button" class="btn2" id="sstopnow" style="width:100%;margin-top:8px">⏹ I stopped taking it today</button>`:''}${it&&it.stop?`<button type="button" class="btn2" id="srestart" style="width:100%;margin-top:8px">▶️ I’m taking it again</button>`:''}
+ <div class="btnrow">${it?'<button type="button" class="btn2 danger" id="sdel">Delete</button>':''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="ssave">Save</button></div>`);
+ $$('#sheet [data-sp]').forEach(b=>b.onclick=()=>{const [e,n,u]=SPRE_d30[+b.dataset.sp];emo=e;$('#sname').value=n;$('#sunit').value=u;$$('#sheet [data-sp]').forEach(x=>x.classList.toggle('on',x===b));$('#sdose').focus()});
+ const save=extra=>{const name=$('#sname').value.trim();if(!name){toast('Add a name');return}const t=new Date().toISOString(),pre=SPRE_d30.find(p=>p[1].toLowerCase()===name.toLowerCase());
+  const o={...(it||{id:'s'+uid(),created:t}),name,emoji:it?.emoji||(pre?pre[0]:emo),dose:$('#sdose').value.trim(),unit:$('#sunit').value.trim(),when:$('#swhen').value,freq:$('#sfreq').value,start:$('#sstart').value||(it?.start)||'',stop:$('#sstop').value||'',notes:$('#snotes').value.trim(),updated:t,...(extra||{})};
+  if(it)Object.assign(it,o);else{S_().items.push(o);xpFly(document.body,'+5 XP')}SS.queue();closeSheet();toast('Saved ✓');rerenderHealth_d26()};
+ $('#ssave').onclick=()=>save();
+ $('#sstopnow')&&($('#sstopnow').onclick=()=>save({stop:nowD().date}));
+ $('#srestart')&&($('#srestart').onclick=()=>save({stop:'',start:nowD().date,notes:[it.notes,`taken before${it.start?' '+it.start:''} → ${it.stop}`].filter(Boolean).join(' · ')}));
+ $('#sdel')&&($('#sdel').onclick=e=>{const b=e.currentTarget;if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Sure?';return}it.deleted=true;it.updated=new Date().toISOString();SS.queue();closeSheet();rerenderHealth_d26()})}
+
+/* third tab on the Health page */
+const _renderHealth_d30=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d30();const el=$('#p-health');if(!el)return;const tabs=el.querySelector('.ntabs');if(!tabs)return;
+ if(!tabs.querySelector('[data-t="supps"]'))tabs.insertAdjacentHTML('beforeend',`<button type="button" class="${hTab_d26==='supps'?'on':''}" data-x="htab" data-t="supps">💊 Supps</button>`);
+ if(hTab_d26!=='supps')return;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t==='supps'));const pt=el.querySelector('.pt span');if(pt)pt.textContent='food · body · supplements';
+ while(tabs.nextSibling)tabs.nextSibling.remove();if(!SS.loaded){tabs.insertAdjacentHTML('afterend','<div class="card faint">Loading…</div>');SS.load().then(()=>{if(curPage()==='health'&&hTab_d26==='supps')renderHealth_d26()});return}
+ tabs.insertAdjacentHTML('afterend',suppsHTML_d30())};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="stake"],[data-x="sedit"],[data-x="sadd"],[data-x="sday"],[data-x="stoday"]');if(!a)return;e.preventDefault();const x=a.dataset.x;
+ SS.load().then(()=>{if(x==='stake')sToggle_d30(a.dataset.id);else if(x==='sday')sToggle_d30(a.dataset.id,a.dataset.d);else if(x==='sedit')openSupp_d30(a.dataset.id);else if(x==='sadd')openSupp_d30();else{hTab_d26='supps';location.hash='#health';setTimeout(renderHealth_d26,60)}})});
+
+/* Today: supplements reminder inside the food card */
+const _renderToday_d30=renderToday;renderToday=function(G){_renderToday_d30(G);const c=$('#p-today .hfoodtoday');if(!c)return;if(!SS.loaded){SS.load().then(()=>{if(curPage()==='today')rerender()});return}
+ const n=nowD().date,due=sActive_d30().filter(x=>sDue_d30(x,n));if(!due.length)return;const left=due.filter(x=>!sLog_d30(n,x.id));
+ c.querySelector('.hftb')?.insertAdjacentHTML('beforebegin',`<div class="stline">${left.length?`<span>💊 Still to take:</span>${left.map(x=>`<button type="button" class="btn2 sm" data-x="stake" data-id="${x.id}">${esc(x.emoji||'💊')} ${esc(x.name)}</button>`).join('')}`:`<span>💊 All ${due.length} supplements taken ✓</span>`}</div>`)};
+/* XP for supplements */
+const _habXP_d30=habXP;habXP=function(){let x=_habXP_d30();if(SS.loaded)x+=S_().logs.filter(l=>l.taken&&!l.deleted).length*2;return x};
+
+window.addEventListener('hashchange',()=>{if(curPage()==='today'&&SS.loaded&&D)setTimeout(rerender,40)});
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
