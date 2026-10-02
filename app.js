@@ -2628,6 +2628,17 @@ function patternHTML_d33(){const from=addDays(nowD().date,-13),M=H_().meals.filt
   ${tips.length?`<ul class="hptips">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`}
 const _renderHealth_d33=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d33();const el=$('#p-health');if(!el||hTab_d26!=='food'||el.querySelector('.hpat'))return;const h=patternHTML_d33();if(!h)return;const s=el.querySelector('.hslot');(s||el.lastElementChild)?.insertAdjacentHTML('beforebegin',h)};
 
+
+/* ================= v34: Vault — passwords that really match (show/hide, no autofill mix-ups) ================= */
+const _wireVault_d34=wireVault;wireVault=function(){_wireVault_d34();const pw=$('#vpw'),go=$('#vgo');if(!pw||!go)return;const pw2=$('#vpw2'),creating=!!pw2;
+ [pw,pw2].filter(Boolean).forEach(i=>{i.setAttribute('autocomplete',creating?'new-password':'current-password');i.setAttribute('autocapitalize','off');i.setAttribute('autocorrect','off');i.setAttribute('spellcheck','false')});
+ if(!$('#vshow'))(pw2||pw).insertAdjacentHTML('afterend',`<label class="vshow"><input type="checkbox" id="vshow"> Show password${creating?'s':''}</label>`);
+ $('#vshow').onchange=e=>[pw,pw2].filter(Boolean).forEach(i=>i.type=e.target.checked?'text':'password');
+ const clean=v=>String(v||'').normalize('NFC').replace(/[​-‍﻿]/g,'').trim();
+ const live=()=>{if(!pw2)return;const a=clean(pw.value),b=clean(pw2.value),m=$('#vmsg');if(!b){m.textContent='';return}m.textContent=a===b?'✓ Passwords match':(a.startsWith(b)||b.startsWith(a))?`Keep typing… (${b.length}/${a.length})`:`Not the same yet (${a.length} vs ${b.length} characters) — tap “Show passwords” to check`;m.style.color=a===b?'#10b981':''};
+ pw.addEventListener('input',live);pw2&&pw2.addEventListener('input',live);pw2&&(pw2.onkeydown=e=>{if(e.key==='Enter')go.click()});
+ go.addEventListener('click',()=>{pw.value=clean(pw.value);if(pw2)pw2.value=clean(pw2.value)},true)};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
