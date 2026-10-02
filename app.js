@@ -2317,6 +2317,24 @@ openMeas_d26=function(){const last=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a
   if(bad.length&&!$('#mmsave').dataset.ok){$('#mmmsg').innerHTML=`⚠️ These look wrong: <b>${esc(bad.join(', '))}</b> cm. Fix them, or tap Save again to keep.`;$('#mmsave').dataset.ok='1';return}
   const t=new Date().toISOString(),d=$('#mmdate').value||nowD().date,ex=H_().meas.find(x=>!x.deleted&&x.date===d);if(ex){Object.assign(ex,o);ex.updated=t}else H_().meas.push({id:hid_d26(),date:d,...o,created:t,updated:t});
   HS.queue();closeSheet();toast('Measurements saved ✓');rerenderHealth_d26()}};
+
+/* ================= v28: outline pose guides for progress photos ================= */
+const PSVG_d28={
+ front:'<circle cx="30" cy="11" r="6"/><path d="M22 21h16l3 25H19z"/><path d="M22 22l-6 22M38 22l6 22M25 46l-2 29M35 46l2 29"/>',
+ side:'<circle cx="30" cy="11" r="6"/><path d="M36 10.5l2.5 1.5-2.5 1"/><path d="M26 21c7 0 11 3 11 9 0 6-2 9-2 16H25c0-9-2-17 1-25z"/><path d="M30 23l2 21M28 46l-1 29M33 46l1 29"/>',
+ back:'<circle cx="30" cy="11" r="6"/><path d="M22 21h16l3 25H19z"/><path d="M22 22l-6 22M38 22l6 22M25 46l-2 29M35 46l2 29"/><path d="M30 22v22M25 26c2 2 3 4 3 7M35 26c-2 2-3 4-3 7" class="acc"/>',
+ biceps:'<circle cx="30" cy="11" r="6"/><path d="M23 21h14l2 24H21z"/><path d="M23 23H13l-2-12M37 23h10l2-12M24 45l-2 30M36 45l2 30"/><path d="M14 22c1-3 4-4 6-3M46 22c-1-3-4-4-6-3" class="acc"/>',
+ belly:'<path d="M16 8c0 22 2 48 6 66M44 8c0 22-2 48-6 66"/><path d="M20 18c6 4 14 4 20 0"/><circle cx="30" cy="46" r="1.6" class="acc"/><path d="M24 28h12M24 36h12M30 24v28" class="acc"/>',
+ legs:'<path d="M17 8h26"/><path d="M17 8c0 22 2 44 3 66h7l2-46 2 46h7c1-22 3-44 3-66"/><path d="M22 40c1 2 3 3 5 3M38 40c-1 2-3 3-5 3" class="acc"/>'};
+const PHINT_d28={front:'Face the camera, arms relaxed',side:'Turn 90°, stand tall',back:'Back to the camera, arms down',biceps:'Both arms up, flex',belly:'Close-up, relaxed, no sucking in',legs:'Feet hip-width, front view'};
+const picon_d28=k=>`<svg class="picon" viewBox="0 0 60 80" aria-hidden="true"><rect x="2" y="2" width="56" height="76" rx="8" class="frame"/><g>${PSVG_d28[k]||''}</g></svg>`;
+const _renderHealth_d28=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d28();const el=$('#p-health');if(!el||hTab_d26!=='body')return;
+ el.querySelectorAll('.hpose').forEach(p=>{const btn=p.querySelector('[data-pose]');if(!btn)return;const k=btn.dataset.pose,has=!!p.querySelector('.hcmp'),name=p.querySelector('.hpl b')?.textContent||k;
+  if(!has){p.classList.add('empty');p.innerHTML=`<div class="pe">${picon_d28(k)}<div><b>${esc(name)}</b><small>${PHINT_d28[k]||''}</small></div></div><button type="button" class="btn2 sm pri pbtn" data-x="hphoto" data-pose="${k}">${ic('camera')} Take photo</button>`}
+  else{const h=p.querySelector('.hpl');if(h&&!h.querySelector('.picon'))h.insertAdjacentHTML('afterbegin',picon_d28(k).replace('class="picon"','class="picon sm"'))}})};
+/* pose chips in the photo sheet get the same outline */
+const _openBodyPhoto_d28=openBodyPhoto_d26;openBodyPhoto_d26=function(pose){_openBodyPhoto_d28(pose);$$('#sheet [data-po]').forEach(b=>{if(!b.querySelector('.picon'))b.insertAdjacentHTML('afterbegin',picon_d28(b.dataset.po).replace('class="picon"','class="picon xs"'))});
+ const tip=$('#sheet .xs.faint');const upd=()=>{const on=$('#sheet [data-po].on');if(on&&tip)tip.innerHTML=`<b>${esc(on.textContent.trim())}:</b> ${PHINT_d28[on.dataset.po]||''} · stand 2 m from the camera, same place and light each time.`};upd();$$('#sheet [data-po]').forEach(b=>b.addEventListener('click',()=>setTimeout(upd,0)))};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

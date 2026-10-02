@@ -986,3 +986,17 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 .mhv button .micon{width:18px;height:26px}.mhv button b{font-size:13px}.mhv button.bad{border-color:#f43f5e}
 .mf{grid-template-columns:40px 1fr 92px}.mf .micon{width:36px;height:54px}
 .micon .hl{stroke-width:3}
+
+/* v28 */
+.picon{width:44px;height:60px;flex:none;color:var(--text)}
+.picon g path,.picon g circle{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.75}
+.picon .acc{stroke:#f59e0b!important;opacity:1!important}
+.picon .frame{fill:none;stroke:currentColor;stroke-width:1.4;stroke-dasharray:4 3;opacity:.3}
+.picon.sm{width:22px;height:30px;margin-right:6px}
+.picon.xs{width:16px;height:22px;margin-right:4px;vertical-align:middle}
+.hpose.empty{display:flex;flex-direction:column;gap:8px}
+.hpose .pe{display:flex;gap:10px;align-items:center}
+.hpose .pe b{font-size:13px;display:block}.hpose .pe small{font-size:11px;opacity:.6;line-height:1.35;display:block}
+.hpose .pbtn{width:100%;justify-content:center;display:flex;align-items:center;gap:6px}.hpose .pbtn svg{width:14px;height:14px}
+.hpl{justify-content:flex-start!important;gap:4px}.hpl b{flex:1}
+[data-po]{display:inline-flex;align-items:center}
