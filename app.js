@@ -1984,6 +1984,70 @@ const _renderToday_n23=renderToday;renderToday=function(G){_renderToday_n23(G);c
  const due=notesList().filter(n=>n.remind&&n.remind<=d);const t=el.querySelector('.v8top');
  const html=`<div class="card mb nquick"><button type="button" class="nq1" data-x="ntpl">${ic('note')}<span><b>Notes</b><small>${notesList().length} notes${due.length?` · ⏰ ${due.length} due`:''}</small></span></button><button type="button" class="nq2" onclick="location.hash='#notes'">Open ›</button></div>`+due.slice(0,3).map(n=>`<div class="card mb nremind" data-x="nopen" data-id="${n.id}">⏰ <b>${esc(n.title||'Note')}</b><span class="xs faint">${esc(snip(n.body,60))}</span></div>`).join('');
  if(t)t.insertAdjacentHTML('afterend',html)};
+
+/* ================= v24: auto-update · Face ID · people fix · clearer pipeline · Notes on top ================= */
+/* 1. Always run the newest version: check index.html and reload when a new version is published */
+const MYV_d24=+((document.querySelector('script[src*="app.js"]')?.src.match(/v=(\d+)/)||[])[1]||0);
+async function checkUpdate_d24(){try{const t=await(await fetch('index.html?t='+Date.now(),{cache:'no-store'})).text();const v=+((t.match(/app\.js\?v=(\d+)/)||[])[1]||0);
+ if(v&&MYV_d24&&v>MYV_d24){if($('#sheet')?.classList.contains('on')||document.activeElement?.matches?.('input,textarea'))return;toast('Updating to the new version…');setTimeout(()=>location.replace(location.pathname+'?u='+v+'#today'),700)}}catch(e){}}
+setTimeout(checkUpdate_d24,4000);setInterval(()=>{if(!document.hidden)checkUpdate_d24()},5*60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate_d24()});
+if(/[?&]u=\d+/.test(location.search))history.replaceState(null,'',location.pathname+'#today');
+
+/* 2. Face ID / Touch ID login (passkey on this device; password stays encrypted with a key only Face ID can unlock) */
+const FID_d24='hq.fid';
+const fidInfo_d24=()=>{try{return JSON.parse(ls.get(FID_d24)||'null')}catch(e){return null}};
+const rnd_d24=n=>crypto.getRandomValues(new Uint8Array(n));
+const fidOK_d24=()=>!!(window.PublicKeyCredential&&navigator.credentials&&window.isSecureContext);
+async function fidPlat_d24(){try{return fidOK_d24()&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()}catch(e){return false}}
+async function prfKey_d24(bytes){const k=await crypto.subtle.importKey('raw',bytes,'HKDF',false,['deriveKey']);return crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:new Uint8Array(16),info:new TextEncoder().encode('borna-hq-faceid')},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function fidAssert_d24(id,salt){const a=await navigator.credentials.get({publicKey:{challenge:rnd_d24(32),rpId:location.hostname,allowCredentials:[{type:'public-key',id:b64d(id),transports:['internal','hybrid']}],userVerification:'required',timeout:60000,extensions:{prf:{eval:{first:salt}}}}});
+ const x=a.getClientExtensionResults?a.getClientExtensionResults():{};return x.prf&&x.prf.results&&x.prf.results.first}
+async function fidEnable_d24(pw){const salt=rnd_d24(32);
+ const cred=await navigator.credentials.create({publicKey:{rp:{name:'Borna HQ',id:location.hostname},user:{id:rnd_d24(16),name:'borna',displayName:'Borna'},challenge:rnd_d24(32),pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,extensions:{prf:{eval:{first:salt}}}}});
+ const id=b64e(new Uint8Array(cred.rawId)),x=cred.getClientExtensionResults?cred.getClientExtensionResults():{};let out=x.prf&&x.prf.results&&x.prf.results.first;
+ if(!out&&x.prf&&x.prf.enabled){try{out=await fidAssert_d24(id,salt)}catch(e){}}
+ const rec={id,salt:b64e(salt),created:new Date().toISOString()};
+ if(out){const k=await prfKey_d24(new Uint8Array(out)),iv=rnd_d24(12);rec.prf=1;rec.iv=b64e(iv);rec.ct=b64e(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(pw))))}
+ else{rec.prf=0;rec.pw=b64e(new TextEncoder().encode(pw))}
+ ls.set(FID_d24,JSON.stringify(rec));ls.del(KEY);return rec}
+async function fidUnlock_d24(){const r=fidInfo_d24();if(!r)return;const btn=$('#fidbtn'),err=$('#err');if(btn){btn.disabled=true;btn.lastChild.textContent=' Checking…'}
+ try{const out=await fidAssert_d24(r.id,b64d(r.salt));let pw;
+  if(r.prf){if(!out)throw new Error('nokey');pw=new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(r.iv)},await prfKey_d24(new Uint8Array(out)),b64d(r.ct)))}
+  else pw=new TextDecoder().decode(b64d(r.pw));
+  await unlock(pw,false)}
+ catch(e){if(err)err.textContent=e.name==='NotAllowedError'?'Face ID was cancelled — tap to try again, or use your password.':'Face ID didn’t work — use your password.';if(btn){btn.disabled=false;btn.lastChild.textContent=' Unlock with Face ID'}}}
+(function(){const f=$('#lockform');if(!f||!fidInfo_d24())return;
+ f.insertAdjacentHTML('afterbegin','');const pw=$('#pw');pw.insertAdjacentHTML('beforebegin',`<button type="button" class="btn fidbtn" id="fidbtn"><svg viewBox="0 0 24 24" class="i"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1M15 9v1M12 9v4h-1M9 16s1 1 3 1 3-1 3-1"/></svg> Unlock with Face ID</button><div class="fidor">or use your password</div>`);
+ pw.required=false;$('#fidbtn').onclick=fidUnlock_d24;setTimeout(()=>{if(!D)fidUnlock_d24()},350)})();
+/* offer Face ID once after a password unlock */
+let fidAsked_d24=false;
+const _unlock_d24=unlock;unlock=async function(p,rem){await _unlock_d24(p,rem);if(fidAsked_d24||fidInfo_d24()||ls.get('hq.fidno'))return;fidAsked_d24=true;
+ if(!(await fidPlat_d24()))return;setTimeout(()=>{if($('#sheet').classList.contains('on'))return;sheet(`<div class="lvup"><div class="lvb fidbig">🙂</div><h2>Open with Face ID?</h2><p>Next time Borna HQ opens with your face — no password to type. Your password is locked on this phone with Face ID.</p><button class="btn2 pri" id="fidyes" style="width:100%">Turn on Face ID</button><button class="btn2 ghost" id="fidnot" style="width:100%;margin-top:8px">Not now</button></div>`);
+  $('#fidyes').onclick=async()=>{try{await fidEnable_d24(PW);closeSheet();confetti(40);toast('Face ID is on ✓')}catch(e){toast(e.name==='NotAllowedError'?'Cancelled':'Face ID not available here')}};
+  $('#fidnot').onclick=()=>{ls.set('hq.fidno','1');closeSheet()}},1200)};
+/* Settings switch */
+const _openSettings_d24=openSettings;openSettings=function(){_openSettings_d24();const s=$('#sheet h2');if(!s)return;const on=!!fidInfo_d24();
+ s.insertAdjacentHTML('afterend',`<div class="fidset"><span>🙂</span><div><b>Face ID login</b><small>${on?'On — the app opens with your face':'Open the app with Face ID instead of the password'}</small></div><button type="button" class="btn2 ${on?'':'pri'}" id="fidtog">${on?'Turn off':'Turn on'}</button></div>`);
+ $('#fidtog').onclick=async()=>{if(fidInfo_d24()){const r=fidInfo_d24();ls.del(FID_d24);if(PW&&r)ls.set(KEY,PW);toast('Face ID off');closeSheet();return}
+  if(!(await fidPlat_d24())){toast('Face ID isn’t available in this browser');return}try{await fidEnable_d24(PW);ls.del('hq.fidno');toast('Face ID is on ✓');closeSheet()}catch(e){toast(e.name==='NotAllowedError'?'Cancelled':'Could not turn on Face ID')}}};
+$('#settings').onclick=()=>openSettings();
+/* ask for Face ID again after 15 minutes away */
+let hid_d24=0;document.addEventListener('visibilitychange',()=>{if(document.hidden){hid_d24=Date.now();return}if(hid_d24&&fidInfo_d24()&&D&&Date.now()-hid_d24>15*60000)location.replace(location.pathname+'#today');hid_d24=0});
+
+/* 3. People: an empty field you never filled in must not hide a number Claude found */
+people=function(){const m={};(D.people||[]).forEach(p=>m[p.id]={...p,src:'claude'});
+ (U?.people||[]).forEach(p=>{const o={};Object.entries(p).forEach(([k,v])=>{if(v!==''&&v!=null)o[k]=v});m[p.id]={...(m[p.id]||{}),...o}});
+ return Object.values(m).filter(p=>!p.deleted&&p.name).sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name))};
+
+/* 4. Money: deals pipeline as clear bars instead of the log chart */
+const _draw_d24=draw;draw=function(pg){_draw_d24(pg);if(pg!=='money')return;const cv=$('#c-pipe');if(!cv)return;const box=cv.parentElement;
+ const L=moneyCalc().open.slice().sort((a,b)=>b.value*b.prob-a.value*a.prob),mx=Math.max(1,...L.map(d=>d.value||0));
+ box.style.height='auto';box.innerHTML=L.length?`<div class="pbars">${L.map(d=>{const ex=Math.round((d.value||0)*(d.prob||0)/100);return `<div class="pbar"><div class="pbt"><b>${esc(d.name)}</b><span>${aed(ex)} <small>expected</small></span></div><div class="pbtrack"><i style="width:${Math.max(2,(d.value||0)/mx*100)}%"></i><em style="width:${Math.max(1,ex/mx*100)}%"></em></div><div class="pbs">${d.prob||0}% chance · if it closes ${aed(d.value)}</div></div>`}).join('')}</div>`:empty('No open deals','brief')};
+
+/* 5. Today: Notes & Diary shortcuts near the top */
+const _renderToday_d24=renderToday;renderToday=function(G){_renderToday_d24(G);const t=$('#p-today .v8top'),q=$('#p-today .nquick');if(t&&q){const after=t.querySelector('.reward');(after||t.firstElementChild)?.after(q);
+ if(!q.querySelector('.nq3'))q.insertAdjacentHTML('beforeend',`<button type="button" class="nq2 nq3" data-x="dnew" data-voice="1">📔 Diary</button>`)}};
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

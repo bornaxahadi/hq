@@ -880,3 +880,18 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 .nq2{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:999px;padding:7px 12px;font-weight:700;font-size:12px}
 .nremind{display:flex;gap:8px;align-items:center;cursor:pointer;padding:11px 14px}.nremind .xs{margin-left:auto;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nwarn.soft{background:var(--card2);border-color:var(--line);opacity:.85;font-size:12px}
+
+/* v24 */
+.fidbtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;background:linear-gradient(135deg,#10b981,#22d3ee)!important}
+.fidbtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fidor{font-size:12px;opacity:.6;margin:2px 0 8px;text-align:center}
+.fidbig{font-size:40px}
+.fidset{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:var(--card2);border:1px solid var(--line);margin:0 0 12px}
+.fidset>span{font-size:26px}.fidset div{flex:1}.fidset small{display:block;opacity:.65;font-size:12px}
+.pbars{display:flex;flex-direction:column;gap:12px}
+.pbt{display:flex;justify-content:space-between;gap:8px;font-size:13px}.pbt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pbt span{color:#10b981;font-weight:800;white-space:nowrap}.pbt small{opacity:.6;font-weight:600;color:var(--muted)}
+.pbtrack{position:relative;height:12px;border-radius:999px;background:var(--card2);margin:6px 0 4px;overflow:hidden}
+.pbtrack i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:rgba(16,185,129,.28)}
+.pbtrack em{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,#10b981,#34d399)}
+.pbs{font-size:11.5px;opacity:.6}
+.nquick .nq3{margin-left:4px}
