@@ -1634,6 +1634,1046 @@ function fzCard(){const P=people(),f=P.find(x=>x.id==='p-farnaz')||P.find(x=>/fa
  return `<div class="card mb fzq"><div class="fzh"><b>💑 Message Farnaz</b>${num?'':`<button type="button" class="xs faint fzadd" data-person="${esc(f.id)}">Add her number ›</button>`}</div><div class="fzrow">${L.map(({m,i})=>`<a class="fzc${i===first?' on':''}" href="https://wa.me/${num}?text=${encodeURIComponent(m[2])}" target="_blank" rel="noopener">${m[0]} ${esc(m[1])}</a>`).join('')}</div></div>`}
 const _renderToday21=renderToday;renderToday=function(G){_renderToday21(G);const t=$('#p-today .v8top');if(!t)return;t.querySelectorAll('.fzq').forEach(x=>x.remove());const h=fzCard();if(!h)return;const x=document.createElement('div');x.innerHTML=h;t.insertBefore(x.firstElementChild,t.children[1]||null)};
 const _openTalk21=openTalk;openTalk=function(pre){_openTalk21(pre);const v=$('.tkv');if(v)v.textContent='App v21'};
+
+/* ================= v22: Dear diary · Notes (Evernote-style) · Vault · Refresh everything ================= */
+P.search=P.search||'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>';
+P.lock='<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>';
+P.note='<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4M8 12h8M8 16h6"/>';
+P.copy='<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>';
+P.eye2='<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+P.diary='<path d="M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M8 3v18M11 8h5M11 12h5"/>';
+
+/* ---------- storage: notes.enc (own file so the main data stays small) ---------- */
+let NB=null,nbLoaded=false,nbLoading=null,nbSha=null,nbTimer=null,nbSaving=false,nbAgain=false;
+const nbEmpty=()=>({v:1,notes:[],books:[{id:'b-personal',n:'Personal',e:'🗒️',updated:''},{id:'b-business',n:'Business',e:'💼',updated:''},{id:'b-ideas',n:'Ideas',e:'💡',updated:''},{id:'b-links',n:'Links',e:'🔗',updated:''}],diary:[],vault:null,updated:null});
+function nbMerge(a,b){a=a||nbEmpty();b=b||nbEmpty();const va=a.vault,vb=b.vault;
+ return{v:1,notes:mergeArr(a.notes,b.notes),books:mergeArr(a.books,b.books),diary:mergeArr(a.diary,b.diary),vault:(vb&&(!va||(vb.updated||'')>(va.updated||'')))?vb:(va||null),updated:(a.updated||'')>(b.updated||'')?a.updated:b.updated}}
+async function nbRemote(){
+ if(!TOKEN){const j=await pagesJSON('notes.enc');return j?dec(j):null}
+ const h={Authorization:'Bearer '+TOKEN};
+ const r=await fetch(API+'notes.enc?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github+json'},cache:'no-store'});
+ if(r.status===404){nbSha=null;return null}if(!r.ok)throw new Error('GitHub '+r.status);
+ const j=await r.json();nbSha=j.sha;let txt;
+ if(j.content&&j.encoding==='base64')txt=atob(j.content.replace(/\s/g,''));
+ else{const r2=await fetch(API+'notes.enc?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github.raw'},cache:'no-store'});txt=await r2.text()}
+ return dec(JSON.parse(txt))}
+function nbCache(){try{localStorage.setItem('hq.notes',JSON.stringify(NB))}catch(e){}}
+function loadNB(force){if(nbLoaded&&!force)return Promise.resolve(NB);if(nbLoading)return nbLoading;
+ nbLoading=(async()=>{let local=null;try{const t=ls.get('hq.notes');if(t)local=JSON.parse(t)}catch(e){}
+  if(!NB)NB=local||nbEmpty();let remote=null,ok=true;try{remote=await nbRemote()}catch(e){ok=false;console.warn(e)}
+  const before=JSON.stringify(remote);NB=nbMerge(remote,NB);nbLoaded=true;nbCache();
+  if(ok&&TOKEN&&JSON.stringify(NB)!==before&&(NB.notes.length||NB.diary.length||NB.vault))nbQueue(true);
+  nbLoading=null;return NB})();return nbLoading}
+function nbQueue(keepTime){if(!keepTime)NB.updated=new Date().toISOString();nbCache();if(!TOKEN)return;clearTimeout(nbTimer);nbTimer=setTimeout(nbSave,900)}
+async function nbSave(){if(nbSaving){nbAgain=true;return}nbSaving=true;
+ try{for(let i=0;i<3;i++){const remote=await nbRemote();const m=nbMerge(remote,NB);
+   try{nbSha=await ghPut('notes.enc',await enc(m),nbSha,'Notes from app');NB=m;nbCache();break}catch(e){if(e.status!==409&&e.status!==422)throw e}}}
+ catch(e){console.warn(e);toast('Notes saved on this phone — will sync later')}
+ nbSaving=false;if(nbAgain){nbAgain=false;nbSave()}}
+const nid=()=>'n'+uid();
+const nowISO=()=>new Date().toISOString();
+
+/* ---------- reusable dictation (tap mic → words appear in a text box) ---------- */
+let dict=null;
+function dictate(btn,ta,hint){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(dict){try{dict.stop()}catch(e){}return}
+ if(!SR){ta.focus();if(hint)hint.innerHTML='Tap the <b>🎙 key</b> on your keyboard and speak.';return}
+ let R;try{R=new SR()}catch(e){ta.focus();return}
+ dict=R;R.lang=ls.get('hq.lang')||'en-US';R.interimResults=true;R.continuous=!IOS;
+ const pre=ta.value.replace(/\s+$/,'');let fin='';
+ R.onstart=()=>{btn.classList.add('on');if(hint)hint.textContent='🔴 Listening… tap the mic to stop'};
+ R.onresult=e=>{let im='';for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)fin+=r[0].transcript+' ';else im+=r[0].transcript}
+  ta.value=(pre?pre+(pre.endsWith('\n')?'':' '):'')+(fin+im).trim();ta.dispatchEvent(new Event('input'))};
+ R.onerror=e=>{dict=null;btn.classList.remove('on');if(hint)hint.innerHTML=(e.error==='not-allowed'||e.error==='service-not-allowed')?'Microphone is blocked — allow it in Settings, or use the 🎙 key on your keyboard.':e.error==='no-speech'?'I didn’t hear anything — tap the mic again.':''};
+ R.onend=()=>{dict=null;btn.classList.remove('on');if(hint&&hint.textContent.startsWith('🔴'))hint.textContent='✓ Done — edit if needed, then save.'};
+ try{R.start()}catch(e){dict=null}}
+function stopDict(){if(dict){try{dict.stop()}catch(e){}}}
+const micLangs=()=>`<div class="miclang sm2">${[['en-US','EN'],['fa-IR','فارسی'],['ar-AE','عربي']].map(([l,n])=>`<button type="button" class="${(ls.get('hq.lang')||'en-US')===l?'on':''}" data-x="miclang" data-l="${l}">${n}</button>`).join('')}</div>`;
+
+/* ---------- helpers ---------- */
+const linkify=t=>esc(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>').replace(/\n/g,'<br>');
+const snip=(t,n=140)=>{t=(t||'').replace(/\s+/g,' ').trim();return t.length>n?t.slice(0,n)+'…':t};
+const PWD_RX=/\b(pass(word)?|pwd|pin|رمز|پسورد)\b\s*[:=]/i;
+
+/* =========================================================
+   DEAR DIARY
+   ========================================================= */
+const DMOOD=['😢','😕','😐','🙂','😄','🤩'];
+function diaryOn(d){return (NB?.diary||[]).filter(x=>!x.deleted&&x.date===d).sort((a,b)=>(a.at||'').localeCompare(b.at||''))}
+function diaryStreak(){const ds=new Set((NB?.diary||[]).filter(x=>!x.deleted).map(x=>x.date));let s=0,d=nowD().date;if(!ds.has(d))d=addDays(d,-1);while(ds.has(d)&&s<999){s++;d=addDays(d,-1)}return s}
+let diaryDay=null;
+function diaryEntryHTML(e){return `<div class="dentry" data-x="dedit" data-id="${e.id}"><div class="dmeta"><span class="dmood">${e.mood!=null?DMOOD[e.mood]:'📝'}</span><span>${esc(new Date(e.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}))}</span>${e.voice?'<span class="pill2">🎙 spoken</span>':''}</div>${e.photo?`<img class="dphoto" src="${e.photo}" alt="">`:''}<div class="dtext">${linkify(e.text||'')}</div></div>`}
+function diaryPanel(compact){if(!NB)return `<div class="faint sm">Loading your diary…</div>`;const n=nowD().date;diaryDay=diaryDay||n;
+ const days=Array.from({length:14},(_,i)=>addDays(n,-i));const E=diaryOn(diaryDay),st=diaryStreak();
+ return `<div class="dstrip">${days.map(d=>{const c=diaryOn(d).length;return `<button type="button" class="dday ${d===diaryDay?'on':''} ${c?'has':''}" data-x="dday" data-d="${d}"><small>${fd(d,{weekday:'short'}).slice(0,2)}</small><b>${fd(d,{day:'numeric'})}</b><i></i></button>`}).join('')}</div>
+ <div class="dhead"><b>${diaryDay===n?'Today':fd(diaryDay,{weekday:'long',day:'numeric',month:'short'})}</b>${st?`<span class="pill2 fire">🔥 ${st}-day streak</span>`:''}</div>
+ ${E.length?E.map(diaryEntryHTML).join(''):`<div class="dempty">${diaryDay===n?'Nothing yet today. What was memorable?':'No entry for this day.'}</div>`}
+ <div class="dbtns"><button type="button" class="btn2 pri" data-x="dnew" data-voice="1">🎙 Speak</button><button type="button" class="btn2" data-x="dnew">✍️ Write</button></div>`}
+function openDiary(id,voice,date){const e=(NB.diary||[]).find(x=>x.id===id)||{date:date||diaryDay||nowD().date};let photo=e.photo||'';
+ sheet(head(id?'Diary entry':'Dear diary','diary','bg-p')+`<div class="sm muted" style="margin:-6px 0 10px">${fd(e.date,{weekday:'long',day:'numeric',month:'long'})}</div>
+ <div class="fld"><label>How was it?</label><div class="dmoods">${DMOOD.map((m,i)=>`<button type="button" class="${e.mood===i?'on':''}" data-x="dmood" data-v="${i}">${m}</button>`).join('')}</div></div>
+ <div class="fld"><label>Write or speak</label><div class="dwrap"><textarea id="dtext" class="inp" rows="7" placeholder="Dear diary, today…">${esc(e.text||'')}</textarea><button type="button" class="tk-mic dmic" id="dmic" aria-label="Speak">${ic('mic')}</button></div><div class="tk-hint" id="dhint"></div>${micLangs()}</div>
+ <div class="fld"><label>Photo (optional)</label><div class="dphrow">${photo?`<img class="dphoto sm" id="dph" src="${photo}">`:'<span id="dph"></span>'}<label class="btn2 sm">📷 Add photo<input type="file" accept="image/*" id="dfile" hidden></label></div></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="ddel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="dsave">Save</button></div>`);
+ const ta=$('#dtext'),mb=$('#dmic'),hint=$('#dhint');let mood=e.mood,spoke=!!e.voice;
+ mb.onclick=()=>{spoke=true;dictate(mb,ta,hint)};
+ $$('#sheet [data-x="dmood"]').forEach(b=>b.onclick=()=>{mood=+b.dataset.v;$$('#sheet [data-x="dmood"]').forEach(x=>x.classList.toggle('on',x===b))});
+ $('#dfile').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;photo=await shrinkImg(f);$('#dph').outerHTML=`<img class="dphoto sm" id="dph" src="${photo}">`};
+ $('#dsave').onclick=()=>{stopDict();const text=ta.value.trim();if(!text&&!photo){ta.focus();return}const t=nowISO();
+  if(id){Object.assign(e,{text,mood,photo,voice:spoke,updated:t})}else{NB.diary.push({id:nid(),date:e.date,text,mood,photo,voice:spoke,at:t,created:t,updated:t});xpFly($('#dsave'),'+3 XP')}
+  nbQueue();closeSheet();refreshDiaryViews();toast(id?'Updated ✓':'Saved to your diary 📔')};
+ if(voice)setTimeout(()=>mb.click(),250)}
+function refreshDiaryViews(){$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel());const pg=curPage();if(pg==='today')rerender();if(pg==='notes'&&nTab==='diary')renderNotes()}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="dday"],[data-x="dnew"],[data-x="dedit"],[data-x="ddel"]');if(!a)return;const x=a.dataset.x;
+ if(x==='dday'){diaryDay=a.dataset.d;$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel());if(curPage()==='notes')renderNotes();return}
+ if(x==='dnew'){loadNB().then(()=>openDiary(null,!!a.dataset.voice));return}
+ if(x==='dedit'){openDiary(a.dataset.id);return}
+ if(x==='ddel'){if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const it=NB.diary.find(z=>z.id===a.dataset.id);if(it){it.deleted=true;it.updated=nowISO();nbQueue()}closeSheet();refreshDiaryViews();toast('Deleted')}});
+const _habXP22=habXP;habXP=function(){let x=_habXP22();if(NB)x+=new Set((NB.diary||[]).filter(d=>!d.deleted).map(d=>d.date)).size*3;return x};
+
+/* Calendar: Dear diary card at the top + 📔 on today */
+const _renderCalendar22=renderCalendar;renderCalendar=function(){_renderCalendar22();const el=$('#p-calendar');if(!el)return;
+ const pt=el.querySelector('.pt');if(pt)pt.insertAdjacentHTML('afterend',`<div class="card mb diarycard"><div class="ch"><div class="ic bg-p">${ic('diary')}</div><h3>Dear diary</h3><span class="aside xs faint">notes & memorable moments</span></div><div class="diarybox">${diaryPanel()}</div></div>`);
+ if(!nbLoaded)loadNB().then(()=>$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel()))};
+
+/* Today: evening prompt */
+const _renderToday22=renderToday;renderToday=function(G){_renderToday22(G);const el=$('#p-today');if(!el)return;
+ if(!nbLoaded){loadNB().then(()=>{if(curPage()==='today')rerender()});return}
+ const h=new Date().getHours(),n=nowD().date,E=diaryOn(n);if(h<19&&!E.length)return;
+ const html=E.length?`<div class="card mb diaryask done"><div class="da-ic">📔</div><div class="da-t"><b>Diary · ${E.length} note${E.length>1?'s':''} today</b><div class="xs faint">${esc(snip(E[E.length-1].text,70))}</div></div><button type="button" class="btn2" data-x="dnew" data-voice="1">🎙 Add</button></div>`
+  :`<div class="card mb diaryask"><div class="da-ic">📔</div><div class="da-t"><b>Dear diary…</b><div class="xs faint">Anything memorable today? Say it in 20 seconds.</div></div><button type="button" class="btn2 pri" data-x="dnew" data-voice="1">🎙 Speak</button></div>`;
+ const t=el.querySelector('.v8top');if(t)t.insertAdjacentHTML('afterend',html);else el.insertAdjacentHTML('afterbegin',html)};
+
+/* =========================================================
+   NOTES PAGE (Evernote-style) + VAULT
+   ========================================================= */
+PAGES.splice(PAGES.findIndex(p=>p.id==='calendar')+1,0,{id:'notes',l:'Notes',i:'note'});
+(function(){if($('#p-notes'))return;const s=document.createElement('section');s.className='page';s.id='p-notes';($('#p-calendar')||$('#p-today')).after(s)})();
+let nTab='notes',nBook='all',nQ='',nPwdOnly=false;
+function books(){return (NB.books||[]).filter(b=>!b.deleted)}
+function notesList(){return (NB.notes||[]).filter(n=>!n.deleted)}
+function noteCard(n){const b=books().find(x=>x.id===n.nb);return `<div class="ncard ${n.pinned?'pin':''}" data-x="nopen" data-id="${n.id}"><div class="nt">${n.pinned?'📌 ':''}${esc(n.title||'Untitled')}</div><div class="ns">${esc(snip(n.body))}</div><div class="nm">${b?`<span>${b.e} ${esc(b.n)}</span>`:''}${(n.tags||[]).slice(0,3).map(t=>`<span class="tag">#${esc(t)}</span>`).join('')}${PWD_RX.test(n.body||'')?'<span class="tag warn">🔑</span>':''}<span class="faint">${(Date.now()-new Date(n.updated||n.created))>30*864e5?fd((n.updated||n.created).slice(0,10)):ago(n.updated||n.created)}</span></div></div>`}
+function filteredNotes(){const q=nQ.toLowerCase();return notesList().filter(n=>(nBook==='all'||n.nb===nBook)&&(!nPwdOnly||PWD_RX.test(n.body||''))&&(!q||(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)||(n.tags||[]).join(' ').toLowerCase().includes(q))).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||(b.updated||'').localeCompare(a.updated||''))}
+function renderNotesList(){const box=$('#nlist');if(!box)return;const L=filteredNotes();box.innerHTML=L.length?L.map(noteCard).join(''):`<div class="dempty">${nQ?'No notes match “'+esc(nQ)+'”':'No notes here yet — tap + New note.'}</div>`}
+function renderNotes(){const el=$('#p-notes');if(!el||!D)return;
+ if(!nbLoaded){el.innerHTML=`<div class="pt">Notes</div><div class="card"><div class="faint">Loading your notes…</div></div>`;loadNB().then(renderNotes);return}
+ const N=notesList(),pw=N.filter(n=>PWD_RX.test(n.body||'')).length,vn=NB.vault?.n||0;
+ el.innerHTML=`<div class="pt">Notes <span>${N.length} notes · ${books().length} notebooks</span></div>
+ <div class="ntabs"><button type="button" class="${nTab==='notes'?'on':''}" data-x="ntab" data-t="notes">${ic('note')} Notes</button><button type="button" class="${nTab==='diary'?'on':''}" data-x="ntab" data-t="diary">${ic('diary')} Diary</button><button type="button" class="${nTab==='vault'?'on':''}" data-x="ntab" data-t="vault">${ic('lock')} Vault${vn?` <small>${vn}</small>`:''}</button></div>
+ ${nTab==='notes'?`
+  <div class="nsearch">${ic('search')}<input id="nq" class="inp" placeholder="Search all notes…" value="${esc(nQ)}"></div>
+  <div class="nbooks"><button type="button" class="${nBook==='all'?'on':''}" data-x="nbook" data-b="all">All <small>${N.length}</small></button>${books().map(b=>`<button type="button" class="${nBook===b.id?'on':''}" data-x="nbook" data-b="${b.id}">${b.e} ${esc(b.n)} <small>${N.filter(n=>n.nb===b.id).length}</small></button>`).join('')}<button type="button" class="addb" data-x="nbnew">+ Notebook</button></div>
+  ${pw&&!nPwdOnly?`<div class="nwarn" data-x="npwd">🔑 ${pw} note${pw>1?'s look':' looks'} like ${pw>1?'they contain':'it contains'} passwords — move them to the encrypted Vault ›</div>`:''}${nPwdOnly?`<div class="nwarn" data-x="npwd">Showing notes with passwords · tap to show all</div>`:''}
+  <div class="nact"><button type="button" class="bigadd" data-x="nnew">${ic('plus')}New note</button><button type="button" class="bigadd alt2" data-x="nnew" data-voice="1">${ic('mic')}Voice note</button><label class="bigadd alt3">${ic('down')}Import Evernote<input type="file" accept=".enex,application/xml,text/xml" id="enex" hidden multiple></label></div>
+  <div class="nlist" id="nlist"></div>`
+ :nTab==='diary'?`<div class="card"><div class="diarybox">${diaryPanel()}</div></div>`
+ :vaultHTML()}`;
+ if(nTab==='notes'){renderNotesList();const q=$('#nq');q.oninput=()=>{nQ=q.value;renderNotesList()};$('#enex').onchange=ev=>importEnex(ev.target.files)}
+ if(nTab==='vault')wireVault()}
+PAGEFN.notes=()=>renderNotes();
+const _draw22=draw;draw=function(pg){_draw22(pg);if(pg==='notes'&&!$('#p-notes .ntabs'))renderNotes()};
+
+function openNote(id,voice){const n=(NB.notes||[]).find(x=>x.id===id)||{nb:nBook!=='all'?nBook:'b-personal',tags:[]};let nb=n.nb,pin=!!n.pinned;
+ sheet(head(id?'Note':'New note','note','bg-v')+`
+ <input id="ntitle" class="inp ntitle" placeholder="Title" value="${esc(n.title||'')}">
+ <div class="dwrap"><textarea id="nbody" class="inp nbody" rows="12" placeholder="Write anything — text, emails, links…">${esc(n.body||'')}</textarea><button type="button" class="tk-mic dmic" id="nmic" aria-label="Dictate">${ic('mic')}</button></div><div class="tk-hint" id="nhint"></div>
+ <div class="nlinks" id="nlinks"></div>
+ <div class="fld"><label>Notebook</label><div class="nbooks sm2">${books().map(b=>`<button type="button" class="${nb===b.id?'on':''}" data-nb="${b.id}">${b.e} ${esc(b.n)}</button>`).join('')}</div></div>
+ <div class="fld"><label>Tags</label><input id="ntags" class="inp" placeholder="e.g. travel, watches" value="${esc((n.tags||[]).join(', '))}"></div>
+ <label class="chk"><input type="checkbox" id="npin" ${pin?'checked':''}> 📌 Pin to top</label>
+ ${id&&PWD_RX.test(n.body||'')?`<button type="button" class="btn2" style="width:100%;margin-top:10px" data-x="n2vault" data-id="${id}">${ic('lock')} Move to Vault (encrypted)</button>`:''}
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="ndel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="nsave">Save</button></div>
+ ${id?`<div class="xs faint" style="margin-top:8px;text-align:center">Created ${fd((n.created||'').slice(0,10)||nowD().date)} · edited ${ago(n.updated)}</div>`:''}`);
+ const body=$('#nbody'),links=$('#nlinks');
+ const showLinks=()=>{const L=(body.value.match(/https?:\/\/[^\s]+/g)||[]).slice(0,6);links.innerHTML=L.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(u.replace(/^https?:\/\//,'').slice(0,40))}</a>`).join('')};showLinks();body.addEventListener('input',showLinks);
+ $('#nmic').onclick=()=>dictate($('#nmic'),body,$('#nhint'));
+ $$('#sheet [data-nb]').forEach(b=>b.onclick=()=>{nb=b.dataset.nb;$$('#sheet [data-nb]').forEach(x=>x.classList.toggle('on',x===b))});
+ $('#nsave').onclick=()=>{stopDict();const title=$('#ntitle').value.trim(),text=body.value;if(!title&&!text.trim()){closeSheet();return}const t=nowISO();
+  const tags=$('#ntags').value.split(',').map(s=>s.trim().replace(/^#/,'')).filter(Boolean);
+  if(id)Object.assign(n,{title,body:text,nb,tags,pinned:$('#npin').checked,updated:t});else NB.notes.push({id:nid(),title,body:text,nb,tags,pinned:$('#npin').checked,created:t,updated:t});
+  nbQueue();closeSheet();if(curPage()==='notes')renderNotes();toast('Saved ✓')};
+ if(voice)setTimeout(()=>$('#nmic').click(),250);else if(!id)setTimeout(()=>$('#ntitle').focus(),200)}
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x^="n"]');if(!a)return;const x=a.dataset.x;
+ if(x==='ntab'){nTab=a.dataset.t;renderNotes();return}
+ if(x==='nbook'){nBook=a.dataset.b;renderNotes();return}
+ if(x==='npwd'){nPwdOnly=!nPwdOnly;nBook='all';renderNotes();return}
+ if(x==='nnew'){openNote(null,!!a.dataset.voice);return}
+ if(x==='nopen'){openNote(a.dataset.id);return}
+ if(x==='nbnew'){sheet(head('New notebook','note','bg-v')+`<div class="fld"><label>Emoji</label><div class="dmoods">${['📒','✈️','🏠','⌚','🐠','🎨','💰','👨‍👩‍👧','📚','🧠'].map((m,i)=>`<button type="button" class="${i?'':'on'}" data-em="${m}">${m}</button>`).join('')}</div></div><div class="fld"><label>Name</label><input id="nbname" class="inp" maxlength="24" placeholder="e.g. Travel"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="nbsave">Create</button></div>`);
+  $$('#sheet [data-em]').forEach(b=>b.onclick=()=>$$('#sheet [data-em]').forEach(z=>z.classList.toggle('on',z===b)));
+  $('#nbsave').onclick=()=>{const n=$('#nbname').value.trim();if(!n)return;const id='b-'+uid();NB.books.push({id,n,e:$('#sheet [data-em].on')?.dataset.em||'📒',updated:nowISO()});nbQueue();nBook=id;closeSheet();renderNotes()};return}
+ if(x==='ndel'){if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const n=NB.notes.find(z=>z.id===a.dataset.id);if(n){n.deleted=true;n.updated=nowISO();nbQueue()}closeSheet();renderNotes();toast('Note deleted');return}
+ if(x==='n2vault'){const n=NB.notes.find(z=>z.id===a.dataset.id);if(!n)return;if(!VK){closeSheet();nTab='vault';vPending=n.id;renderNotes();toast('Unlock the Vault first — then the note moves in');return}moveToVault(n);closeSheet();return}});
+
+/* ---------- Evernote import (.enex export files) ---------- */
+function enmlText(html){const d=new DOMParser().parseFromString('<div>'+String(html||'').replace(/<\?xml[^>]*>|<!DOCTYPE[^>]*>/gi,'').replace(/<\/?en-note[^>]*>/gi,'')+'</div>','text/html');
+ d.querySelectorAll('br').forEach(b=>b.replaceWith('\n'));d.querySelectorAll('div,p,li,h1,h2,h3,tr').forEach(b=>b.append('\n'));d.querySelectorAll('a[href]').forEach(a=>{const h=a.getAttribute('href');if(h&&/^https?:/.test(h)&&!a.textContent.includes(h))a.append(' ('+h+')')});
+ d.querySelectorAll('en-todo').forEach(t=>t.replaceWith(t.getAttribute('checked')==='true'?'☑ ':'☐ '));d.querySelectorAll('en-media').forEach(m=>m.replaceWith('[attachment]'));
+ return d.body.textContent.replace(/\n{3,}/g,'\n\n').trim()}
+const enDate=s=>{const m=/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)/.exec(s||'');return m?`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`:nowISO()};
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return (h>>>0).toString(36)}
+async function importEnex(files){if(!files||!files.length)return;let added=0,skipped=0,pw=0;
+ for(const f of files){const xml=new DOMParser().parseFromString(await f.text(),'text/xml');const bn=f.name.replace(/\.enex$/i,'').slice(0,24)||'Evernote';
+  let book=books().find(b=>b.n.toLowerCase()===bn.toLowerCase());if(!book){book={id:'b-'+uid(),n:bn,e:'🐘',updated:nowISO()};NB.books.push(book)}
+  xml.querySelectorAll('note').forEach(no=>{const title=no.querySelector('title')?.textContent||'Untitled',cr=enDate(no.querySelector('created')?.textContent),up=enDate(no.querySelector('updated')?.textContent||no.querySelector('created')?.textContent);
+   const id='ev'+hashStr(title+cr);if(NB.notes.some(n=>n.id===id)){skipped++;return}
+   let body=enmlText(no.querySelector('content')?.textContent);if(body.length>30000)body=body.slice(0,30000)+'\n…(trimmed)';
+   const src=no.querySelector('note-attributes source-url')?.textContent;if(src&&!body.includes(src))body+='\n\n'+src;
+   if(PWD_RX.test(body))pw++;
+   NB.notes.push({id,title,body,nb:book.id,tags:[...no.querySelectorAll('tag')].map(t=>t.textContent).slice(0,8),created:cr,updated:up,from:'evernote'});added++})}
+ nbQueue();nBook='all';renderNotes();
+ sheet(head('Evernote import','note','bg-g')+`<div class="lvup"><div class="lvb">🐘 ${added}</div><h2>${added} notes imported</h2><p>${skipped?skipped+' already here (skipped). ':''}Pictures and attachments stay in Evernote — the text, links and tags are here.${pw?`<br><br>🔑 <b>${pw}</b> look like they contain passwords. Open them and tap <b>Move to Vault</b> so they’re locked with your own Vault password.`:''}</p><button class="btn2 pri" data-act="close" style="width:100%">Done</button></div>`);
+ confetti(50)}
+
+/* ---------- VAULT: passwords encrypted with a separate master password only you know ---------- */
+let VK=null,VI=null,vTimer=null,vQ='',vPending=null;
+async function vKey(pass,salt){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt:b64d(salt),iterations:400000},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function vSeal(){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},VK.k,new TextEncoder().encode(JSON.stringify(VI))));
+ NB.vault={salt:VK.salt,iv:b64e(iv),ct:b64e(ct),n:VI.filter(x=>!x.deleted).length,updated:nowISO()};nbQueue()}
+function vLock(msg){VK=null;VI=null;clearTimeout(vTimer);if(curPage()==='notes'&&nTab==='vault')renderNotes();if(msg)toast(msg)}
+function vArm(){clearTimeout(vTimer);vTimer=setTimeout(()=>vLock('Vault locked 🔒'),3*60*1000)}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&VK)vLock()});
+function vaultHTML(){const V=NB.vault;
+ if(!VK)return `<div class="card vlock"><div class="vl-ic">${ic('lock')}</div>${V?`<h3>Vault is locked</h3><p class="sm muted">${V.n||0} saved logins. Enter your Vault password.</p>`:`<h3>Create your Vault</h3><p class="sm muted">Store passwords, emails, PINs and links. Everything is encrypted on this phone with a <b>Vault password only you know</b> — not even Claude can read it.<br><br>⚠️ If you forget it, the Vault can’t be recovered. Pick something memorable.</p>`}
+  <input type="password" id="vpw" class="inp" placeholder="Vault password" autocomplete="current-password">${V?'':'<input type="password" id="vpw2" class="inp" placeholder="Repeat Vault password" style="margin-top:8px">'}
+  <div class="tk-hint" id="vmsg"></div><button type="button" class="btn2 pri" id="vgo" style="width:100%;margin-top:8px">${V?'Unlock':'Create Vault'}</button></div>`;
+ const L=VI.filter(x=>!x.deleted&&(!vQ||[x.t,x.u,x.url,x.n].join(' ').toLowerCase().includes(vQ.toLowerCase()))).sort((a,b)=>(a.t||'').localeCompare(b.t||''));
+ return `<div class="vbar"><div class="nsearch">${ic('search')}<input id="vq" class="inp" placeholder="Search logins…" value="${esc(vQ)}"></div><button type="button" class="btn2" data-x="vlock">${ic('lock')} Lock</button></div>
+ <button type="button" class="bigadd" data-x="vnew" style="width:100%;margin-bottom:12px">${ic('plus')}Add login / secret</button>
+ <div class="vlist">${L.length?L.map(x=>`<div class="vrow"><div class="vav">${esc((x.t||'?').slice(0,1).toUpperCase())}</div><div class="vtx" data-x="vedit" data-id="${x.id}"><b>${esc(x.t||'Untitled')}</b><small>${esc(x.u||x.url||'')}</small></div>${x.u?`<button type="button" class="vbtn" data-x="vcopy" data-id="${x.id}" data-f="u" title="Copy username">👤</button>`:''}${x.p?`<button type="button" class="vbtn" data-x="vcopy" data-id="${x.id}" data-f="p" title="Copy password">${ic('key')}</button>`:''}${x.url?`<a class="vbtn" href="${esc(/^https?:/.test(x.url)?x.url:'https://'+x.url)}" target="_blank" rel="noopener noreferrer">↗</a>`:''}</div>`).join(''):`<div class="dempty">${vQ?'Nothing matches.':'Empty — add your first login.'}</div>`}</div>
+ <div class="xs faint" style="text-align:center;margin-top:10px">🔒 Locks automatically after 3 minutes or when you leave the app.</div>`}
+function wireVault(){const go=$('#vgo');if(go){const pw=$('#vpw');pw.focus();pw.onkeydown=e=>{if(e.key==='Enter')go.click()};
+  go.onclick=async()=>{const p=pw.value,msg=$('#vmsg');if(p.length<4){msg.textContent='At least 4 characters.';return}
+   go.disabled=true;go.textContent='…';
+   try{const V=NB.vault;if(!V){if(p!==$('#vpw2').value){msg.textContent='The two passwords don’t match.';go.disabled=false;go.textContent='Create Vault';return}
+     const salt=b64e(crypto.getRandomValues(new Uint8Array(16)));VK={k:await vKey(p,salt),salt};VI=[];await vSeal();toast('Vault created 🔒')}
+    else{const k=await vKey(p,V.salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(V.iv)},k,b64d(V.ct));VI=JSON.parse(new TextDecoder().decode(pt));VK={k,salt:V.salt}}
+    vArm();if(vPending){const n=NB.notes.find(z=>z.id===vPending);vPending=null;if(n){moveToVault(n);return}}renderNotes()}
+   catch(e){msg.textContent='Wrong Vault password.';go.disabled=false;go.textContent='Unlock';if(navigator.vibrate)navigator.vibrate([30,40,30])}};return}
+ const q=$('#vq');if(q)q.oninput=()=>{vQ=q.value;vArm();const pos=q.selectionStart;renderNotes();const q2=$('#vq');q2.focus();q2.setSelectionRange(pos,pos)}}
+function genPw(n=16){const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';const r=crypto.getRandomValues(new Uint32Array(n));return [...r].map(x=>c[x%c.length]).join('')}
+function openVaultItem(id){vArm();const x=VI.find(z=>z.id===id)||{};
+ sheet(head(id?esc(x.t||'Login'):'New login','lock','bg-o')+`
+ <div class="fld"><label>Name</label><input id="vt" class="inp" value="${esc(x.t||'')}" placeholder="e.g. Gmail, Emirates NBD app, Wi-Fi"></div>
+ <div class="fld"><label>Username / email</label><input id="vu" class="inp" value="${esc(x.u||'')}" autocomplete="off" autocapitalize="off"></div>
+ <div class="fld"><label>Password</label><div class="vpw"><input id="vp" class="inp" type="password" value="${esc(x.p||'')}" autocomplete="off"><button type="button" class="vbtn" id="vshow">${ic('eye2')}</button><button type="button" class="vbtn" id="vgen" title="Generate">🎲</button></div></div>
+ <div class="fld"><label>Website / link</label><input id="vurl" class="inp" value="${esc(x.url||'')}" autocapitalize="off" placeholder="https://"></div>
+ <div class="fld"><label>Notes (PIN, security questions…)</label><textarea id="vn" class="inp" rows="3">${esc(x.n||'')}</textarea></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="vdel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="vsave">Save</button></div>`);
+ $('#vshow').onclick=()=>{const p=$('#vp');p.type=p.type==='password'?'text':'password'};
+ $('#vgen').onclick=()=>{const p=$('#vp');p.value=genPw();p.type='text'};
+ $('#vsave').onclick=async()=>{if(!VK){closeSheet();toast('Vault locked — unlock and try again');return}const t=nowISO(),o={t:$('#vt').value.trim(),u:$('#vu').value.trim(),p:$('#vp').value,url:$('#vurl').value.trim(),n:$('#vn').value,updated:t};
+  if(!o.t&&!o.u&&!o.p)return;if(id)Object.assign(x,o);else VI.push({id:'v'+uid(),created:t,...o});await vSeal();closeSheet();renderNotes();toast('Saved in Vault 🔒')}}
+async function moveToVault(n){VI.push({id:'v'+uid(),t:n.title||'From notes',u:'',p:'',url:((n.body||'').match(/https?:\/\/[^\s]+/)||[''])[0],n:n.body,created:nowISO(),updated:nowISO()});await vSeal();
+ n.deleted=true;n.updated=nowISO();nbQueue();nTab='vault';renderNotes();toast('Moved to Vault 🔒 — removed from notes')}
+document.addEventListener('click',async e=>{const a=e.target.closest('[data-x^="v"]');if(!a||!a.dataset.x)return;const x=a.dataset.x;if(!['vnew','vedit','vcopy','vlock','vdel'].includes(x))return;
+ if(x==='vlock'){vLock('Vault locked 🔒');return}if(!VK){vLock();return}
+ if(x==='vnew'){openVaultItem(null);return}if(x==='vedit'){openVaultItem(a.dataset.id);return}
+ if(x==='vcopy'){vArm();const it=VI.find(z=>z.id===a.dataset.id);if(!it)return;try{await navigator.clipboard.writeText(it[a.dataset.f]||'');toast(a.dataset.f==='p'?'Password copied · clears in 30s':'Username copied');if(a.dataset.f==='p')setTimeout(()=>navigator.clipboard.writeText('').catch(()=>{}),30000)}catch(err){toast('Could not copy')}return}
+ if(x==='vdel'){if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const it=VI.find(z=>z.id===a.dataset.id);if(it){it.deleted=true;it.updated=nowISO();await vSeal()}closeSheet();renderNotes();toast('Deleted')}});
+const _closeSheet22=closeSheet;closeSheet=function(){stopDict();return _closeSheet22.apply(this,arguments)};
+
+/* =========================================================
+   REFRESH EVERYTHING (live data)
+   ========================================================= */
+function freshRows(){const sw=D.sweeps;const lastSweep=Array.isArray(sw)?sw.map(s=>s.at||s.date||s.time||'').sort().pop():(sw&&typeof sw==='object'?Object.values(sw).map(v=>(v&&(v.at||v.updated))||v).filter(v=>typeof v==='string').sort().pop():'');
+ return [['📈','Social numbers',D.social_updated,'every 30 min'],['💬','WhatsApp & email sweep',lastSweep||D.inbox_status?.checked||D.inbox_status?.updated,'5× a day'],['🛍️','Shopping',(D.shop_summary||{}).updated,'twice a day'],['🧠','All app data',D.updated,'live']].filter(r=>r[2])}
+function nextSocial(){const d=new Date(),m=d.getMinutes(),add=m<10?10-m:m<40?40-m:70-m;const t=new Date(d.getTime()+add*60000);return t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+function openRefresh(){sheet(head('Live data','refresh','bg-grad')+`<div class="frows">${freshRows().map(([e,n,t,f])=>`<div class="frow"><span class="fe">${e}</span><div><b>${n}</b><small>checked ${ago(t)} · ${f}</small></div><i class="fdot ${(Date.now()-new Date(t))<45*60000?'g':(Date.now()-new Date(t))<4*3600000?'a':'r'}"></i></div>`).join('')}</div>
+ <button type="button" class="btn2 pri" id="rfall" style="width:100%;margin-top:12px">${ic('refresh')} Refresh everything now</button>
+ <div class="xs faint" style="margin-top:10px">Pulls the newest data straight from your account (no cache). Claude re-checks your social accounts every 30 minutes — next check at ${nextSocial()}. Instagram only reports <b>organic</b> views; paid (boosted) views show in the Instagram app.</div>`);
+ $('#rfall').onclick=async()=>{const b=$('#rfall');b.disabled=true;b.innerHTML=ic('refresh')+' Refreshing…';await refreshAll(true);closeSheet()}}
+let rfBusy=false,lastRf=Date.now();
+async function refreshAll(loud){if(rfBusy)return;rfBusy=true;const before=D.updated;
+ try{let blob=null;if(TOKEN){try{blob=(await ghGet('data.enc'))?.json}catch(e){}}if(!blob)blob=await pagesJSON('data.enc');
+  D=await dec(blob);await loadUser();try{SH=null;if(typeof loadShop==='function')await loadShop(true)}catch(e){}try{await loadNB(true)}catch(e){}
+  render();lastRf=Date.now();if(loud)toast(D.updated!==before?'Updated ✓ newest data loaded':'Already up to date ✓ · '+ago(D.updated))}
+ catch(e){console.warn(e);if(loud)toast('Could not refresh — check your connection')}rfBusy=false}
+(function(){const r=$('#refresh');if(r){const nb=r.cloneNode(true);r.replaceWith(nb);nb.innerHTML=ic('refresh');nb.onclick=openRefresh}})();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&D&&Date.now()-lastRf>5*60000)refreshAll(false)});
+setInterval(()=>{if(!document.hidden&&D&&Date.now()-lastRf>10*60000)refreshAll(false)},60000);
+document.addEventListener('click',e=>{const s=e.target.closest('.fresh');if(s){e.preventDefault();openRefresh()}});
+const _openTalk22=openTalk;openTalk=function(pre){_openTalk22(pre);const v=$('.tkv');if(v)v.textContent='App v22'};
+
+/* ================= v23: Notes easy to find + Evernote-style home, templates, checklists, copy ================= */
+/* 1. Put Notes right after Today in the bottom bar and rebuild the bars (v22 forgot this) */
+(function(){const i=PAGES.findIndex(p=>p.id==='notes');if(i>-1){const [n]=PAGES.splice(i,1);PAGES.splice(1,0,n)}
+ buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p})})();
+/* + sheet: New note / Voice note at the top */
+if($('#fab'))$('#fab').onclick=()=>openActions();
+const _openActions_n23=openActions;openActions=function(){_openActions_n23();const a=$('#sheet .actions');if(!a)return;
+ a.insertAdjacentHTML('afterbegin',`<button class="action" data-x="nnew"><span class="qi bg-v">${ic('note')}</span><b>New note</b><small>Text, emails, links, lists</small></button><button class="action" data-x="dnew" data-voice="1"><span class="qi bg-p">${ic('diary')}</span><b>Dear diary</b><small>Say what happened today</small></button>`)};
+
+/* 2. Templates */
+const NTPL=[['📝','Blank','',''],['☑️','Checklist','Checklist','☐ \n☐ \n☐ '],['🤝','Meeting notes','Meeting — ','Who: \nWhere: \nGoal: \n\nNotes:\n• \n\nNext steps:\n☐ '],['💡','Idea','Idea: ','What: \nWhy it can make money: \nFirst step:\n☐ '],['🛒','Shopping list','Shopping','☐ \n☐ \n☐ '],['✈️','Travel','Trip to ','Dates: \nFlight: \nHotel: \n\nPacking:\n☐ Passport\n☐ Charger\n☐ '],['🔑','Login / account','',''],['📧','Email & contact','','Name: \nEmail: \nPhone: \nCompany: \nNotes: ']];
+function openTemplates(){sheet(head('New note','note','bg-v')+`<div class="tpls">${NTPL.map((t,i)=>`<button type="button" class="tpl" data-tpl="${i}"><span>${t[0]}</span><b>${t[1]}</b></button>`).join('')}</div>`);
+ $$('#sheet [data-tpl]').forEach(b=>b.onclick=()=>{const t=NTPL[+b.dataset.tpl];if(t[1]==='Login / account'){closeSheet();nTab='vault';location.hash='#notes';setTimeout(()=>{renderNotes();if(VK)openVaultItem(null)},80);return}openNote(null,false,{title:t[2],body:t[3]})})}
+
+/* 3. Checklists + quick copy helpers */
+function checkStats(b){const m=(b||'').match(/^[☐☑]/gm)||[];return m.length?{done:m.filter(x=>x==='☑').length,all:m.length}:null}
+function copyChips(text){const out=[],seen=new Set();const add=(k,v,l)=>{if(!v||seen.has(v))return;seen.add(v);out.push({k,v,l})};
+ (text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/g)||[]).slice(0,4).forEach(e=>add('📧',e,e));
+ (text.match(/(?:pass(?:word)?|pwd|pin|رمز|پسورد)\s*[:=]\s*\S+/gi)||[]).slice(0,4).forEach(m=>{const v=m.split(/[:=]/).slice(1).join(':').trim();add('🔑',v,'••••••')});
+ (text.match(/\b(?:user(?:name)?|login)\s*[:=]\s*\S+/gi)||[]).slice(0,3).forEach(m=>{const v=m.split(/[:=]/).slice(1).join(':').trim();add('👤',v,v)});
+ (text.match(/\+?\d[\d\s-]{7,}\d/g)||[]).slice(0,3).forEach(p=>add('📞',p.replace(/\s+/g,' ').trim(),p.trim()));
+ return out}
+async function copyText(v,label){try{await navigator.clipboard.writeText(v);toast((label||'Copied')+' ✓')}catch(e){const t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();try{document.execCommand('copy');toast('Copied ✓')}catch(_){toast('Could not copy')}t.remove()}}
+
+/* 4. New note editor (Evernote-like) */
+openNote=function(id,voice,tpl){const n=(NB.notes||[]).find(x=>x.id===id)||{nb:nBook!=='all'?nBook:'b-personal',tags:[],title:tpl?.title||'',body:tpl?.body||''};let nb=n.nb;
+ sheet(head(id?'Note':'New note','note','bg-v')+`
+ <input id="ntitle" class="inp ntitle" placeholder="Title" value="${esc(n.title||'')}">
+ <div class="ntool"><button type="button" data-ins="☐ " title="Checkbox">☑️</button><button type="button" data-ins="• " title="Bullet">•</button><button type="button" data-ins="# " title="Heading">H</button><button type="button" data-ins="date" title="Date">📅</button><button type="button" data-ins="---" title="Line">—</button><button type="button" id="ncopyall" title="Copy note">${ic('copy')}</button><button type="button" class="tk-mic" id="nmic" aria-label="Dictate">${ic('mic')}</button></div>
+ <textarea id="nbody" class="inp nbody" rows="12" placeholder="Write anything — notes, emails, passwords, links, lists…">${esc(n.body||'')}</textarea><div class="tk-hint" id="nhint"></div>
+ <div class="nchips" id="nchips"></div>
+ <div class="nchk" id="nchk"></div>
+ <div class="fld"><label>Notebook</label><div class="nbooks sm2">${books().map(b=>`<button type="button" class="${nb===b.id?'on':''}" data-nb="${b.id}">${b.e} ${esc(b.n)}</button>`).join('')}</div></div>
+ <div class="two"><div class="fld"><label>Tags</label><input id="ntags" class="inp" placeholder="travel, watches" value="${esc((n.tags||[]).join(', '))}"></div><div class="fld"><label>⏰ Remind me</label><input id="nrem" class="inp" type="date" value="${esc(n.remind||'')}"></div></div>
+ <div class="ntoggles"><label class="chk"><input type="checkbox" id="npin" ${n.pinned?'checked':''}> 📌 Pin</label><label class="chk"><input type="checkbox" id="nfav" ${n.fav?'checked':''}> ⭐ Shortcut</label></div>
+ ${id&&PWD_RX.test(n.body||'')?`<button type="button" class="btn2 ghost" style="width:100%;margin-top:8px" data-x="n2vault" data-id="${id}">${ic('lock')} Lock this note in the Vault</button>`:''}
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="ndel" data-id="${id}">${ic('trash')}</button><button type="button" class="btn2" data-x="ndup" data-id="${id}" title="Duplicate">⧉</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="nsave">Save</button></div>
+ ${id?`<div class="xs faint" style="margin-top:8px;text-align:center">Created ${fd((n.created||nowISO()).slice(0,10))} · edited ${ago(n.updated)}</div>`:''}`);
+ const body=$('#nbody');
+ const refresh=()=>{const C=copyChips(body.value),L=(body.value.match(/https?:\/\/[^\s]+/g)||[]).slice(0,5);
+  $('#nchips').innerHTML=C.map((c,i)=>`<button type="button" class="nchip" data-ci="${i}">${c.k} <span>${esc(c.l.length>28?c.l.slice(0,26)+'…':c.l)}</span> ${ic('copy')}</button>`).join('')+L.map(u=>`<a class="nchip lnk" href="${esc(u)}" target="_blank" rel="noopener noreferrer">🔗 <span>${esc(u.replace(/^https?:\/\/(www\.)?/,'').slice(0,30))}</span></a>`).join('');
+  $$('#nchips [data-ci]').forEach(b=>b.onclick=()=>copyText(C[+b.dataset.ci].v,C[+b.dataset.ci].k==='🔑'?'Password copied':'Copied'));
+  const lines=body.value.split('\n'),cl=lines.map((l,i)=>({l,i})).filter(x=>/^[☐☑]/.test(x.l));
+  $('#nchk').innerHTML=cl.length?`<div class="xs faint" style="margin:6px 0 4px">Tap to tick · ${cl.filter(x=>x.l[0]==='☑').length}/${cl.length} done</div>`+cl.map(x=>`<button type="button" class="nck ${x.l[0]==='☑'?'on':''}" data-li="${x.i}"><i>${x.l[0]==='☑'?'✓':''}</i><span>${esc(x.l.slice(1).trim()||'…')}</span></button>`).join(''):'';
+  $$('#nchk [data-li]').forEach(b=>b.onclick=()=>{const L2=body.value.split('\n'),k=+b.dataset.li;L2[k]=(L2[k][0]==='☑'?'☐':'☑')+L2[k].slice(1);body.value=L2.join('\n');if(navigator.vibrate)navigator.vibrate(8);refresh()})};
+ refresh();body.addEventListener('input',()=>{clearTimeout(body._t);body._t=setTimeout(refresh,250)});
+ $$('#sheet [data-ins]').forEach(b=>b.onclick=()=>{let ins=b.dataset.ins;if(ins==='date')ins=fd(nowD().date,{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' ';if(ins==='---')ins='\n────────\n';
+  const s=body.selectionStart??body.value.length,v=body.value,ls0=v.lastIndexOf('\n',s-1)+1;
+  if(/^(☐ |• |# )$/.test(ins)&&s===ls0){body.value=v.slice(0,s)+ins+v.slice(s)}else if(/^(☐ |• |# )$/.test(ins)){body.value=v.slice(0,s)+'\n'+ins+v.slice(s);ins='\n'+ins}else body.value=v.slice(0,s)+ins+v.slice(s);
+  body.focus();body.setSelectionRange(s+ins.length,s+ins.length);refresh()});
+ body.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const s=body.selectionStart,v=body.value,ls0=v.lastIndexOf('\n',s-1)+1,cur=v.slice(ls0,s),m=cur.match(/^(☐ |☑ |• )/);if(!m)return;
+  e.preventDefault();if(cur.trim()===m[1].trim()){body.value=v.slice(0,ls0)+v.slice(s);body.setSelectionRange(ls0,ls0);return}const p=m[1]==='☑ '?'☐ ':m[1];body.value=v.slice(0,s)+'\n'+p+v.slice(s);body.setSelectionRange(s+1+p.length,s+1+p.length)});
+ $('#ncopyall').onclick=()=>copyText(($('#ntitle').value?$('#ntitle').value+'\n\n':'')+body.value,'Note copied');
+ $('#nmic').onclick=()=>dictate($('#nmic'),body,$('#nhint'));
+ $$('#sheet [data-nb]').forEach(b=>b.onclick=()=>{nb=b.dataset.nb;$$('#sheet [data-nb]').forEach(x=>x.classList.toggle('on',x===b))});
+ $('#nsave').onclick=()=>{stopDict();const title=$('#ntitle').value.trim(),text=body.value;if(!title&&!text.trim()){closeSheet();return}const t=nowISO();
+  const o={title,body:text,nb,tags:$('#ntags').value.split(',').map(s=>s.trim().replace(/^#/,'')).filter(Boolean),pinned:$('#npin').checked,fav:$('#nfav').checked,remind:$('#nrem').value||'',updated:t};
+  if(id)Object.assign(n,o);else NB.notes.push({id:nid(),created:t,...o});nbQueue();closeSheet();if(curPage()==='notes')renderNotes();else if(curPage()==='today')rerender();toast('Saved ✓')};
+ if(voice)setTimeout(()=>$('#nmic').click(),250);else if(!id)setTimeout(()=>(tpl?.body?body:$('#ntitle')).focus(),200)};
+
+/* 5. Notes home (Evernote-style): scratch pad, shortcuts, recent, notebooks, all notes */
+const _renderNotes_n23=renderNotes;renderNotes=function(){_renderNotes_n23();const el=$('#p-notes');if(!el||!nbLoaded||nTab!=='notes')return;
+ const N=notesList(),fav=N.filter(n=>n.fav||n.pinned).slice(0,8),rec=N.slice().sort((a,b)=>(b.updated||'').localeCompare(a.updated||'')).slice(0,6),sp=(NB.notes||[]).find(n=>n.id==='scratch');
+ const act=el.querySelector('.nact');if(act)act.innerHTML=`<button type="button" class="bigadd" data-x="ntpl">${ic('plus')}New note</button><button type="button" class="bigadd alt2" data-x="nnew" data-voice="1">${ic('mic')}Voice note</button><label class="bigadd alt3">${ic('down')}Import Evernote<input type="file" accept=".enex,application/xml,text/xml" id="enex" hidden multiple></label>`;
+ const w=el.querySelector('.nwarn');if(w&&!nPwdOnly){const k=notesList().filter(n=>PWD_RX.test(n.body||'')).length;w.classList.add('soft');w.innerHTML=`🔑 ${k} note${k>1?'s have':' has'} a password — fine to keep here; for extra safety you can lock ${k>1?'them':'it'} in the Vault ›`}
+ const ei=$('#enex');if(ei)ei.onchange=ev=>importEnex(ev.target.files);
+ if(nQ||nBook!=='all'||nPwdOnly)return;
+ const home=`<div class="nhome">
+  <div class="card scratch"><div class="sch"><b>✏️ Scratch pad</b><span class="xs faint" id="spst">quick notes · saves by itself</span></div><textarea id="spad" class="inp" rows="3" placeholder="Jot anything — a number, an email, a thought…">${esc(sp?.body||'')}</textarea><div class="scbtn"><button type="button" class="btn2 sm" data-x="sp2note">Make it a note</button><button type="button" class="btn2 sm" id="spcopy">${ic('copy')} Copy</button></div></div>
+  ${fav.length?`<div class="nsec">⭐ Shortcuts & pinned</div><div class="nrow">${fav.map(n=>`<button type="button" class="nmini" data-x="nopen" data-id="${n.id}"><b>${esc(n.title||'Untitled')}</b><small>${esc(snip(n.body,40))}</small></button>`).join('')}</div>`:''}
+  ${rec.length?`<div class="nsec">🕘 Recent</div><div class="nrow">${rec.map(n=>{const c=checkStats(n.body);return `<button type="button" class="nmini" data-x="nopen" data-id="${n.id}"><b>${esc(n.title||'Untitled')}</b><small>${c?`☑ ${c.done}/${c.all}`:esc(snip(n.body,40))}</small></button>`}).join('')}</div>`:''}
+  <div class="nsec">📚 All notes</div></div>`;
+ const list=$('#nlist');if(list)list.insertAdjacentHTML('beforebegin',home);
+ const spad=$('#spad');if(spad){spad.oninput=()=>{clearTimeout(spad._t);$('#spst').textContent='saving…';spad._t=setTimeout(()=>{let s=(NB.notes||[]).find(n=>n.id==='scratch');const t=nowISO();if(!s){s={id:'scratch',title:'Scratch pad',body:'',nb:'b-personal',tags:[],created:t,hidden:true};NB.notes.push(s)}s.body=spad.value;s.updated=t;nbQueue();$('#spst').textContent='saved ✓'},700)};$('#spcopy').onclick=()=>copyText(spad.value,'Copied')}};
+const _notesList_n23=notesList;notesList=function(){return _notesList_n23().filter(n=>n.id!=='scratch')};
+const _noteCard_n23=noteCard;noteCard=function(n){let h=_noteCard_n23(n);const c=checkStats(n.body);if(c)h=h.replace('<div class="nm">',`<div class="nm"><span class="tag ok">☑ ${c.done}/${c.all}</span>`);if(n.fav)h=h.replace('<div class="nt">','<div class="nt">⭐ ');if(n.remind)h=h.replace('<div class="nm">',`<div class="nm"><span class="tag ${n.remind<=nowD().date?'warn':''}">⏰ ${fd(n.remind,{day:'numeric',month:'short'})}</span>`);return h};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="ntpl"],[data-x="sp2note"],[data-x="ndup"]');if(!a)return;const x=a.dataset.x;
+ if(x==='ntpl'){loadNB().then(openTemplates);return}
+ if(x==='sp2note'){const v=($('#spad')?.value||'').trim();if(!v){toast('Scratch pad is empty');return}const s=NB.notes.find(n=>n.id==='scratch');if(s){s.body='';s.updated=nowISO()}openNote(null,false,{title:v.split('\n')[0].slice(0,50),body:v});return}
+ if(x==='ndup'){const n=NB.notes.find(z=>z.id===a.dataset.id);if(!n)return;const t=nowISO();NB.notes.push({...n,id:nid(),title:(n.title||'')+' (copy)',created:t,updated:t,pinned:false});nbQueue();closeSheet();renderNotes();toast('Duplicated')}},true);
+/* "+ New note" buttons elsewhere open the template picker */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="nnew"]:not([data-voice])');if(!a)return;e.stopImmediatePropagation();loadNB().then(openTemplates)},true);
+
+/* 6. Today: note reminders + a Notes shortcut */
+const _renderToday_n23=renderToday;renderToday=function(G){_renderToday_n23(G);const el=$('#p-today');if(!el||!nbLoaded)return;const d=nowD().date;
+ const due=notesList().filter(n=>n.remind&&n.remind<=d);const t=el.querySelector('.v8top');
+ const html=`<div class="card mb nquick"><button type="button" class="nq1" data-x="ntpl">${ic('note')}<span><b>Notes</b><small>${notesList().length} notes${due.length?` · ⏰ ${due.length} due`:''}</small></span></button><button type="button" class="nq2" onclick="location.hash='#notes'">Open ›</button></div>`+due.slice(0,3).map(n=>`<div class="card mb nremind" data-x="nopen" data-id="${n.id}">⏰ <b>${esc(n.title||'Note')}</b><span class="xs faint">${esc(snip(n.body,60))}</span></div>`).join('');
+ if(t)t.insertAdjacentHTML('afterend',html)};
+
+/* ================= v24: auto-update · Face ID · people fix · clearer pipeline · Notes on top ================= */
+/* 1. Always run the newest version: check index.html and reload when a new version is published */
+const MYV_d24=+((document.querySelector('script[src*="app.js"]')?.src.match(/v=(\d+)/)||[])[1]||0);
+async function checkUpdate_d24(){try{const t=await(await fetch('index.html?t='+Date.now(),{cache:'no-store'})).text();const v=+((t.match(/app\.js\?v=(\d+)/)||[])[1]||0);
+ if(v&&MYV_d24&&v>MYV_d24){if($('#sheet')?.classList.contains('on')||document.activeElement?.matches?.('input,textarea'))return;toast('Updating to the new version…');setTimeout(()=>location.replace(location.pathname+'?u='+v+'#today'),700)}}catch(e){}}
+setTimeout(checkUpdate_d24,4000);setInterval(()=>{if(!document.hidden)checkUpdate_d24()},5*60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate_d24()});
+if(/[?&]u=\d+/.test(location.search))history.replaceState(null,'',location.pathname+'#today');
+
+/* 2. Face ID / Touch ID login (passkey on this device; password stays encrypted with a key only Face ID can unlock) */
+const FID_d24='hq.fid';
+const fidInfo_d24=()=>{try{return JSON.parse(ls.get(FID_d24)||'null')}catch(e){return null}};
+const rnd_d24=n=>crypto.getRandomValues(new Uint8Array(n));
+const fidOK_d24=()=>!!(window.PublicKeyCredential&&navigator.credentials&&window.isSecureContext);
+async function fidPlat_d24(){try{return fidOK_d24()&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()}catch(e){return false}}
+async function prfKey_d24(bytes){const k=await crypto.subtle.importKey('raw',bytes,'HKDF',false,['deriveKey']);return crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:new Uint8Array(16),info:new TextEncoder().encode('borna-hq-faceid')},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function fidAssert_d24(id,salt){const a=await navigator.credentials.get({publicKey:{challenge:rnd_d24(32),rpId:location.hostname,allowCredentials:[{type:'public-key',id:b64d(id),transports:['internal','hybrid']}],userVerification:'required',timeout:60000,extensions:{prf:{eval:{first:salt}}}}});
+ const x=a.getClientExtensionResults?a.getClientExtensionResults():{};return x.prf&&x.prf.results&&x.prf.results.first}
+async function fidEnable_d24(pw){const salt=rnd_d24(32);
+ const cred=await navigator.credentials.create({publicKey:{rp:{name:'Borna HQ',id:location.hostname},user:{id:rnd_d24(16),name:'borna',displayName:'Borna'},challenge:rnd_d24(32),pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,extensions:{prf:{eval:{first:salt}}}}});
+ const id=b64e(new Uint8Array(cred.rawId)),x=cred.getClientExtensionResults?cred.getClientExtensionResults():{};let out=x.prf&&x.prf.results&&x.prf.results.first;
+ if(!out&&x.prf&&x.prf.enabled){try{out=await fidAssert_d24(id,salt)}catch(e){}}
+ const rec={id,salt:b64e(salt),created:new Date().toISOString()};
+ if(out){const k=await prfKey_d24(new Uint8Array(out)),iv=rnd_d24(12);rec.prf=1;rec.iv=b64e(iv);rec.ct=b64e(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(pw))))}
+ else{rec.prf=0;rec.pw=b64e(new TextEncoder().encode(pw))}
+ ls.set(FID_d24,JSON.stringify(rec));ls.del(KEY);return rec}
+async function fidUnlock_d24(){const r=fidInfo_d24();if(!r)return;const btn=$('#fidbtn'),err=$('#err');if(btn){btn.disabled=true;btn.lastChild.textContent=' Checking…'}
+ try{const out=await fidAssert_d24(r.id,b64d(r.salt));let pw;
+  if(r.prf){if(!out)throw new Error('nokey');pw=new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(r.iv)},await prfKey_d24(new Uint8Array(out)),b64d(r.ct)))}
+  else pw=new TextDecoder().decode(b64d(r.pw));
+  await unlock(pw,false)}
+ catch(e){if(err)err.textContent=e.name==='NotAllowedError'?'Face ID was cancelled — tap to try again, or use your password.':'Face ID didn’t work — use your password.';if(btn){btn.disabled=false;btn.lastChild.textContent=' Unlock with Face ID'}}}
+(function(){const f=$('#lockform');if(!f||!fidInfo_d24())return;
+ f.insertAdjacentHTML('afterbegin','');const pw=$('#pw');pw.insertAdjacentHTML('beforebegin',`<button type="button" class="btn fidbtn" id="fidbtn"><svg viewBox="0 0 24 24" class="i"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1M15 9v1M12 9v4h-1M9 16s1 1 3 1 3-1 3-1"/></svg> Unlock with Face ID</button><div class="fidor">or use your password</div>`);
+ pw.required=false;$('#fidbtn').onclick=fidUnlock_d24;setTimeout(()=>{if(!D)fidUnlock_d24()},350)})();
+/* offer Face ID once after a password unlock */
+let fidAsked_d24=false;
+const _unlock_d24=unlock;unlock=async function(p,rem){await _unlock_d24(p,rem);if(fidAsked_d24||fidInfo_d24()||ls.get('hq.fidno'))return;fidAsked_d24=true;
+ if(!(await fidPlat_d24()))return;setTimeout(()=>{if($('#sheet').classList.contains('on'))return;sheet(`<div class="lvup"><div class="lvb fidbig">🙂</div><h2>Open with Face ID?</h2><p>Next time Borna HQ opens with your face — no password to type. Your password is locked on this phone with Face ID.</p><button class="btn2 pri" id="fidyes" style="width:100%">Turn on Face ID</button><button class="btn2 ghost" id="fidnot" style="width:100%;margin-top:8px">Not now</button></div>`);
+  $('#fidyes').onclick=async()=>{try{await fidEnable_d24(PW);closeSheet();confetti(40);toast('Face ID is on ✓')}catch(e){toast(e.name==='NotAllowedError'?'Cancelled':'Face ID not available here')}};
+  $('#fidnot').onclick=()=>{ls.set('hq.fidno','1');closeSheet()}},1200)};
+/* Settings switch */
+const _openSettings_d24=openSettings;openSettings=function(){_openSettings_d24();const s=$('#sheet h2');if(!s)return;const on=!!fidInfo_d24();
+ s.insertAdjacentHTML('afterend',`<div class="fidset"><span>🙂</span><div><b>Face ID login</b><small>${on?'On — the app opens with your face':'Open the app with Face ID instead of the password'}</small></div><button type="button" class="btn2 ${on?'':'pri'}" id="fidtog">${on?'Turn off':'Turn on'}</button></div>`);
+ $('#fidtog').onclick=async()=>{if(fidInfo_d24()){const r=fidInfo_d24();ls.del(FID_d24);if(PW&&r)ls.set(KEY,PW);toast('Face ID off');closeSheet();return}
+  if(!(await fidPlat_d24())){toast('Face ID isn’t available in this browser');return}try{await fidEnable_d24(PW);ls.del('hq.fidno');toast('Face ID is on ✓');closeSheet()}catch(e){toast(e.name==='NotAllowedError'?'Cancelled':'Could not turn on Face ID')}}};
+$('#settings').onclick=()=>openSettings();
+/* ask for Face ID again after 15 minutes away */
+let hid_d24=0;document.addEventListener('visibilitychange',()=>{if(document.hidden){hid_d24=Date.now();return}if(hid_d24&&fidInfo_d24()&&D&&Date.now()-hid_d24>15*60000)location.replace(location.pathname+'#today');hid_d24=0});
+
+/* 3. People: an empty field you never filled in must not hide a number Claude found */
+people=function(){const m={};(D.people||[]).forEach(p=>m[p.id]={...p,src:'claude'});
+ (U?.people||[]).forEach(p=>{const o={};Object.entries(p).forEach(([k,v])=>{if(v!==''&&v!=null)o[k]=v});m[p.id]={...(m[p.id]||{}),...o}});
+ return Object.values(m).filter(p=>!p.deleted&&p.name).sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name))};
+
+/* 4. Money: deals pipeline as clear bars instead of the log chart */
+const _draw_d24=draw;draw=function(pg){_draw_d24(pg);if(pg!=='money')return;const cv=$('#c-pipe');if(!cv)return;const box=cv.parentElement;
+ const L=moneyCalc().open.slice().sort((a,b)=>b.value*b.prob-a.value*a.prob),mx=Math.max(1,...L.map(d=>d.value||0));
+ box.style.height='auto';box.innerHTML=L.length?`<div class="pbars">${L.map(d=>{const ex=Math.round((d.value||0)*(d.prob||0)/100);return `<div class="pbar"><div class="pbt"><b>${esc(d.name)}</b><span>${aed(ex)} <small>expected</small></span></div><div class="pbtrack"><i style="width:${Math.max(2,(d.value||0)/mx*100)}%"></i><em style="width:${Math.max(1,ex/mx*100)}%"></em></div><div class="pbs">${d.prob||0}% chance · if it closes ${aed(d.value)}</div></div>`}).join('')}</div>`:empty('No open deals','brief')};
+
+/* 5. Today: Notes & Diary shortcuts near the top */
+const _renderToday_d24=renderToday;renderToday=function(G){_renderToday_d24(G);const t=$('#p-today .v8top'),q=$('#p-today .nquick');if(t&&q){const after=t.querySelector('.reward');(after||t.firstElementChild)?.after(q);
+ if(!q.querySelector('.nq3'))q.insertAdjacentHTML('beforeend',`<button type="button" class="nq2 nq3" data-x="dnew" data-voice="1">📔 Diary</button>`)}};
+
+/* ================= v25: Notes last in the bar · movies & games in the diary · share a day · Face ID fixes ================= */
+/* 1. Notes button goes to the end of the bottom bar */
+(function(){const i=PAGES.findIndex(p=>p.id==='notes');if(i>-1){const [n]=PAGES.splice(i,1);PAGES.push(n)}
+ buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p});
+ if(typeof show==='function'&&D)show()})();
+/* Today: Notes card back at the bottom of the top section */
+const _renderToday_d25=renderToday;renderToday=function(G){_renderToday_d25(G);const t=$('#p-today .v8top'),q=$('#p-today .nquick');if(t&&q)t.appendChild(q)};
+
+/* 2. Movies & games you log appear in your diary automatically */
+const MICON_d25={movie:'🎬',series:'📺',game:'🎮'};
+function mediaDiary_d25(d){if(typeof media!=='function')return[];return media().filter(x=>!x.later&&x.date===d).map(x=>{const who=x.with==='farnaz'?' · with Farnaz 💑':x.with==='family'?' · with the family':'';const st=x.rating?' · '+'★'.repeat(x.rating):'';const verb=x.type==='game'?'Played':'Watched';
+ return{id:'media-'+x.id,mid:x.id,date:d,at:(x.ratedAt||x.created||x.updated||(d+'T21:00:00')),auto:1,mood:null,photo:x.photo||x.poster||'',text:`${MICON_d25[x.type]||'🎬'} ${verb} ${x.title}${x.year?' ('+x.year+')':''}${st}${who}${x.note?'\n“'+x.note+'”':''}`}})}
+const _diaryOn_d25=diaryOn;diaryOn=function(d){return _diaryOn_d25(d).concat(mediaDiary_d25(d)).sort((a,b)=>(a.at||'').localeCompare(b.at||''))};
+const _diaryStreak_d25=diaryStreak;diaryStreak=function(){const ds=new Set((NB?.diary||[]).filter(x=>!x.deleted).map(x=>x.date));if(typeof media==='function')media().forEach(x=>{if(!x.later&&x.date)ds.add(x.date)});let s=0,d=nowD().date;if(!ds.has(d))d=addDays(d,-1);while(ds.has(d)&&s<999){s++;d=addDays(d,-1)}return s};
+const _diaryEntryHTML_d25=diaryEntryHTML;diaryEntryHTML=function(e){if(!e.auto)return _diaryEntryHTML_d25(e);
+ return `<div class="dentry auto" data-x="dmedia" data-id="${esc(e.mid)}"><div class="dmeta"><span class="dmood">${e.text.slice(0,2)}</span><span>from Watch &amp; Play</span><span class="pill2">auto</span></div>${e.photo&&/^data:|^https:/.test(e.photo)?`<img class="dphoto mini" src="${esc(e.photo)}" alt="">`:''}<div class="dtext">${linkify(e.text.slice(2).trim())}</div></div>`};
+/* share a day */
+const _diaryPanel_d25=diaryPanel;diaryPanel=function(c){const h=_diaryPanel_d25(c);if(!NB)return h;return h.replace(/<\/div>\s*$/,`<button type="button" class="btn2 dshare" data-x="dshare" title="Share this day">📤</button></div>`)};
+function dayText_d25(d){const E=diaryOn(d);const head=`📔 ${fd(d,{weekday:'long',day:'numeric',month:'long'})}`;return head+'\n\n'+(E.length?E.map(e=>(e.mood!=null&&!e.auto?DMOOD[e.mood]+' ':'')+e.text).join('\n\n'):'(nothing written)')}
+document.addEventListener('click',async e=>{const a=e.target.closest('[data-x="dmedia"],[data-x="dshare"]');if(!a)return;
+ if(a.dataset.x==='dmedia'){if(typeof openRate==='function')openRate(a.dataset.id);return}
+ const txt=dayText_d25(diaryDay||nowD().date);
+ if(navigator.share){try{await navigator.share({title:'My day',text:txt})}catch(err){}}else{try{await navigator.clipboard.writeText(txt);toast('Copied — paste it anywhere')}catch(err){toast('Could not share')}}});
+/* refresh the diary when a movie/game is saved */
+const _saveMedia_d25=saveMedia;saveMedia=function(L){_saveMedia_d25(L);setTimeout(()=>$$('.diarybox').forEach(b=>b.innerHTML=diaryPanel()),50)};
+
+/* 3. Face ID: start the system prompt directly from the tap (Safari blocks it otherwise) and show the real reason if it fails */
+let fidTap_d25=false;
+const isIOS_d25=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const _fidUnlock_d25=fidUnlock_d24;fidUnlock_d24=async function(){if(!fidTap_d25&&isIOS_d25){const b=$('#fidbtn');if(b)b.classList.add('pulse');return}fidTap_d25=false;return _fidUnlock_d25()};
+(function(){const b=$('#fidbtn');if(!b)return;b.onclick=()=>{fidTap_d25=true;fidUnlock_d24()};const lb=$('#lockform');if(lb)lb.addEventListener('click',ev=>{if(ev.target.closest('input,button,label'))return;fidTap_d25=true;fidUnlock_d24()})})();
+function fidErr_d25(e){const n=e&&e.name||'',m=(e&&e.message||'').slice(0,80);
+ return n==='NotAllowedError'?'Face ID was cancelled or blocked. Make sure Face ID is set up and “Passwords / iCloud Keychain” is on in iPhone Settings, then try again.':n==='SecurityError'?'Face ID needs the app opened from bornaxahadi.github.io.':n==='InvalidStateError'?'Face ID is already set up on this phone — tap Turn off, then Turn on again.':n==='NotSupportedError'?'This browser doesn’t support Face ID login. Update iOS or open the app from the Home Screen.':'Face ID error: '+(n||'unknown')+(m?' — '+m:'')}
+const _openSettings_d25=openSettings;openSettings=function(){_openSettings_d25();const t=$('#fidtog');if(!t)return;
+ t.onclick=()=>{if(fidInfo_d24()){ls.del(FID_d24);if(PW)ls.set(KEY,PW);toast('Face ID off');closeSheet();return}
+  if(!fidOK_d24()){toast('Face ID isn’t available in this browser — open Borna HQ from your Home Screen or Safari');return}
+  if(!PW){toast('Unlock with your password first');return}
+  fidEnable_d24(PW).then(()=>{ls.del('hq.fidno');closeSheet();confetti(40);toast('Face ID is on ✓ — try it: close and reopen the app')}).catch(e=>{sheet(head('Face ID','lock','bg-o')+`<p class="sm">${esc(fidErr_d25(e))}</p><button class="btn2" data-act="close" style="width:100%;margin-top:10px">OK</button>`)})}};
+$('#settings').onclick=()=>openSettings();
+/* same for the “Open with Face ID?” prompt after unlocking */
+document.addEventListener('click',e=>{const y=e.target.closest('#fidyes');if(!y)return;e.stopImmediatePropagation();e.preventDefault();
+ fidEnable_d24(PW).then(()=>{closeSheet();confetti(40);toast('Face ID is on ✓')}).catch(err=>{$('#sheet .lvup p').textContent=fidErr_d25(err)})},true);
+
+/* ================= v26: Health — food & coffee tracker with photo calories, body & muscle progress ================= */
+P.food='<path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 3c-2 0-3 2-3 5s1 4 3 4v9"/>';
+P.scale='<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9a3 3 0 0 1 6 0M12 9l1.5-1.5"/>';
+P.camera='<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
+
+/* ---------- encrypted store for health.enc (separate file, photos inside) ---------- */
+function makeStore_d26(file,lsKey,empty,merge){const S={data:null,loaded:false,loading:null,sha:null,t:null,saving:false,again:false};
+ S.remote=async()=>{if(!TOKEN){const j=await pagesJSON(file);return j?dec(j):null}
+  const h={Authorization:'Bearer '+TOKEN},r=await fetch(API+file+'?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github+json'},cache:'no-store'});
+  if(r.status===404){S.sha=null;return null}if(!r.ok)throw new Error('GitHub '+r.status);const j=await r.json();S.sha=j.sha;let txt;
+  if(j.content&&j.encoding==='base64')txt=atob(j.content.replace(/\s/g,''));else txt=await(await fetch(API+file+'?ref=main&t='+Date.now(),{headers:{...h,Accept:'application/vnd.github.raw'},cache:'no-store'})).text();
+  return dec(JSON.parse(txt))};
+ S.cache=()=>{try{localStorage.setItem(lsKey,JSON.stringify(S.data))}catch(e){try{const lite=JSON.parse(JSON.stringify(S.data));['meals','photos'].forEach(k=>(lite[k]||[]).forEach(x=>{if(x.img&&S.sha)delete x.img}));localStorage.setItem(lsKey,JSON.stringify(lite))}catch(_){}}};
+ S.load=force=>{if(S.loaded&&!force)return Promise.resolve(S.data);if(S.loading)return S.loading;
+  S.loading=(async()=>{let local=null;try{const t=ls.get(lsKey);if(t)local=JSON.parse(t)}catch(e){}if(!S.data)S.data=local||empty();
+   let remote=null,ok=true;try{remote=await S.remote()}catch(e){ok=false;console.warn(e)}const before=JSON.stringify(remote);S.data=merge(remote,S.data);S.loaded=true;S.cache();
+   if(ok&&TOKEN&&JSON.stringify(S.data)!==before)S.queue(true);S.loading=null;return S.data})();return S.loading};
+ S.queue=keep=>{if(!keep)S.data.updated=new Date().toISOString();S.cache();if(!TOKEN)return;clearTimeout(S.t);S.t=setTimeout(S.save,900)};
+ S.save=async()=>{if(S.saving){S.again=true;return}S.saving=true;
+  try{for(let i=0;i<3;i++){const m=merge(await S.remote(),S.data);try{S.sha=await ghPut(file,await enc(m),S.sha,'Health from app');S.data=m;S.cache();break}catch(e){if(e.status!==409&&e.status!==422)throw e}}}
+  catch(e){console.warn(e);toast('Saved on this phone — will sync later')}S.saving=false;if(S.again){S.again=false;S.save()}};
+ return S}
+const hEmpty_d26=()=>({v:1,meals:[],weights:[],meas:[],photos:[],prof:null,updated:null});
+const HS=makeStore_d26('health.enc','hq.health',hEmpty_d26,(a,b)=>{a=a||hEmpty_d26();b=b||hEmpty_d26();const pa=a.prof,pb=b.prof;
+ return{v:1,meals:mergeArr(a.meals,b.meals),weights:mergeArr(a.weights,b.weights),meas:mergeArr(a.meas,b.meas),photos:mergeArr(a.photos,b.photos),prof:(pb&&(!pa||(pb.updated||'')>(pa.updated||'')))?pb:(pa||null),updated:(a.updated||'')>(b.updated||'')?a.updated:b.updated}});
+const H_=()=>HS.data||hEmpty_d26();
+const hNow_d26=()=>new Date().toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false});
+const hid_d26=()=>'h'+uid();
+function shrinkTo_d26(file,W=512,q=.72){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,W/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',q))};im.onerror=()=>res('');im.src=r.result};r.readAsDataURL(file)})}
+
+/* ---------- profile & targets ---------- */
+function prof_d26(){const s=D.body_seed||{},p=H_().prof||{};const w=lastWeight_d26();return{height:+p.height||+s.height||173,age:+p.age||+s.age||42,start:+p.start||+s.start||103,goal:+p.goal||+s.goal||80,weight:w?w.kg:(+s.weight||93)}}
+function lastWeight_d26(){return H_().weights.filter(x=>!x.deleted).sort((a,b)=>(a.date+a.updated).localeCompare(b.date+b.updated)).pop()}
+function targets_d26(){const p=prof_d26(),bmr=10*p.weight+6.25*p.height-5*p.age+5;return{kcal:Math.round((bmr*1.5-500)/50)*50,protein:Math.round(p.goal*2),water:8}}
+
+/* ---------- food database (typical portions) ---------- */
+const FOODS_d26=[['🥗','Mexican bowl — grilled',570,52],['🥗','Mexican bowl — fried chicken',800,48],['🍳','Eggs (2)',155,13],['🍳','Omelette',220,14],['🍞','Bread slice',80,3],['🫓','Naan / lavash',160,5],['🧀','Feta / cheese',80,5],['🥣','Oats bowl',300,10],['🥛','Greek yogurt',150,15],['🍌','Banana',105,1],['🍎','Apple',95,0],['🌴','Dates (3)',70,1],['🍚','Rice (1 cup)',205,4],['🍛','Chelow rice plate',350,7],['🍗','Chicken breast',250,46],['🍢','Kebab koobideh',300,18],['🍢','Joojeh kebab',300,35],['🥘','Ghormeh sabzi',400,25],['🌯','Shawarma',550,30],['🥗','Salad',120,3],['🐟','Fish',250,35],['🥩','Steak',450,50],['🍝','Pasta plate',600,20],['🍕','Pizza slice',285,12],['🍔','Burger',550,25],['🍟','Fries',365,4],['🍣','Sushi (8)',350,14],['🥣','Soup',150,6],['🧆','Falafel (4)',330,13],['🫘','Hummus',170,8],['🥤','Protein shake',150,25],['🥜','Nuts (handful)',170,6],['🍫','Chocolate bar',230,3],['🍰','Cake slice',350,4],['🍉','Fruit bowl',120,2],['🥪','Sandwich',400,20],['🥞','Pancakes',350,8],['🧃','Fresh juice',120,1]];
+const DRINKS_d26=[['💧','Water',0,0],['☕','Coffee + milk + 1 tsp sugar',60,3],['🥤','Zero soft drink',0,0],['☕','Cappuccino',120,6],['☕','Espresso',5,0],['☕','Americano',10,0],['☕','Latte',190,10],['☕','Flat white',110,6],['☕','Turkish coffee',10,0],['☕','Nescafé 3-in-1',70,1],['🍵','Tea',2,0],['🍵','Tea + sugar',35,0],['🥤','Soft drink',140,0],['🧃','Juice',120,1],['🥤','Protein shake',150,25]];
+const SLOTS_d26=[['breakfast','🍳','Breakfast','07:00','11:30'],['lunch','🍛','Lunch','12:00','16:00'],['dinner','🍽','Dinner','18:00','23:00'],['snack','🍎','Snacks','',''],['drink','☕','Drinks','','']];
+function slotByTime_d26(){const m=nowD().mins;return m<11*60+30?'breakfast':m<16*60?'lunch':m>=18*60?'dinner':'snack'}
+
+/* ---------- day maths ---------- */
+function est_d26(m){return (D.food_est||{})[m.id]}
+function mealKcal_d26(m){if(m.skipped)return 0;if(m.kcal!=null&&m.kcal!=='')return +m.kcal;const e=est_d26(m);return e?+e.kcal||0:(m.items||[]).reduce((a,i)=>a+(i.kcal||0)*(i.q||1),0)}
+function mealProt_d26(m){if(m.skipped)return 0;const it=(m.items||[]).reduce((a,i)=>a+(i.p||0)*(i.q||1),0);const e=est_d26(m);return it||(e?+e.p||0:0)}
+function dayMeals_d26(d){return H_().meals.filter(x=>!x.deleted&&x.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''))}
+function daySum_d26(d){const M=dayMeals_d26(d);const coffee=M.filter(x=>x.slot==='drink'&&/coffee|espresso|americano|latte|cappuccino|flat white|nescaf/i.test(x.text||'')).reduce((a,x)=>a+(x.q||1),0);const water=M.filter(x=>x.slot==='drink'&&/water/i.test(x.text||'')).reduce((a,x)=>a+(x.q||1),0);
+ const sc=M.map(x=>est_d26(x)?.score).filter(Boolean);return{M,kcal:Math.round(M.reduce((a,x)=>a+mealKcal_d26(x),0)),p:Math.round(M.reduce((a,x)=>a+mealProt_d26(x),0)),coffee,water,score:sc.length?Math.round(sc.reduce((a,b)=>a+ +b,0)/sc.length*10)/10:null,pending:M.filter(x=>x.img&&!est_d26(x)&&!x.kcal).length}}
+
+/* ---------- PAGE ---------- */
+PAGES.splice(PAGES.findIndex(p=>p.id==='me')+1,0,{id:'health',l:'Health',i:'food'});
+(function(){if(!$('#p-health')){const s=document.createElement('section');s.className='page';s.id='p-health';($('#p-me')||$('#p-today')).after(s)}
+ buildNav();$('#tabs').innerHTML=PAGES.map(p=>`<button data-p="${p.id}">${ic(p.i)}${p.l}</button>`).join('');$$('#tabs [data-p]').forEach(b=>b.onclick=()=>{location.hash=b.dataset.p})})();
+let hTab_d26='food',hDay_d26=null;
+function ring_d26(v,max,col,label,sub){const R=34,C=2*Math.PI*R,p=Math.min(1,max?v/max:0);return `<div class="hring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="${R}" class="bg"/><circle cx="40" cy="40" r="${R}" class="fg" style="stroke:${col};stroke-dasharray:${C};stroke-dashoffset:${C*(1-p)}"/></svg><b>${label}</b><small>${sub}</small></div>`}
+function renderHealth_d26(){const el=$('#p-health');if(!el||!D)return;if(!HS.loaded){el.innerHTML='<div class="pt">Health</div><div class="card faint">Loading…</div>';HS.load().then(renderHealth_d26);return}
+ el.innerHTML=`<div class="pt">Health <span>food · body · muscle</span></div>
+ <div class="ntabs"><button type="button" class="${hTab_d26==='food'?'on':''}" data-x="htab" data-t="food">🍽 Food</button><button type="button" class="${hTab_d26==='body'?'on':''}" data-x="htab" data-t="body">💪 Body</button></div>
+ ${hTab_d26==='food'?foodHTML_d26():bodyHTML_d26()}`}
+PAGEFN.health=()=>renderHealth_d26();
+const _draw_d26=draw;draw=function(pg){_draw_d26(pg);if(pg==='health'&&!$('#p-health .ntabs'))renderHealth_d26()};
+
+/* ---------- FOOD tab ---------- */
+function foodHTML_d26(){const n=nowD().date;hDay_d26=hDay_d26||n;const d=hDay_d26,S=daySum_d26(d),T=targets_d26(),tip=(D.food_day||{})[d];
+ return `<div class="hday"><button type="button" data-x="hdaynav" data-v="-1">‹</button><b>${d===n?'Today':fd(d,{weekday:'long',day:'numeric',month:'short'})}</b><button type="button" data-x="hdaynav" data-v="1" ${d>=n?'disabled':''}>›</button></div>
+ <div class="card mb hsum">${ring_d26(S.kcal,T.kcal,S.kcal>T.kcal?'#f43f5e':'#10b981',S.kcal,'of '+T.kcal+' kcal')}${ring_d26(S.p,T.protein,'#8b5cf6',S.p+'g','protein / '+T.protein)}
+  <div class="hmini"><div><b>☕ ${S.coffee}</b><small>coffee</small></div><div><b>💧 ${S.water}/${T.water}</b><small>water</small></div><div><b>${S.score!=null?S.score+'/10':'—'}</b><small>health score</small></div></div></div>
+ ${S.pending?`<div class="nwarn soft">📷 ${S.pending} photo${S.pending>1?'s':''} waiting — Claude estimates calories within the hour.</div>`:''}
+ ${tip?`<div class="card mb htip">🤖 <span>${esc(tip.note||'')}</span></div>`:''}
+ <button type="button" class="bigadd hsnap" data-x="hsnap">${ic('camera')} Snap your meal or drink</button>
+ <div class="hdrinks"><span>Quick drink:</span>${DRINKS_d26.slice(0,10).map((x,i)=>`<button type="button" data-x="hdrink" data-i="${i}">${x[0]} ${x[1]}</button>`).join('')}</div>
+ ${SLOTS_d26.map(([k,e,l])=>{const M=S.M.filter(x=>x.slot===k);return `<div class="card mb hslot"><div class="hsh"><b>${e} ${l}</b>${M.length&&k!=='drink'?`<span class="xs faint">${M.reduce((a,x)=>a+mealKcal_d26(x),0)} kcal</span>`:''}<button type="button" class="btn2 sm" data-x="hadd" data-s="${k}">+ Add</button></div>
+  ${M.length?M.map(mealRow_d26).join(''):k==='drink'||k==='snack'?'<div class="xs faint">Nothing yet</div>':`<div class="hask">Did you have ${l.toLowerCase()}? <button type="button" class="btn2 sm pri" data-x="hadd" data-s="${k}">Yes — log it</button><button type="button" class="btn2 sm" data-x="hskip" data-s="${k}">Skipped</button></div>`}</div>`}).join('')}
+ <div class="xs faint" style="text-align:center;margin:8px 0 20px">Targets are a general guide for losing fat while building muscle (${T.kcal} kcal, ${T.protein} g protein a day) — not medical advice.</div>`}
+function mealRow_d26(m){const e=est_d26(m),k=mealKcal_d26(m);if(m.skipped)return `<div class="hmeal sk" data-x="hedit" data-id="${m.id}"><span class="ht">${esc(m.time||'')}</span><b>Skipped</b></div>`;
+ const name=m.text||(m.items||[]).map(i=>(i.q>1?i.q+'× ':'')+i.n).join(', ')||(e?(e.items||[]).join(', '):'')||'Photo';
+ return `<div class="hmeal" data-x="hedit" data-id="${m.id}">${m.img?`<img src="${m.img}" alt="">`:''}<div class="hmt"><b>${esc(name)}</b><small>${esc(m.time||'')}${m.q>1?' · ×'+m.q:''} · ${k?k+' kcal':m.img&&!e?'⏳ Claude is estimating…':'—'}${e?.score?` · ${e.score}/10`:''}</small>${e?.note?`<small class="hen">🤖 ${esc(e.note)}</small>`:''}</div></div>`}
+function openMeal_d26(id,opt={}){const m=H_().meals.find(x=>x.id===id)||{slot:opt.slot||slotByTime_d26(),date:hDay_d26||nowD().date,time:hNow_d26(),items:[],img:opt.img||''};let slot=m.slot,img=m.img||'',items=(m.items||[]).map(x=>({...x}));const isDrink=slot==='drink';
+ const L=isDrink?DRINKS_d26:FOODS_d26.concat(DRINKS_d26);
+ sheet(head(id?'Edit':'Log food & drink','food','bg-g')+`
+ <div class="nbooks sm2 hsl">${SLOTS_d26.map(([k,e,l])=>`<button type="button" class="${slot===k?'on':''}" data-sl="${k}">${e} ${l}</button>`).join('')}</div>
+ <div class="two"><div class="fld"><label>Time</label><input id="mtime" class="inp" type="time" value="${esc(m.time||hNow_d26())}"></div><div class="fld"><label>Date</label><input id="mdate" class="inp" type="date" value="${esc(m.date)}"></div></div>
+ <div class="hph">${img?`<img id="mimg" src="${img}">`:'<span id="mimg"></span>'}<label class="btn2">${ic('camera')} ${img?'Retake':'Photo'}<input type="file" accept="image/*" capture="environment" id="mfile" hidden></label><label class="btn2 ghost">🖼 Gallery<input type="file" accept="image/*" id="mfile2" hidden></label></div>
+ <input id="mq" class="inp" placeholder="Search food or drink…" style="margin-top:8px"><div class="hfoods" id="hfoods"></div>
+ <div class="hsel" id="hsel"></div>
+ <div class="fld"><label>Or describe it</label><input id="mtext" class="inp" value="${esc(m.text||'')}" placeholder="e.g. 2 eggs, toast, black coffee"></div>
+ <div class="two"><div class="fld"><label>Calories (optional)</label><input id="mkcal" class="inp" type="number" inputmode="numeric" value="${m.kcal??''}" placeholder="auto"></div><div class="fld"><label>Sugar spoons</label><input id="msug" class="inp" type="number" inputmode="numeric" value="${m.sugar||''}" placeholder="0"></div></div>
+ <div class="xs faint" id="mhint"></div>
+ <div class="btnrow">${id?`<button type="button" class="btn2 danger" data-x="hdel" data-id="${id}">${ic('trash')}</button>`:''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="msave">Save</button></div>`);
+ const drawFoods=()=>{const q=($('#mq').value||'').toLowerCase();$('#hfoods').innerHTML=L.filter(x=>!q||x[1].toLowerCase().includes(q)).slice(0,q?20:14).map(x=>`<button type="button" data-fd="${esc(x[1])}">${x[0]} ${esc(x[1])}<small>${x[2]}</small></button>`).join('');
+  $$('#hfoods [data-fd]').forEach(b=>b.onclick=()=>{const f=L.find(x=>x[1]===b.dataset.fd);const ex=items.find(i=>i.n===f[1]);if(ex)ex.q=(ex.q||1)+1;else items.push({n:f[1],e:f[0],kcal:f[2],p:f[3],q:1});drawSel()})};
+ const drawSel=()=>{const tot=items.reduce((a,i)=>a+i.kcal*(i.q||1),0)+(+$('#msug').value||0)*16;$('#hsel').innerHTML=items.map((i,k)=>`<span class="hchip">${i.e||''} ${esc(i.n)} <button type="button" data-qm="${k}">−</button><b>${i.q||1}</b><button type="button" data-qp="${k}">+</button></span>`).join('')+(items.length?`<div class="xs" style="margin-top:4px">≈ <b>${tot} kcal</b></div>`:'');
+  $$('#hsel [data-qm]').forEach(b=>b.onclick=()=>{const i=items[+b.dataset.qm];i.q=(i.q||1)-1;if(i.q<1)items.splice(+b.dataset.qm,1);drawSel()});$$('#hsel [data-qp]').forEach(b=>b.onclick=()=>{items[+b.dataset.qp].q++;drawSel()});
+  $('#mhint').textContent=img&&!items.length&&!$('#mkcal').value&&!$('#mtext').value?'📷 Claude will look at the photo and estimate calories, protein and a health score.':img?'📷 Claude will also check the photo.':''};
+ drawFoods();drawSel();$('#mq').oninput=drawFoods;$('#msug').oninput=drawSel;$('#mtext').oninput=drawSel;
+ $$('#sheet [data-sl]').forEach(b=>b.onclick=()=>{slot=b.dataset.sl;$$('#sheet [data-sl]').forEach(x=>x.classList.toggle('on',x===b))});
+ const onFile=async ev=>{const f=ev.target.files[0];if(!f)return;$('#mhint').textContent='Preparing photo…';img=await shrinkTo_d26(f,512,.72);$('#mimg').outerHTML=`<img id="mimg" src="${img}">`;drawSel()};$('#mfile').onchange=onFile;$('#mfile2').onchange=onFile;
+ $('#msave').onclick=()=>{const t=new Date().toISOString(),text=$('#mtext').value.trim(),kc=$('#mkcal').value,sug=+$('#msug').value||0;if(!items.length&&!text&&!img&&!kc){toast('Add a food, a photo or a description');return}
+  let kcal=kc!==''?+kc:null;if(kcal==null&&items.length)kcal=items.reduce((a,i)=>a+i.kcal*(i.q||1),0)+sug*16;
+  const o={slot,date:$('#mdate').value||nowD().date,time:$('#mtime').value||hNow_d26(),items,text:text||(items.length?'':m.text||''),kcal:kcal??((img||text)?null:0),sugar:sug,img,skipped:false,updated:t};
+  if(slot==='drink'&&items.length===1){o.text=items[0].n;o.q=items[0].q||1}
+  if(id)Object.assign(m,o);else{H_().meals.push({id:hid_d26(),created:t,...o});xpFly($('#msave'),'+2 XP')}HS.queue();closeSheet();rerenderHealth_d26();toast('Logged ✓')};
+ if(opt.autoCam)setTimeout(()=>$('#mfile').click(),300)}
+function quickDrink_d26(i){const x=DRINKS_d26[i],t=new Date().toISOString(),d=nowD().date;
+ const same=H_().meals.find(m=>!m.deleted&&m.date===d&&m.slot==='drink'&&m.text===x[1]&&!m.img);
+ if(same){same.q=(same.q||1)+1;same.kcal=x[2]*same.q;same.items=[{n:x[1],e:x[0],kcal:x[2],p:x[3],q:same.q}];same.time=hNow_d26();same.updated=t}
+ else H_().meals.push({id:hid_d26(),slot:'drink',date:d,time:hNow_d26(),text:x[1],q:1,items:[{n:x[1],e:x[0],kcal:x[2],p:x[3],q:1}],kcal:x[2],created:t,updated:t});
+ HS.queue();rerenderHealth_d26();toast(`${x[0]} ${x[1]} +1 · ${hNow_d26()}`)}
+function rerenderHealth_d26(){if(curPage()==='health')renderHealth_d26();if(curPage()==='today')rerender()}
+
+/* ---------- BODY tab ---------- */
+const MEAS_d26=[['waist','Waist (navel)'],['belly','Belly (widest)'],['chest','Chest'],['shoulders','Shoulders'],['neck','Neck'],['bicepL','Biceps L (flexed)'],['bicepR','Biceps R (flexed)'],['forearm','Forearm'],['hips','Hips'],['thighL','Thigh L'],['thighR','Thigh R'],['calf','Calf']];
+const GROW_d26=new Set(['chest','shoulders','bicepL','bicepR','forearm','thighL','thighR','calf']);
+const POSES_d26=[['front','Front'],['side','Side'],['back','Back'],['biceps','Biceps flex'],['belly','Belly / abs'],['legs','Legs']];
+function measSeries_d26(k){return H_().meas.filter(x=>!x.deleted&&x[k]).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>({d:x.date,v:+x[k]}))}
+function lineSvg_d26(pts,col,unit){if(pts.length<2)return `<div class="xs faint">${pts.length?'Add one more to see the trend':'No data yet'}</div>`;const W=320,Hh=90,xs=pts.map((p,i)=>i),ys=pts.map(p=>p.v),mn=Math.min(...ys),mx=Math.max(...ys),r=mx-mn||1;
+ const P=pts.map((p,i)=>[10+i*(W-20)/(pts.length-1),10+(Hh-20)*(1-(p.v-mn)/r)]);return `<svg class="hline" viewBox="0 0 ${W} ${Hh}"><polyline points="${P.map(p=>p.join(',')).join(' ')}" style="stroke:${col}"/>${P.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" style="fill:${col}"/>`).join('')}<text x="10" y="${Hh-1}">${fd(pts[0].d,{day:'numeric',month:'short'})}</text><text x="${W-10}" y="${Hh-1}" text-anchor="end">${fd(pts[pts.length-1].d,{day:'numeric',month:'short'})}</text></svg>`}
+function bodyHTML_d26(){const p=prof_d26(),w=p.weight,bmi=w/((p.height/100)**2),lost=Math.round((p.start-w)*10)/10,toGo=Math.round((w-p.goal)*10)/10,W=H_().weights.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>({d:x.date,v:+x.kg}));
+ const lm=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)),first=lm[0]||{},last=lm[lm.length-1]||{};
+ const bf=last.waist&&last.neck&&last.waist>last.neck?Math.round((495/(1.0324-0.19077*Math.log10(last.waist-last.neck)+0.15456*Math.log10(p.height))-450)*10)/10:null;
+ const pct=Math.max(0,Math.min(100,(p.start-w)/((p.start-p.goal)||1)*100)),rv=D.body_review;
+ return `<div class="card mb hbody"><div class="hbt"><div><small>Weight</small><b>${w} kg</b><span class="up">▼ ${lost} kg lost</span></div><div><small>Goal</small><b>${p.goal} kg</b><span>${toGo>0?toGo+' kg to go':'reached 🎉'}</span></div><div><small>BMI</small><b>${bmi.toFixed(1)}</b><span>${p.height} cm</span></div>${bf?`<div><small>Body fat ≈</small><b>${bf}%</b><span>tape method</span></div>`:''}</div>
+  <div class="hprog"><i style="width:${pct}%"></i></div><div class="xs faint">${p.start} kg start → ${p.goal} kg goal · ${Math.round(pct)}% of the way</div></div>
+ <div class="hbtns"><button type="button" class="bigadd" data-x="hweigh">${ic('scale')}Weigh in</button><button type="button" class="bigadd alt2" data-x="hmeas">📏 Measure</button><button type="button" class="bigadd alt3" data-x="hphoto">${ic('camera')}Body photo</button></div>
+ ${rv?`<div class="card mb htip">🤖 <span><b>Claude’s review · ${fd((rv.date||'').slice(0,10)||nowD().date)}</b><br>${esc(rv.text||'')}</span></div>`:''}
+ <div class="card mb"><div class="hsh"><b>⚖️ Weight</b><span class="xs faint">${W.length} weigh-ins</span></div>${lineSvg_d26(W,'#10b981')}</div>
+ <div class="card mb"><div class="hsh"><b>📏 Waist</b><span class="xs faint">belly fat goes down here first</span></div>${lineSvg_d26(measSeries_d26('waist'),'#f59e0b')}</div>
+ <div class="card mb"><div class="hsh"><b>💪 Measurements</b><span class="xs faint">${lm.length?'first → latest':'tap Measure to start'}</span></div>
+  ${lm.length?`<div class="hmeas">${MEAS_d26.filter(([k])=>last[k]||first[k]).map(([k,l])=>{const a=+first[k]||null,b=+last[k]||null,dd=a&&b?Math.round((b-a)*10)/10:null,good=dd==null||dd===0?'':(GROW_d26.has(k)?dd>0:dd<0)?'g':'b';return `<div><span>${l}</span><b>${b??'—'}<small> cm</small></b>${dd?`<em class="${good}">${dd>0?'+':''}${dd}</em>`:''}</div>`}).join('')}</div>`:''}</div>
+ <div class="card mb"><div class="hsh"><b>📸 Progress photos</b><span class="xs faint">first vs latest</span></div><div class="hposes">${POSES_d26.map(([k,l])=>{const L=H_().photos.filter(x=>!x.deleted&&x.pose===k).sort((a,b)=>a.date.localeCompare(b.date));const a=L[0],b=L[L.length-1];
+  return `<div class="hpose"><div class="hpl"><b>${l}</b><button type="button" class="btn2 sm" data-x="hphoto" data-pose="${k}">${ic('camera')}</button></div>${a?`<div class="hcmp"><figure><img src="${a.img}" data-x="hpview" data-id="${a.id}"><figcaption>${fd(a.date,{day:'numeric',month:'short'})}</figcaption></figure>${b&&b!==a?`<figure><img src="${b.img}" data-x="hpview" data-id="${b.id}"><figcaption>${fd(b.date,{day:'numeric',month:'short'})}</figcaption></figure>`:''}</div>`:'<div class="xs faint">No photo yet</div>'}</div>`}).join('')}</div>
+  <div class="xs faint" style="margin-top:8px">Same place, same light, same time of day (morning) — makes the change easy to see. Photos stay encrypted in your private file.</div></div>
+ <div class="card mb"><div class="hsh"><b>⚙️ Profile</b><button type="button" class="btn2 sm" data-x="hprof">Edit</button></div><div class="xs faint">Height ${p.height} cm · age ${p.age} · start ${p.start} kg · goal ${p.goal} kg</div></div>`}
+function openWeigh_d26(){const p=prof_d26();sheet(head('Weigh in','scale','bg-g')+`<div class="hbigin"><input id="wkg" class="inp" type="number" step="0.1" inputmode="decimal" value="${p.weight}"><span>kg</span></div><div class="fld"><label>Date</label><input id="wdate" class="inp" type="date" value="${nowD().date}"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="wsave">Save</button></div><div class="xs faint">Best: mornings, after the toilet, before breakfast.</div>`);
+ $('#wsave').onclick=()=>{const kg=+$('#wkg').value;if(!kg||kg<30||kg>250){toast('Check the number');return}const d=$('#wdate').value||nowD().date,t=new Date().toISOString(),ex=H_().weights.find(x=>!x.deleted&&x.date===d);if(ex){ex.kg=kg;ex.updated=t}else H_().weights.push({id:hid_d26(),date:d,kg,created:t,updated:t});
+  HS.queue();closeSheet();const prev=lastWeightBefore_d26(d);toast(prev&&kg<prev?`▼ ${Math.round((prev-kg)*10)/10} kg — great work 💪`:'Saved ✓');if(prev&&kg<prev)confetti(40);rerenderHealth_d26()}}
+function lastWeightBefore_d26(d){const L=H_().weights.filter(x=>!x.deleted&&x.date<d).sort((a,b)=>a.date.localeCompare(b.date));return L.length?L[L.length-1].kg:prof_d26().start}
+function openMeas_d26(){const last=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)).pop()||{};
+ sheet(head('Measurements','scale','bg-o')+`<div class="xs faint" style="margin-bottom:8px">Tape measure in cm. Fill what you can — even waist + biceps is great.</div><div class="hmform">${MEAS_d26.map(([k,l])=>`<label><span>${l}</span><input class="inp" type="number" step="0.1" inputmode="decimal" data-mk="${k}" placeholder="${last[k]||''}"></label>`).join('')}</div><div class="fld"><label>Date</label><input id="mmdate" class="inp" type="date" value="${nowD().date}"></div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="mmsave">Save</button></div>`);
+ $('#mmsave').onclick=()=>{const o={};$$('#sheet [data-mk]').forEach(i=>{if(i.value)o[i.dataset.mk]=+i.value});if(!Object.keys(o).length){toast('Enter at least one');return}const t=new Date().toISOString();H_().meas.push({id:hid_d26(),date:$('#mmdate').value||nowD().date,...o,created:t,updated:t});HS.queue();closeSheet();toast('Measurements saved ✓');rerenderHealth_d26()}}
+function openBodyPhoto_d26(pose){let sel=pose||'front';sheet(head('Body photo','camera','bg-p')+`<div class="nbooks sm2">${POSES_d26.map(([k,l])=>`<button type="button" class="${sel===k?'on':''}" data-po="${k}">${l}</button>`).join('')}</div><div class="hph" style="margin-top:10px"><label class="btn2 pri">${ic('camera')} Take photo<input type="file" accept="image/*" capture="user" id="bpcam" hidden></label><label class="btn2">🖼 Gallery<input type="file" accept="image/*" id="bpgal" hidden></label></div><div class="xs faint" style="margin-top:8px">Tip: stand 2 m from a mirror, relaxed, same pose each time.</div>`);
+ $$('#sheet [data-po]').forEach(b=>b.onclick=()=>{sel=b.dataset.po;$$('#sheet [data-po]').forEach(x=>x.classList.toggle('on',x===b))});
+ const on=async ev=>{const f=ev.target.files[0];if(!f)return;const img=await shrinkTo_d26(f,640,.75),t=new Date().toISOString();H_().photos.push({id:hid_d26(),date:nowD().date,pose:sel,img,created:t,updated:t});HS.queue();closeSheet();xpFly(document.body,'+5 XP');toast('Photo saved 🔒');rerenderHealth_d26()};$('#bpcam').onchange=on;$('#bpgal').onchange=on}
+function openProf_d26(){const p=prof_d26();sheet(head('Body profile','heart','bg-v')+`<div class="hmform">${[['height','Height (cm)',p.height],['age','Age',p.age],['start','Starting weight (kg)',p.start],['goal','Goal weight (kg)',p.goal]].map(([k,l,v])=>`<label><span>${l}</span><input class="inp" type="number" step="0.1" data-pk="${k}" value="${v}"></label>`).join('')}</div><div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="psave">Save</button></div>`);
+ $('#psave').onclick=()=>{const o={updated:new Date().toISOString()};$$('#sheet [data-pk]').forEach(i=>o[i.dataset.pk]=+i.value);H_().prof=o;HS.queue();closeSheet();rerenderHealth_d26()}}
+
+/* ---------- clicks ---------- */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x^="h"]');if(!a)return;const x=a.dataset.x;
+ const map={htab:()=>{hTab_d26=a.dataset.t;renderHealth_d26()},hdaynav:()=>{const n=nowD().date;hDay_d26=addDays(hDay_d26||n,+a.dataset.v);if(hDay_d26>n)hDay_d26=n;renderHealth_d26()},
+  hsnap:()=>HS.load().then(()=>openMeal_d26(null,{autoCam:true})),hadd:()=>HS.load().then(()=>openMeal_d26(null,{slot:a.dataset.s})),hedit:()=>openMeal_d26(a.dataset.id),hdrink:()=>HS.load().then(()=>quickDrink_d26(+a.dataset.i)),
+  hskip:()=>HS.load().then(()=>{const t=new Date().toISOString();H_().meals.push({id:hid_d26(),slot:a.dataset.s,date:hDay_d26||nowD().date,time:hNow_d26(),skipped:true,created:t,updated:t});HS.queue();rerenderHealth_d26()}),
+  hdel:()=>{if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Delete?';return}const m=H_().meals.find(z=>z.id===a.dataset.id);if(m){m.deleted=true;m.updated=new Date().toISOString();HS.queue()}closeSheet();rerenderHealth_d26()},
+  hweigh:()=>HS.load().then(openWeigh_d26),hmeas:()=>HS.load().then(openMeas_d26),hphoto:()=>HS.load().then(()=>openBodyPhoto_d26(a.dataset.pose)),hprof:()=>openProf_d26(),
+  hpview:()=>{const ph=H_().photos.find(z=>z.id===a.dataset.id);if(!ph)return;sheet(head(fd(ph.date,{day:'numeric',month:'long',year:'numeric'}),'camera','bg-p')+`<img src="${ph.img}" style="width:100%;border-radius:14px"><div class="btnrow"><button type="button" class="btn2 danger" data-x="hpdel" data-id="${ph.id}">${ic('trash')} Delete</button><button type="button" class="btn2" data-act="close">Close</button></div>`)},
+  hpdel:()=>{if(a.dataset.sure!=='1'){a.dataset.sure='1';a.innerHTML='Sure?';return}const ph=H_().photos.find(z=>z.id===a.dataset.id);if(ph){ph.deleted=true;delete ph.img;ph.updated=new Date().toISOString();HS.queue()}closeSheet();rerenderHealth_d26()}};
+ if(map[x]){e.preventDefault();map[x]()}});
+
+/* ---------- Today: food card with time-aware questions ---------- */
+const _renderToday_d26=renderToday;renderToday=function(G){_renderToday_d26(G);const el=$('#p-today');if(!el)return;if(!HS.loaded){HS.load().then(()=>{if(curPage()==='today')rerender()});return}
+ const n=nowD().date,S=daySum_d26(n),T=targets_d26(),m=nowD().mins,has=k=>S.M.some(x=>x.slot===k);
+ let ask='';if(m>=10*60&&!has('breakfast'))ask=['breakfast','Did you have breakfast?'];else if(m>=15*60&&!has('lunch'))ask=['lunch','Did you have lunch?'];else if(m>=21*60&&!has('dinner'))ask=['dinner','Did you have dinner?'];
+ const html=`<div class="card mb hfoodtoday"><div class="hft"><b>🍽 Food today</b><span>${S.kcal} / ${T.kcal} kcal · ${S.p} g protein · ☕ ${S.coffee}</span></div>
+  ${ask?`<div class="hask">${ask[1]} <button type="button" class="btn2 sm pri" data-x="hadd" data-s="${ask[0]}">Yes — log it</button><button type="button" class="btn2 sm" data-x="hskip" data-s="${ask[0]}">Skipped</button></div>`:''}
+  <div class="hftb"><button type="button" class="btn2 sm pri" data-x="hsnap">${ic('camera')} Snap meal</button><button type="button" class="btn2 sm" data-x="hdrink" data-i="1">☕ +1 coffee</button><button type="button" class="btn2 sm" data-x="hdrink" data-i="9">💧 +1 water</button><button type="button" class="btn2 sm ghost" onclick="location.hash='#health'">Open ›</button></div></div>`;
+ const t=el.querySelector('.v8top');if(t){const r=t.querySelector('.reward');(r||t.firstElementChild)?.insertAdjacentHTML('afterend',html)}};
+/* XP */
+const _habXP_d26=habXP;habXP=function(){let x=_habXP_d26();if(HS.loaded){const h=H_();x+=h.meals.filter(m=>!m.deleted&&!m.skipped).length*2+h.weights.filter(w=>!w.deleted).length*5+h.photos.filter(p=>!p.deleted).length*5+h.meas.filter(w=>!w.deleted).length*5}return x};
+
+/* ================= v27: edit/delete measurements & weigh-ins · body-diagram icons · sanity checks ================= */
+const MLINE_d27={neck:[[17,12.5,23,12.5]],shoulders:[[7.5,15.2,32.5,15.2]],chest:[[12,19.5,28,19.5]],belly:[[10.6,25,29.4,25]],waist:[[11,28.3,29,28.3]],hips:[[10.6,33,29.4,33]],bicepL:[[28,20,33,22.5]],bicepR:[[7,22.5,12,20]],forearm:[[4.8,30,9.6,31.5]],thighL:[[24.5,41,30.5,41]],thighR:[[9.5,41,15.5,41]],calf:[[10.5,51,16.5,51],[23.5,51,29.5,51]]};
+const MRANGE_d27={waist:[50,200],belly:[50,200],chest:[60,180],shoulders:[80,180],neck:[25,60],bicepL:[20,60],bicepR:[20,60],forearm:[18,50],hips:[60,180],thighL:[30,100],thighR:[30,100],calf:[25,70]};
+const MHOW_d27={waist:'Around your belly button, relaxed, breathe out',belly:'Widest part of the belly',chest:'Across the nipples, arms down',shoulders:'Widest point around both shoulders',neck:'Just below the Adam’s apple',bicepL:'Left arm flexed, widest point',bicepR:'Right arm flexed, widest point',forearm:'Widest part below the elbow',hips:'Widest part of the bottom',thighL:'Left leg, just under the bottom',thighR:'Right leg, just under the bottom',calf:'Widest part of the calf'};
+function micon_d27(k,big){const L=MLINE_d27[k]||[];return `<svg class="micon${big?' big':''}" viewBox="0 0 40 60" aria-hidden="true"><g class="sil"><circle cx="20" cy="7" r="4.6"/><path d="M13 14.5h14l2 18.5H11z"/><path d="M13 15.5 7.2 30 5.8 38M27 15.5 32.8 30 34.2 38M15 33l-1.2 25M25 33l1.2 25"/></g>${L.map(l=>`<line x1="${l[0]}" y1="${l[1]}" x2="${l[2]}" y2="${l[3]}" class="hl"/>`).join('')}</svg>`}
+const badM_d27=(k,v)=>{const r=MRANGE_d27[k];return r&&v!=null&&v!==''&&(+v<r[0]||+v>r[1])};
+
+/* decorate the Body tab after it renders */
+const _renderHealth_d27=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d27();const el=$('#p-health');if(!el||hTab_d26!=='body')return;
+ const byLabel={};MEAS_d26.forEach(([k,l])=>byLabel[l]=k);
+ el.querySelectorAll('.hmeas>div').forEach(t=>{const l=t.querySelector('span')?.textContent,k=byLabel[l];if(!k)return;t.dataset.x='hmedit';t.dataset.k=k;t.classList.add('tap');t.insertAdjacentHTML('afterbegin',micon_d27(k));
+  const v=+(t.querySelector('b')?.firstChild?.textContent||0);if(badM_d27(k,v)){t.classList.add('bad');t.insertAdjacentHTML('beforeend','<i class="mwarn">⚠️ check · tap to fix</i>')}});
+ const wc=[...el.querySelectorAll('.card .hsh b')].find(b=>/Weight/.test(b.textContent));if(wc){const h=wc.parentElement;if(!h.querySelector('[data-x="hwedit"]'))h.insertAdjacentHTML('beforeend','<button type="button" class="btn2 sm" data-x="hwedit">Edit</button>')}
+ const mc=[...el.querySelectorAll('.card .hsh b')].find(b=>/Measurements/.test(b.textContent));if(mc){const h=mc.parentElement;if(!h.querySelector('[data-x="hmall"]'))h.insertAdjacentHTML('beforeend','<button type="button" class="btn2 sm" data-x="hmall">History</button>')}};
+
+/* edit one measurement: every value you ever entered for it */
+function openMeasEdit_d27(k){const lab=(MEAS_d26.find(x=>x[0]===k)||[k,k])[1];const R=H_().meas.filter(x=>!x.deleted&&x[k]!=null&&x[k]!=='').sort((a,b)=>b.date.localeCompare(a.date));
+ sheet(head(lab,'scale','bg-o')+`<div class="mhead">${micon_d27(k,true)}<div><b>${lab}</b><small>${MHOW_d27[k]||''}</small><small class="faint">Normal range ${MRANGE_d27[k]?MRANGE_d27[k].join('–')+' cm':''}</small></div></div>
+ <div class="mrows">${R.map(r=>`<div class="mrow" data-id="${r.id}"><input class="inp" type="date" value="${r.date}" data-f="date"><input class="inp ${badM_d27(k,r[k])?'bad':''}" type="number" step="0.1" inputmode="decimal" value="${r[k]}" data-f="v"><span>cm</span><button type="button" class="vbtn" data-x="hmrowdel" title="Delete">${ic('trash')}</button></div>`).join('')||'<div class="xs faint">No values yet</div>'}</div>
+ <div class="mrow new"><input class="inp" type="date" value="${nowD().date}" id="mnd"><input class="inp" type="number" step="0.1" inputmode="decimal" placeholder="new value" id="mnv"><span>cm</span></div>
+ <div class="xs faint" id="mmsg"></div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="mesave">Save</button></div>`);
+ $$('#sheet [data-x="hmrowdel"]').forEach(b=>b.onclick=()=>{const row=b.closest('.mrow');row.classList.toggle('del');b.innerHTML=row.classList.contains('del')?'↺':ic('trash')});
+ $('#mesave').onclick=()=>{const t=new Date().toISOString();let bad=null;
+  $$('#sheet .mrow[data-id]').forEach(row=>{const v=row.querySelector('[data-f="v"]').value;if(!row.classList.contains('del')&&v&&badM_d27(k,v))bad=v});const nv=$('#mnv').value;if(nv&&badM_d27(k,nv))bad=nv;
+  if(bad!=null&&!$('#mesave').dataset.ok){$('#mmsg').innerHTML=`⚠️ <b>${bad} cm</b> looks wrong for ${lab.toLowerCase()} (normal ${MRANGE_d27[k].join('–')} cm). Tap Save again to keep it anyway.`;$('#mesave').dataset.ok='1';return}
+  $$('#sheet .mrow[data-id]').forEach(row=>{const r=H_().meas.find(x=>x.id===row.dataset.id);if(!r)return;const v=row.querySelector('[data-f="v"]').value,d=row.querySelector('[data-f="date"]').value;
+   if(row.classList.contains('del')||!v){delete r[k]}else{r[k]=+v}if(d&&d!==r.date){if(MEAS_d26.filter(([kk])=>kk!==k&&r[kk]!=null).length&&!row.classList.contains('del')){const val=r[k];delete r[k];H_().meas.push({id:hid_d26(),date:d,[k]:val,created:t,updated:t})}else r.date=d}
+   if(!MEAS_d26.some(([kk])=>r[kk]!=null&&r[kk]!==''))r.deleted=true;r.updated=t});
+  if(nv){const d=$('#mnd').value||nowD().date,ex=H_().meas.find(x=>!x.deleted&&x.date===d);if(ex){ex[k]=+nv;ex.updated=t}else H_().meas.push({id:hid_d26(),date:d,[k]:+nv,created:t,updated:t})}
+  HS.queue();closeSheet();toast('Updated ✓');rerenderHealth_d26()}}
+/* all measurement entries (history) */
+function openMeasAll_d27(){const R=H_().meas.filter(x=>!x.deleted).sort((a,b)=>b.date.localeCompare(a.date));
+ sheet(head('Measurement history','scale','bg-o')+(R.length?R.map(r=>`<div class="mhist"><div class="mhd"><b>${fd(r.date,{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</b><button type="button" class="btn2 sm danger" data-x="hmentdel" data-id="${r.id}">${ic('trash')}</button></div><div class="mhv">${MEAS_d26.filter(([k])=>r[k]!=null&&r[k]!=='').map(([k,l])=>`<button type="button" class="${badM_d27(k,r[k])?'bad':''}" data-x="hmedit" data-k="${k}">${micon_d27(k)}<span>${l.replace(/ \(.*\)/,'')}</span><b>${r[k]}</b></button>`).join('')}</div></div>`).join(''):'<div class="xs faint">Nothing yet</div>')+`<button type="button" class="btn2 pri" style="width:100%;margin-top:10px" data-x="hmeas">+ New measurements</button>`)}
+/* weigh-ins */
+function openWeighEdit_d27(){const R=H_().weights.filter(x=>!x.deleted).sort((a,b)=>b.date.localeCompare(a.date));
+ sheet(head('Weigh-ins','scale','bg-g')+`<div class="mrows">${R.map(r=>`<div class="mrow" data-id="${r.id}"><input class="inp" type="date" value="${r.date}" data-f="date"><input class="inp" type="number" step="0.1" inputmode="decimal" value="${r.kg}" data-f="v"><span>kg</span><button type="button" class="vbtn" data-x="hmrowdel">${ic('trash')}</button></div>`).join('')||'<div class="xs faint">No weigh-ins yet</div>'}</div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="wesave">Save</button></div>`);
+ $$('#sheet [data-x="hmrowdel"]').forEach(b=>b.onclick=()=>{const row=b.closest('.mrow');row.classList.toggle('del');b.innerHTML=row.classList.contains('del')?'↺':ic('trash')});
+ $('#wesave').onclick=()=>{const t=new Date().toISOString();$$('#sheet .mrow[data-id]').forEach(row=>{const r=H_().weights.find(x=>x.id===row.dataset.id);if(!r)return;const v=+row.querySelector('[data-f="v"]').value;
+  if(row.classList.contains('del')||!v||v<30||v>250)r.deleted=true;else{r.kg=v;r.date=row.querySelector('[data-f="date"]').value||r.date}r.updated=t});HS.queue();closeSheet();toast('Updated ✓');rerenderHealth_d26()}}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hmedit"],[data-x="hmall"],[data-x="hwedit"],[data-x="hmentdel"]');if(!a)return;e.stopPropagation();const x=a.dataset.x;
+ if(x==='hmedit')openMeasEdit_d27(a.dataset.k);else if(x==='hmall')openMeasAll_d27();else if(x==='hwedit')openWeighEdit_d27();
+ else{if(a.dataset.sure!=='1'){a.dataset.sure='1';a.textContent='Delete?';return}const r=H_().meas.find(z=>z.id===a.dataset.id);if(r){r.deleted=true;r.updated=new Date().toISOString();HS.queue()}openMeasAll_d27();rerenderHealth_d26()}},true);
+
+/* new-measurement form: icon + how-to + range check */
+openMeas_d26=function(){const last=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)).pop()||{};
+ sheet(head('Measurements','scale','bg-o')+`<div class="xs faint" style="margin-bottom:8px">Tape measure, in cm. Fill what you can — waist + biceps is already great.</div>
+ <div class="mform">${MEAS_d26.map(([k,l])=>`<label class="mf">${micon_d27(k)}<div><span>${l}</span><small>${MHOW_d27[k]}</small></div><input class="inp" type="number" step="0.1" inputmode="decimal" data-mk="${k}" placeholder="${last[k]||'cm'}"></label>`).join('')}</div>
+ <div class="fld"><label>Date</label><input id="mmdate" class="inp" type="date" value="${nowD().date}"></div><div class="xs" id="mmmsg"></div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="mmsave">Save</button></div>`);
+ $$('#sheet [data-mk]').forEach(i=>i.oninput=()=>i.classList.toggle('bad',badM_d27(i.dataset.mk,i.value)));
+ $('#mmsave').onclick=()=>{const o={},bad=[];$$('#sheet [data-mk]').forEach(i=>{if(i.value){o[i.dataset.mk]=+i.value;if(badM_d27(i.dataset.mk,i.value))bad.push((MEAS_d26.find(x=>x[0]===i.dataset.mk)||[])[1]+' '+i.value)}});
+  if(!Object.keys(o).length){toast('Enter at least one');return}
+  if(bad.length&&!$('#mmsave').dataset.ok){$('#mmmsg').innerHTML=`⚠️ These look wrong: <b>${esc(bad.join(', '))}</b> cm. Fix them, or tap Save again to keep.`;$('#mmsave').dataset.ok='1';return}
+  const t=new Date().toISOString(),d=$('#mmdate').value||nowD().date,ex=H_().meas.find(x=>!x.deleted&&x.date===d);if(ex){Object.assign(ex,o);ex.updated=t}else H_().meas.push({id:hid_d26(),date:d,...o,created:t,updated:t});
+  HS.queue();closeSheet();toast('Measurements saved ✓');rerenderHealth_d26()}};
+
+/* ================= v28: outline pose guides for progress photos ================= */
+const PSVG_d28={
+ front:'<circle cx="30" cy="11" r="6"/><path d="M22 21h16l3 25H19z"/><path d="M22 22l-6 22M38 22l6 22M25 46l-2 29M35 46l2 29"/>',
+ side:'<circle cx="30" cy="11" r="6"/><path d="M36 10.5l2.5 1.5-2.5 1"/><path d="M26 21c7 0 11 3 11 9 0 6-2 9-2 16H25c0-9-2-17 1-25z"/><path d="M30 23l2 21M28 46l-1 29M33 46l1 29"/>',
+ back:'<circle cx="30" cy="11" r="6"/><path d="M22 21h16l3 25H19z"/><path d="M22 22l-6 22M38 22l6 22M25 46l-2 29M35 46l2 29"/><path d="M30 22v22M25 26c2 2 3 4 3 7M35 26c-2 2-3 4-3 7" class="acc"/>',
+ biceps:'<circle cx="30" cy="11" r="6"/><path d="M23 21h14l2 24H21z"/><path d="M23 23H13l-2-12M37 23h10l2-12M24 45l-2 30M36 45l2 30"/><path d="M14 22c1-3 4-4 6-3M46 22c-1-3-4-4-6-3" class="acc"/>',
+ belly:'<path d="M16 8c0 22 2 48 6 66M44 8c0 22-2 48-6 66"/><path d="M20 18c6 4 14 4 20 0"/><circle cx="30" cy="46" r="1.6" class="acc"/><path d="M24 28h12M24 36h12M30 24v28" class="acc"/>',
+ legs:'<path d="M17 8h26"/><path d="M17 8c0 22 2 44 3 66h7l2-46 2 46h7c1-22 3-44 3-66"/><path d="M22 40c1 2 3 3 5 3M38 40c-1 2-3 3-5 3" class="acc"/>'};
+const PHINT_d28={front:'Face the camera, arms relaxed',side:'Turn 90°, stand tall',back:'Back to the camera, arms down',biceps:'Both arms up, flex',belly:'Close-up, relaxed, no sucking in',legs:'Feet hip-width, front view'};
+const picon_d28=k=>`<svg class="picon" viewBox="0 0 60 80" aria-hidden="true"><rect x="2" y="2" width="56" height="76" rx="8" class="frame"/><g>${PSVG_d28[k]||''}</g></svg>`;
+const _renderHealth_d28=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d28();const el=$('#p-health');if(!el||hTab_d26!=='body')return;
+ el.querySelectorAll('.hpose').forEach(p=>{const btn=p.querySelector('[data-pose]');if(!btn)return;const k=btn.dataset.pose,has=!!p.querySelector('.hcmp'),name=p.querySelector('.hpl b')?.textContent||k;
+  if(!has){p.classList.add('empty');p.innerHTML=`<div class="pe">${picon_d28(k)}<div><b>${esc(name)}</b><small>${PHINT_d28[k]||''}</small></div></div><button type="button" class="btn2 sm pri pbtn" data-x="hphoto" data-pose="${k}">${ic('camera')} Take photo</button>`}
+  else{const h=p.querySelector('.hpl');if(h&&!h.querySelector('.picon'))h.insertAdjacentHTML('afterbegin',picon_d28(k).replace('class="picon"','class="picon sm"'))}})};
+/* pose chips in the photo sheet get the same outline */
+const _openBodyPhoto_d28=openBodyPhoto_d26;openBodyPhoto_d26=function(pose){_openBodyPhoto_d28(pose);$$('#sheet [data-po]').forEach(b=>{if(!b.querySelector('.picon'))b.insertAdjacentHTML('afterbegin',picon_d28(b.dataset.po).replace('class="picon"','class="picon xs"'))});
+ const tip=$('#sheet .xs.faint');const upd=()=>{const on=$('#sheet [data-po].on');if(on&&tip)tip.innerHTML=`<b>${esc(on.textContent.trim())}:</b> ${PHINT_d28[on.dataset.po]||''} · stand 2 m from the camera, same place and light each time.`};upd();$$('#sheet [data-po]').forEach(b=>b.addEventListener('click',()=>setTimeout(upd,0)))};
+
+/* ================= v29: Analyze my body · goal body (photo or preset) · progress & finish-date prediction ================= */
+const GPRE_d29={lean:{e:'🏃',n:'Lean & fit',d:'Flat belly, healthy, light',bf:18,waist:88,swr:1.4,gain:0},
+ athletic:{e:'⚡',n:'Athletic',d:'Visible abs outline, defined arms',bf:14,waist:84,swr:1.5,gain:2},
+ muscular:{e:'💪',n:'Muscular',d:'Big chest & arms, V-shape, abs',bf:12,waist:82,swr:1.55,gain:5}};
+const r1_d29=x=>Math.round(x*10)/10;
+const navy_d29=(w,n,h)=>w&&n&&w>n?r1_d29(495/(1.0324-0.19077*Math.log10(w-n)+0.15456*Math.log10(h))-450):null;
+function gb_d29(){return (H_().prof||{}).gb||null}
+function goalPhotos_d29(){return H_().photos.filter(x=>!x.deleted&&x.pose==='goal'&&x.img).sort((a,b)=>(b.created||'').localeCompare(a.created||''))}
+function goalT_d29(){const g=gb_d29();if(!g)return null;const base=GPRE_d29[g.preset]||GPRE_d29.athletic,ga=D.goal_analysis&&g.photoId&&D.goal_analysis.photoId===g.photoId?D.goal_analysis:null;
+ return{...base,...(ga?{bf:+ga.bf||base.bf,waist:+ga.waist||base.waist,swr:+ga.swr||base.swr,gain:ga.gain!=null?+ga.gain:base.gain}:{}),ga,g,name:g.label||(ga?'Your goal photo':base.n)}}
+function anCalc_d29(){const p=prof_d26(),w=p.weight,M=H_().meas.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date)),f=M[0]||{},l=M[M.length-1]||{};
+ const ba=D.body_analysis,bfTape=navy_d29(+l.waist,+l.neck,p.height),bfPhoto=ba&&ba.bf?+ba.bf:null,bf=bfPhoto&&bfTape?r1_d29((bfPhoto*2+bfTape)/3):(bfPhoto||bfTape||r1_d29(1.2*w/((p.height/100)**2)+0.23*p.age-16.2));
+ const fat=r1_d29(w*bf/100),lean=r1_d29(w-fat),whtr=l.waist?+l.waist/p.height:null,swr=l.waist&&l.shoulders?+l.shoulders/+l.waist:null,arm=l.bicepL&&l.bicepR?r1_d29(Math.abs(l.bicepL-l.bicepR)):null;
+ const W=H_().weights.filter(x=>!x.deleted).sort((a,b)=>a.date.localeCompare(b.date));let rate=0.7,rateSrc='typical safe pace on your 2,200 kcal plan';
+ if(W.length>1){const days=(new Date(W[W.length-1].date)-new Date(W[0].date))/864e5;if(days>=14){const r=(W[0].kg-W[W.length-1].kg)/(days/7);if(r>0.15){rate=Math.min(1.1,Math.max(0.3,r1_d29(r)));rateSrc='your real pace from your weigh-ins'}}}
+ const when=kg=>{const wk=Math.max(0,(w-kg)/rate);return{wk:Math.ceil(wk),date:addDays(nowD().date,Math.round(wk*7))}};
+ const miles=[[25,'Belly clearly smaller','👕'],[20,'Good shape — flat-ish belly','😎'],[15,'Abs outline shows','🔥'],[12,'Fitness-model lean','🏆']].filter(m=>m[0]<bf).map(([b,t,e])=>{const kg=r1_d29(lean/(1-b/100));return{bf:b,t,e,kg,...when(kg)}});
+ const T=goalT_d29();let goal=null;
+ if(T){const tw=r1_d29((lean+T.gain)/(1-T.bf/100)),wf=Math.max(0,(w-tw)/rate),wm=T.gain/0.15,wk=Math.ceil(Math.max(wf,wm));
+  const b0=(()=>{const fw=W[0]?.kg||w;return navy_d29(+f.waist,+f.neck,p.height)||bf})(),start=Math.max(p.start,w);
+  const pr=(a,b,c)=>a===b?100:Math.max(0,Math.min(100,(a-c)/(a-b)*100));
+  const parts=[['Weight',`${w} → ${tw} kg`,pr(start,tw,w)],['Body fat',`${bf}% → ${T.bf}%`,pr(Math.max(b0,bf),T.bf,bf)]];
+  if(l.waist)parts.push(['Waist',`${l.waist} → ${T.waist} cm`,pr(Math.max(+f.waist||0,+l.waist),T.waist,+l.waist)]);
+  if(swr)parts.push(['V-shape',`${swr.toFixed(2)} → ${T.swr}`,(()=>{const s0=f.waist&&f.shoulders?Math.min(f.shoulders/f.waist,swr):swr;return pr(-s0,-T.swr,-swr)})()]);
+  goal={T,tw,wk,date:addDays(nowD().date,wk*7),fast:addDays(nowD().date,Math.ceil(wk/1.25)*7),slow:addDays(nowD().date,Math.ceil(wk*1.35)*7),parts,pct:Math.round(parts.reduce((a,x)=>a+x[2],0)/parts.length)}}
+ return{p,w,l,bf,bfTape,bfPhoto,fat,lean,whtr,swr,arm,rate,rateSrc,miles,goal,ba,bmi:w/((p.height/100)**2)}}
+const mon_d29=d=>fd(d,{month:'short',year:'numeric'});
+const ring_d29=(pct,sz=64)=>{const r=26,c=2*Math.PI*r;return `<svg class="gring" viewBox="0 0 64 64" style="width:${sz}px;height:${sz}px"><circle cx="32" cy="32" r="${r}" class="bg"/><circle cx="32" cy="32" r="${r}" class="fg" stroke-dasharray="${c*pct/100} ${c}" transform="rotate(-90 32 32)"/><text x="32" y="37" text-anchor="middle">${pct}%</text></svg>`};
+
+/* ---------- Body tab: Analyze button + goal card ---------- */
+const _renderHealth_d29=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d29();const el=$('#p-health');if(!el||hTab_d26!=='body')return;const hb=el.querySelector('.hbody');if(!hb||el.querySelector('.ganal'))return;
+ const A=anCalc_d29(),G=A.goal,gp=goalPhotos_d29()[0];
+ hb.insertAdjacentHTML('afterend',`<button type="button" class="ganal" data-x="hanal"><span>🔍</span><div><b>Analyze my body</b><small>${A.ba?'Claude’s review · '+fd(A.ba.date.slice(0,10),{day:'numeric',month:'short'})+' · body fat ≈ '+A.bf+'%':'Numbers, photos & how long it will take'}</small></div><i>›</i></button>
+ ${G?`<div class="card mb gcard" data-x="hgoal">${ring_d29(G.pct)}<div class="gct"><small>🎯 Goal body</small><b>${esc(G.T.name)}</b><span>${G.wk?`≈ ${G.wk} weeks · <b>${mon_d29(G.date)}</b>`:'You’re there 🎉'}</span></div>${gp?`<img src="${gp.img}" alt="">`:`<span class="gemo">${G.T.e||'🎯'}</span>`}</div>`
+  :`<button type="button" class="card mb gset" data-x="hgoal"><span class="gemo">🎯</span><div><b>Set your goal body</b><small>Upload a photo of the body you want — or pick a style. I’ll track you there.</small></div><i>›</i></button>`}`)};
+
+/* ---------- Analysis sheet ---------- */
+function openAnal_d29(){const A=anCalc_d29(),G=A.goal,ba=A.ba,pf=(H_().prof||{}),pend=pf.anReq&&(!ba||pf.anReq>ba.date);
+ const lvl=(v,a,b)=>v==null?'':v<a?'g':v<b?'o':'b';
+ const stat=(k,v,s,c)=>`<div class="ast ${c||''}"><small>${k}</small><b>${v}</b><span>${s}</span></div>`;
+ sheet(head('Body analysis','heart','bg-v')+`
+ ${G?`<div class="agoal">${ring_d29(G.pct,78)}<div><small>Progress to your goal body</small><b>${esc(G.T.name)}</b><span>Finish ≈ <b>${mon_d29(G.date)}</b> (${G.wk} weeks)<br><em>fast ${mon_d29(G.fast)} · slow ${mon_d29(G.slow)}</em></span></div></div>
+  <div class="aparts">${G.parts.map(([n,v,p])=>`<div><div class="apt"><b>${n}</b><span>${v}</span></div><div class="abar"><i style="width:${Math.max(3,p)}%"></i></div></div>`).join('')}</div>`
+  :`<button type="button" class="btn2 pri" data-x="hgoal" style="width:100%;margin-bottom:12px">🎯 Set your goal body to track it</button>`}
+ <div class="ahd">📊 Your numbers</div>
+ <div class="astats">${stat('Body fat ≈',A.bf+'%',A.bfPhoto&&A.bfTape?`photo ${A.bfPhoto}% · tape ${A.bfTape}%`:A.bfTape?'tape method':'estimate',lvl(A.bf,20,28))}
+  ${stat('Fat',A.fat+' kg','to lose most of')}${stat('Lean mass',A.lean+' kg','muscle, bone, water — keep it','g')}
+  ${A.whtr?stat('Waist ÷ height',A.whtr.toFixed(2),A.whtr<.5?'healthy':'healthy is under 0.50 ('+Math.round(A.p.height/2)+' cm)',lvl(A.whtr,.5,.58)):''}
+  ${A.swr?stat('V-shape',A.swr.toFixed(2),'shoulders ÷ waist · aim 1.45+',A.swr>=1.45?'g':A.swr>=1.3?'o':'b'):''}
+  ${A.arm!=null?stat('Arms L / R',A.l.bicepL+' / '+A.l.bicepR,A.arm>2?A.arm+' cm apart — re-measure':'balanced',A.arm>2?'o':'g'):''}</div>
+ <div class="ahd">🗓 How long it takes</div><div class="xs faint" style="margin:-4px 0 8px">At ${A.rate} kg a week (${A.rateSrc}) and keeping your muscle:</div>
+ <div class="amiles">${A.miles.map(m=>`<div><span>${m.e}</span><div><b>${m.t}</b><small>~${m.bf}% fat · ${m.kg} kg</small></div><em>${m.wk} wk<br><b>${mon_d29(m.date)}</b></em></div>`).join('')||'<div class="xs">You’re already lean 🔥</div>'}</div>
+ <div class="ahd">🤖 Claude’s photo review ${ba?`<small>${fd(ba.date.slice(0,10),{day:'numeric',month:'short'})}</small>`:''}</div>
+ ${ba?`<div class="arev"><p>${esc(ba.summary||'')}</p>${ba.strengths?.length?`<b>💪 Strong points</b><ul>${ba.strengths.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${ba.focus?.length?`<b>🎯 Work on</b><ul>${ba.focus.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${ba.plan?.length?`<b>📋 Plan</b><ul>${ba.plan.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${ba.goalNote?`<p class="xs"><b>vs your goal:</b> ${esc(ba.goalNote)}</p>`:''}</div>`:'<div class="xs faint">No review yet.</div>'}
+ <button type="button" class="btn2 ${pend?'':'pri'}" data-x="hanreq" style="width:100%;margin-top:10px" ${pend?'disabled':''}>${pend?'⏳ Claude is looking at your photos — ready within the hour':'🔄 Analyze again with my latest photos'}</button>
+ <div class="xs faint" style="margin-top:8px">Estimates, not a medical test. Best to weigh in weekly and update measurements + photos every 2 weeks.</div>`)}
+
+/* ---------- Goal body sheet ---------- */
+function openGoal_d29(){const g=gb_d29()||{},gp=goalPhotos_d29();let sel=g.preset||'athletic',pid=g.photoId||gp[0]?.id||null;
+ const draw=()=>{const ga=D.goal_analysis&&pid&&D.goal_analysis.photoId===pid?D.goal_analysis:null;
+ sheet(head('Goal body','heart','bg-o')+`
+ <div class="ahd">📸 Photo of the body you want</div>
+ <div class="gphotos">${gp.map(x=>`<figure class="${x.id===pid?'on':''}" data-gp="${x.id}"><img src="${x.img}" alt=""><button type="button" data-gdel="${x.id}">×</button></figure>`).join('')}<label class="gadd">＋<small>Add photo</small><input type="file" accept="image/*" id="gpin" hidden></label></div>
+ ${ga?`<div class="arev xs"><b>Claude read this photo:</b> ~${ga.bf}% body fat, waist ≈ ${ga.waist} cm at your height, V-shape ${ga.swr}. ${esc(ga.notes||'')}</div>`:pid?'<div class="xs faint">Claude studies this photo within the hour and sets your exact targets from it.</div>':'<div class="xs faint">Any photo works — an athlete, an actor, or an old photo of you. It stays encrypted and private.</div>'}
+ <div class="ahd">Or pick a style ${pid?'<small>(used until the photo is read)</small>':''}</div>
+ <div class="gpre">${Object.entries(GPRE_d29).map(([k,v])=>`<button type="button" class="${sel===k?'on':''}" data-gpre="${k}"><span>${v.e}</span><b>${v.n}</b><small>${v.d}</small><em>${v.bf}% fat · waist ${v.waist}</em></button>`).join('')}</div>
+ <div class="fld"><label>Name it (optional)</label><input id="glab" class="inp" placeholder="e.g. Summer 2027 body" value="${esc(g.label||'')}"></div>
+ <div class="btnrow">${g.preset?'<button type="button" class="btn2 danger" id="gclr">Remove goal</button>':''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="gsave">Save goal</button></div>`);
+ $$('#sheet [data-gpre]').forEach(b=>b.onclick=()=>{sel=b.dataset.gpre;$$('#sheet [data-gpre]').forEach(x=>x.classList.toggle('on',x===b))});
+ $$('#sheet [data-gp]').forEach(f=>f.onclick=ev=>{if(ev.target.closest('[data-gdel]'))return;pid=pid===f.dataset.gp?null:f.dataset.gp;draw()});
+ $$('#sheet [data-gdel]').forEach(b=>b.onclick=()=>{const ph=H_().photos.find(z=>z.id===b.dataset.gdel);if(ph){ph.deleted=true;delete ph.img;ph.updated=new Date().toISOString();HS.queue()}if(pid===b.dataset.gdel)pid=null;gp.splice(gp.findIndex(z=>z.id===b.dataset.gdel),1);draw()});
+ $('#gpin').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;toast('Adding…');const img=await shrinkTo_d26(f,640,.78);if(!img)return;const t=new Date().toISOString(),ph={id:hid_d26(),date:nowD().date,pose:'goal',img,created:t,updated:t};H_().photos.push(ph);gp.unshift(ph);pid=ph.id;HS.queue();draw()};
+ $('#gclr')&&($('#gclr').onclick=()=>{const p=H_().prof||{};delete p.gb;p.updated=new Date().toISOString();H_().prof=p;HS.queue();closeSheet();rerenderHealth_d26()});
+ $('#gsave').onclick=()=>{const t=new Date().toISOString(),p=H_().prof||{...prof_d26()};const isNew=!p.gb;p.gb={preset:sel,photoId:pid,label:$('#glab').value.trim(),set:(p.gb&&p.gb.set)||nowD().date,updated:t};
+  if(pid&&!(D.goal_analysis&&D.goal_analysis.photoId===pid))p.anReq=t;p.updated=t;H_().prof=p;HS.queue();closeSheet();if(isNew){confetti(50);xpFly(document.body,'+20 XP')}toast(pid?'Goal saved 🎯 — Claude will study your goal photo':'Goal saved 🎯');rerenderHealth_d26()}};
+ draw()}
+
+/* keep goal + review request when the profile is edited */
+const _openProf_d29=openProf_d26;openProf_d26=function(){_openProf_d29();const b=$('#psave');if(!b)return;const old=b.onclick;b.onclick=()=>{const keep=H_().prof||{},gb=keep.gb,ar=keep.anReq;old();const p=H_().prof;if(gb)p.gb=gb;if(ar)p.anReq=ar;HS.queue()}};
+
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="hanal"],[data-x="hgoal"],[data-x="hanreq"]');if(!a)return;e.preventDefault();const x=a.dataset.x;
+ if(x==='hanal')HS.load().then(openAnal_d29);
+ else if(x==='hgoal')HS.load().then(openGoal_d29);
+ else{const p=H_().prof||{...prof_d26()},t=new Date().toISOString();p.anReq=t;p.updated=t;H_().prof=p;HS.queue();a.disabled=true;a.classList.remove('pri');a.textContent='⏳ Requested — Claude will look within the hour';toast('Sent to Claude 🤖')}});
+
+
+/* ================= v30: Supplements — what you take, daily check-off, streaks, history ================= */
+const sEmpty_d30=()=>({v:1,items:[],logs:[],updated:null});
+const SS=makeStore_d26('supps.enc','hq.supps',sEmpty_d30,(a,b)=>{a=a||sEmpty_d30();b=b||sEmpty_d30();return{v:1,items:mergeArr(a.items,b.items),logs:mergeArr(a.logs,b.logs),updated:(a.updated||'')>(b.updated||'')?a.updated:b.updated}});
+const S_=()=>SS.data||sEmpty_d30();
+const SWHEN_d30=[['morning','🌅 Morning'],['breakfast','🍳 With breakfast'],['pregym','🏋️ Before gym'],['postgym','💪 After gym'],['lunch','🍛 With lunch'],['evening','🌇 Evening'],['night','🌙 Before bed']];
+const SFREQ_d30=[['daily','Every day'],['gym','Gym days'],['weekly','Once a week'],['cycle','On / off cycle']];
+const SPRE_d30=[['☀️','Vitamin D3','IU'],['⚡','Creatine','g'],['🥤','Whey protein','scoop'],['🐟','Omega-3','capsule'],['🧲','Magnesium','mg'],['💊','Multivitamin','tablet'],['🦴','Zinc','mg'],['🌿','Ashwagandha','mg'],['☕','Pre-workout','scoop'],['🍊','Vitamin C','mg'],['🩸','Iron','mg'],['💉','Injection','IU']];
+const sActive_d30=()=>S_().items.filter(x=>!x.deleted&&!x.stop).sort((a,b)=>(SWHEN_d30.findIndex(w=>w[0]===a.when)-SWHEN_d30.findIndex(w=>w[0]===b.when))||a.name.localeCompare(b.name));
+const sPast_d30=()=>S_().items.filter(x=>!x.deleted&&x.stop).sort((a,b)=>(b.stop||'').localeCompare(a.stop||''));
+const sLog_d30=(d,id)=>S_().logs.find(l=>l.id===d+'_'+id&&!l.deleted&&l.taken);
+const sDue_d30=(it,d)=>{if(it.start&&d<it.start)return false;if(it.freq==='weekly'){const s=it.start||d;return Math.round((new Date(d)-new Date(s))/864e5)%7===0}return it.freq!=='gym'};
+function sStreak_d30(it){let s=0,d=nowD().date;if(!sLog_d30(d,it.id))d=addDays(d,-1);while(sLog_d30(d,it.id)&&s<999){s++;d=addDays(d,it.freq==='weekly'?-7:-1)}return s}
+function sWeek_d30(){const A=sActive_d30().filter(x=>x.freq!=='gym'&&x.freq!=='weekly');if(!A.length)return null;let due=0,ok=0;for(let i=0;i<7;i++){const d=addDays(nowD().date,-i);A.forEach(it=>{const s0=it.start||(it.created||'').slice(0,10);if(s0&&d<s0)return;due++;if(sLog_d30(d,it.id))ok++})}return due?Math.round(ok/due*100):null}
+const sDays_d30=it=>{const a=it.start,b=it.stop||nowD().date;return a?Math.max(1,Math.round((new Date(b)-new Date(a))/864e5)+1):null};
+function sToggle_d30(id,d){d=d||nowD().date;const k=d+'_'+id,t=new Date().toISOString();let l=S_().logs.find(x=>x.id===k);
+ if(l&&l.taken&&!l.deleted){l.taken=false;l.updated=t}else{if(l){l.taken=true;l.deleted=false;l.time=hNow_d26();l.updated=t}else S_().logs.push({id:k,date:d,item:id,taken:true,time:hNow_d26(),created:t,updated:t});xpFly(document.body,'+2 XP')}
+ SS.queue();const A=sActive_d30().filter(x=>sDue_d30(x,d));if(A.length&&A.every(x=>sLog_d30(d,x.id))){confetti(30);toast('All supplements done today 💊✓')}rerenderHealth_d26()}
+function suppsHTML_d30(){const n=nowD().date,A=sActive_d30(),P=sPast_d30(),wk=sWeek_d30(),due=A.filter(x=>sDue_d30(x,n)),done=due.filter(x=>sLog_d30(n,x.id)).length;
+ return `<div class="card mb stoday"><div class="hsh"><b>💊 Today</b><span class="xs faint">${due.length?done+' / '+due.length+' taken':'nothing due'}${wk!=null?' · this week '+wk+'%':''}</span></div>
+  ${A.length?A.map(it=>{const on=!!sLog_d30(n,it.id),st=sStreak_d30(it),d=sDue_d30(it,n),l=sLog_d30(n,it.id);return `<div class="srow ${on?'on':''} ${d?'':'nd'}"><button type="button" class="scheck" data-x="stake" data-id="${it.id}">${on?'✓':''}</button><div class="sinfo" data-x="sedit" data-id="${it.id}"><b>${esc(it.emoji||'💊')} ${esc(it.name)}</b><small>${esc([it.dose?it.dose+' '+(it.unit||''):'',(SWHEN_d30.find(w=>w[0]===it.when)||['',''])[1].replace(/^\S+ /,''),it.freq==='gym'?'gym days':it.freq==='weekly'?'weekly':it.freq==='cycle'?'cycle':''].filter(Boolean).join(' · '))}${on&&l.time?' · taken '+esc(l.time):''}</small></div>${st>1?`<span class="sst">🔥${st}</span>`:''}</div>`}).join(''):'<div class="xs faint">Add what you take — tap ＋ below.</div>'}
+  <button type="button" class="btn2 pri" data-x="sadd" style="width:100%;margin-top:10px">＋ Add supplement</button></div>
+ ${A.length?`<div class="card mb"><div class="hsh"><b>📅 Last 14 days</b><span class="xs faint">tap a day to fix it</span></div><div class="sgrid">${A.map(it=>`<div class="sgr"><span>${esc(it.emoji||'💊')}</span><div>${Array.from({length:14},(_,i)=>{const d=addDays(n,i-13),ok=!!sLog_d30(d,it.id),pre=it.start&&d<it.start;return `<i class="${ok?'ok':''} ${pre?'pre':''}" data-x="sday" data-id="${it.id}" data-d="${d}" title="${d}"></i>`}).join('')}</div></div>`).join('')}</div></div>`:''}
+ <div class="card mb"><div class="hsh"><b>🗂 Past supplements</b><span class="xs faint">${P.length} stopped</span></div>
+  ${P.length?P.map(it=>`<div class="spast" data-x="sedit" data-id="${it.id}"><b>${esc(it.emoji||'💊')} ${esc(it.name)}</b><small>${esc([it.dose?it.dose+' '+(it.unit||''):'',it.start?fd(it.start,{month:'short',year:'numeric'}):'',it.stop&&it.stop!=='?'?'→ '+fd(it.stop,{month:'short',year:'numeric'}):'stopped',sDays_d30(it)&&it.start?sDays_d30(it)+' days':''].filter(Boolean).join(' · '))}${it.notes?'<br>'+esc(it.notes):''}</small></div>`).join(''):'<div class="xs faint">Supplements you stop move here, with dates — so you always know what you took and when.</div>'}</div>
+ <div class="xs faint" style="margin:0 4px 12px">Your list is encrypted in its own private file. Tell your doctor what you take, especially anything injected or hormonal.</div>`}
+
+function openSupp_d30(id){const it=id?S_().items.find(x=>x.id===id):null,v=it||{when:'morning',freq:'daily',start:nowD().date};let emo=v.emoji||'💊';
+ sheet(head(it?'Edit supplement':'Add supplement','heart','bg-g')+`
+ ${it?'':`<div class="spre">${SPRE_d30.map(([e,n,u],i)=>`<button type="button" data-sp="${i}">${e} ${n}</button>`).join('')}</div>`}
+ <div class="hmform">
+  <label class="wide"><span>Name</span><input id="sname" class="inp" value="${esc(v.name||'')}" placeholder="e.g. Vitamin D3"></label>
+  <label><span>Dose</span><input id="sdose" class="inp" inputmode="decimal" value="${esc(v.dose||'')}" placeholder="5000"></label>
+  <label><span>Unit</span><input id="sunit" class="inp" value="${esc(v.unit||'')}" placeholder="IU / g / mg"></label>
+  <label><span>When</span><select id="swhen" class="inp">${SWHEN_d30.map(([k,l])=>`<option value="${k}" ${v.when===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label><span>How often</span><select id="sfreq" class="inp">${SFREQ_d30.map(([k,l])=>`<option value="${k}" ${v.freq===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label><span>Started</span><input id="sstart" class="inp" type="date" value="${esc(v.start&&v.start!=='?'?v.start:'')}"></label>
+  <label><span>Stopped</span><input id="sstop" class="inp" type="date" value="${esc(v.stop&&v.stop!=='?'?v.stop:'')}"></label>
+  <label class="wide"><span>Brand / notes</span><input id="snotes" class="inp" value="${esc(v.notes||'')}" placeholder="brand, why you take it, how you feel"></label></div>
+ ${it&&!it.stop?`<button type="button" class="btn2" id="sstopnow" style="width:100%;margin-top:8px">⏹ I stopped taking it today</button>`:''}${it&&it.stop?`<button type="button" class="btn2" id="srestart" style="width:100%;margin-top:8px">▶️ I’m taking it again</button>`:''}
+ <div class="btnrow">${it?'<button type="button" class="btn2 danger" id="sdel">Delete</button>':''}<button type="button" class="btn2" data-act="close">Cancel</button><button type="button" class="btn2 pri" id="ssave">Save</button></div>`);
+ $$('#sheet [data-sp]').forEach(b=>b.onclick=()=>{const [e,n,u]=SPRE_d30[+b.dataset.sp];emo=e;$('#sname').value=n;$('#sunit').value=u;$$('#sheet [data-sp]').forEach(x=>x.classList.toggle('on',x===b));$('#sdose').focus()});
+ const save=extra=>{const name=$('#sname').value.trim();if(!name){toast('Add a name');return}const t=new Date().toISOString(),pre=SPRE_d30.find(p=>p[1].toLowerCase()===name.toLowerCase());
+  const o={...(it||{id:'s'+uid(),created:t}),name,emoji:it?.emoji||(pre?pre[0]:emo),dose:$('#sdose').value.trim(),unit:$('#sunit').value.trim(),when:$('#swhen').value,freq:$('#sfreq').value,start:$('#sstart').value||(it?.start)||'',stop:$('#sstop').value||'',notes:$('#snotes').value.trim(),updated:t,...(extra||{})};
+  if(it)Object.assign(it,o);else{S_().items.push(o);xpFly(document.body,'+5 XP')}SS.queue();closeSheet();toast('Saved ✓');rerenderHealth_d26()};
+ $('#ssave').onclick=()=>save();
+ $('#sstopnow')&&($('#sstopnow').onclick=()=>save({stop:nowD().date}));
+ $('#srestart')&&($('#srestart').onclick=()=>save({stop:'',start:nowD().date,notes:[it.notes,`taken before${it.start?' '+it.start:''} → ${it.stop}`].filter(Boolean).join(' · ')}));
+ $('#sdel')&&($('#sdel').onclick=e=>{const b=e.currentTarget;if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Sure?';return}it.deleted=true;it.updated=new Date().toISOString();SS.queue();closeSheet();rerenderHealth_d26()})}
+
+/* third tab on the Health page */
+const _renderHealth_d30=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d30();const el=$('#p-health');if(!el)return;const tabs=el.querySelector('.ntabs');if(!tabs)return;
+ if(!tabs.querySelector('[data-t="supps"]'))tabs.insertAdjacentHTML('beforeend',`<button type="button" class="${hTab_d26==='supps'?'on':''}" data-x="htab" data-t="supps">💊 Supps</button>`);
+ if(hTab_d26!=='supps')return;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t==='supps'));const pt=el.querySelector('.pt span');if(pt)pt.textContent='food · body · supplements';
+ while(tabs.nextSibling)tabs.nextSibling.remove();if(!SS.loaded){tabs.insertAdjacentHTML('afterend','<div class="card faint">Loading…</div>');SS.load().then(()=>{if(curPage()==='health'&&hTab_d26==='supps')renderHealth_d26()});return}
+ tabs.insertAdjacentHTML('afterend',suppsHTML_d30())};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="stake"],[data-x="sedit"],[data-x="sadd"],[data-x="sday"],[data-x="stoday"]');if(!a)return;e.preventDefault();const x=a.dataset.x;
+ SS.load().then(()=>{if(x==='stake')sToggle_d30(a.dataset.id);else if(x==='sday')sToggle_d30(a.dataset.id,a.dataset.d);else if(x==='sedit')openSupp_d30(a.dataset.id);else if(x==='sadd')openSupp_d30();else{hTab_d26='supps';location.hash='#health';setTimeout(renderHealth_d26,60)}})});
+
+/* Today: supplements reminder inside the food card */
+const _renderToday_d30=renderToday;renderToday=function(G){_renderToday_d30(G);const c=$('#p-today .hfoodtoday');if(!c)return;if(!SS.loaded){SS.load().then(()=>{if(curPage()==='today')rerender()});return}
+ const n=nowD().date,due=sActive_d30().filter(x=>sDue_d30(x,n));if(!due.length)return;const left=due.filter(x=>!sLog_d30(n,x.id));
+ c.querySelector('.hftb')?.insertAdjacentHTML('beforebegin',`<div class="stline">${left.length?`<span>💊 Still to take:</span>${left.map(x=>`<button type="button" class="btn2 sm" data-x="stake" data-id="${x.id}">${esc(x.emoji||'💊')} ${esc(x.name)}</button>`).join('')}`:`<span>💊 All ${due.length} supplements taken ✓</span>`}</div>`)};
+/* XP for supplements */
+const _habXP_d30=habXP;habXP=function(){let x=_habXP_d30();if(SS.loaded)x+=S_().logs.filter(l=>l.taken&&!l.deleted).length*2;return x};
+
+window.addEventListener('hashchange',()=>{if(curPage()==='today'&&SS.loaded&&D)setTimeout(rerender,40)});
+
+
+/* ================= v31: Borna Circle — who is close to you, as a living orbit ================= */
+const RINGS_d31=[[1,'Inner circle','❤️','#f43f5e'],[2,'Close','💜','#a855f7'],[3,'Friends & partners','🤝','#3b82f6'],[4,'Business','💼','#06b6d4'],[5,'Occasional','🌙','#64748b']];
+const RDEF_d31={family:1,friend:3,partner:3,team:3,client:4,buyer:4,seller:4,careful:5};
+const ringOf_d31=p=>p.circle===0?0:(+p.circle||RDEF_d31[p.rel]||4);
+const short_d31=n=>String(n||'').replace(/^(Mr|Dr|Mrs|Ms|Haj)\.?\s+/i,'').split(/\s+/)[0];
+const isNew_d31=p=>p.auto&&!p.circleOk&&p.added&&(new Date(nowD().date)-new Date(p.added))/864e5<=7;
+const recent_d31=p=>{const a=(D.circle_activity||{})[p.id];return a&&a.last&&(new Date(nowD().date)-new Date(a.last))/864e5<=2};
+function setCircle_d31(id,patch){U.people=U.people||[];const t=new Date().toISOString(),ex=U.people.find(x=>x.id===id);if(ex)Object.assign(ex,patch,{updated:t});else U.people.push({id,...patch,updated:t});queueSave()}
+function circleHTML_d31(){const P=people(),inC=P.filter(p=>ringOf_d31(p)>0),R=[0,15.5,24.5,32.5,39.5,45.5],AV=[0,8.8,7.8,7,6.3,5.7];
+ const byR={};inC.forEach(p=>(byR[ringOf_d31(p)]=byR[ringOf_d31(p)]||[]).push(p));
+ let nodes='',lines='';const placed=[];Object.entries(byR).sort((a,b)=>a[0]-b[0]).forEach(([r,L])=>{r=+r;L.sort((a,b)=>(a.order??99)-(b.order??99)||a.name.localeCompare(b.name));
+  const pos=o=>L.map((_,i)=>{const g=(o+i*360/L.length-90)*Math.PI/180;return[50+R[r]*Math.cos(g),50+R[r]*Math.sin(g)]});let best=0,bs=-1;
+  for(let o=0;o<360/L.length;o+=3){const P=pos(o);const md=Math.min(99,...P.flatMap(([x,y])=>placed.map(([a,b])=>Math.hypot(x-a,y-b))));if(md>bs){bs=md;best=o}}
+  const prev=placed,step=360/L.length,PP=L.map((_,i)=>{let bx=null,bd=-1;for(let d=-step*0.4;d<=step*0.4;d+=2){const g=(best+i*step+d-90)*Math.PI/180,x=50+R[r]*Math.cos(g),y=50+R[r]*Math.sin(g),md=Math.min(99,...prev.map(([a,b])=>Math.hypot(x-a,y-b*1.0)+(Math.abs(y-b)<4&&Math.hypot(x-a,y-b)<14?-2:0)));if(md>bd+0.5){bd=md;bx=[x,y]}}placed.push(bx);return bx});
+  L.forEach((p,i)=>{const [x,y]=PP[i],col=RINGS_d31[r-1][3],sz=AV[r];
+   lines+=`<line x1="50" y1="50" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" style="stroke:${col};opacity:${(0.62-r*0.1).toFixed(2)}"/>`;
+   nodes+=`<button type="button" class="cnode r${r} ${isNew_d31(p)?'nw':''} ${recent_d31(p)?'hot':''}" data-cp="${p.id}" style="left:${x}%;top:${y}%;--sz:${sz}%;--c:${col};animation-delay:${(i*0.35+r*0.2).toFixed(2)}s"><span class="cav">${p.photo?`<img src="${p.photo}" alt="">`:`<i>${esc((p.emoji)||initials(p.name))}</i>`}</span><em>${esc(short_d31(p.name))}</em></button>`})});
+ const todo=P.filter(p=>!p.circleOk&&ringOf_d31(p)>0).length;
+ return `<div class="bcircle"><div class="bch"><div><b>◉ Borna Circle</b><small>${inC.length} people · closer = more important</small></div><button type="button" class="btn2 sm bcint" data-cx="interview">🎙 Interview${todo?` <span>${todo}</span>`:''}</button></div>
+ <div class="bcsky"><div class="bcstars"></div><svg viewBox="0 0 100 100" class="bcsvg" aria-hidden="true"><defs><radialGradient id="bcg_d31"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".55"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/></radialGradient></defs>
+  <circle cx="50" cy="50" r="22" fill="url(#bcg_d31)"/>${RINGS_d31.map(([r,,,c])=>`<circle cx="50" cy="50" r="${R[r]}" class="bring" style="stroke:${c}"/><circle cx="50" cy="50" r="${R[r]}" class="bscan" style="stroke:${c};animation-duration:${14+r*7}s;animation-direction:${r%2?'normal':'reverse'}"/>`).join('')}
+  <g class="blines">${lines}</g></svg>
+  <div class="bcore" data-cx="me">${D.photo?`<img src="${D.photo}" alt="Borna">`:''}<b>BORNA</b></div>${nodes}</div>
+ <div class="bleg">${RINGS_d31.map(([r,n,e,c])=>`<span style="--c:${c}"><i></i>${n} · ${(byR[r]||[]).length}</span>`).join('')}</div>
+ <div class="xs faint" style="margin-top:6px">Tap someone to move them closer or further. ✨ = new — Claude added them from WhatsApp or email. Glowing = you talked in the last 2 days.</div></div>`}
+const _renderPeople_d31=renderPeople;renderPeople=function(){_renderPeople_d31();const el=$('#p-people');if(!el||el.querySelector('.bcircle'))return;el.querySelector('.pt')?.insertAdjacentHTML('afterend',circleHTML_d31())};
+
+function openCP_d31(id){const p=personById(id);if(!p)return;const r=ringOf_d31(p),a=(D.circle_activity||{})[id];
+ sheet(`<div class="cps"><div class="cph">${avatar(p,64)}<div><b>${esc(p.name)}</b><small>${esc(p.role||'')}</small>${p.auto?`<small class="cpa">✨ Added by Claude${p.source?' from '+esc(p.source):''}${p.added?' · '+fd(p.added,{day:'numeric',month:'short'}):''}</small>`:''}${a&&a.last?`<small>Last talk ${(()=>{const n=Math.round((new Date(nowD().date)-new Date(a.last))/864e5);return n<=0?'today':n===1?'yesterday':n+' days ago'})()}${a.n7?' · '+a.n7+' chats this week':''}</small>`:''}</div></div>
+ ${p.notes&&p.auto?`<div class="xs" style="margin:6px 0 10px;opacity:.8">${esc(p.notes)}</div>`:''}
+ <div class="ahd">How close is ${esc(short_d31(p.name))}?</div><div class="cpr">${RINGS_d31.map(([k,n,e,c])=>`<button type="button" class="${k===r?'on':''}" data-ring="${k}" style="--c:${c}"><span>${e}</span>${n}</button>`).join('')}</div>
+ <div class="btnrow"><button type="button" class="btn2" data-ring="0">Hide from circle</button>${p.auto&&!p.circleOk?'<button type="button" class="btn2 danger" id="cprem">Remove person</button>':''}<button type="button" class="btn2 pri" id="cpopen">Open contact</button></div></div>`);
+ $$('#sheet [data-ring]').forEach(b=>b.onclick=()=>{const k=+b.dataset.ring;setCircle_d31(id,{circle:k,circleOk:1});closeSheet();rerender();toast(k?`${short_d31(p.name)} → ${RINGS_d31[k-1][1]}`:'Hidden from your circle')});
+ $('#cpopen').onclick=()=>{closeSheet();setTimeout(()=>openPerson(id),60)};
+ $('#cprem')&&($('#cprem').onclick=()=>{setCircle_d31(id,{deleted:true});closeSheet();rerender();toast('Removed — Claude won’t add them again')})}
+
+/* interview: one person at a time, then "who else?" */
+function interview_d31(){const L=people().filter(p=>!p.circleOk&&ringOf_d31(p)>0);let i=0;
+ const step=()=>{if(i>=L.length)return askNew();const p=L[i];
+  sheet(`<div class="civ"><div class="xs faint">Interview · ${i+1} / ${L.length}</div><div class="civp">${avatar(p,84)}<b>${esc(p.name)}</b><small>${esc(p.role||'')}</small></div><h3>How close is ${esc(short_d31(p.name))} to you?</h3>
+   <div class="cpr">${RINGS_d31.map(([k,n,e,c])=>`<button type="button" class="${k===ringOf_d31(p)?'sug':''}" data-ring="${k}" style="--c:${c}"><span>${e}</span>${n}</button>`).join('')}</div>
+   <div class="btnrow"><button type="button" class="btn2" data-ring="0">Not in my circle</button><button type="button" class="btn2" id="civskip">Skip</button><button type="button" class="btn2" data-act="close">Stop</button></div></div>`);
+  $$('#sheet [data-ring]').forEach(b=>b.onclick=()=>{setCircle_d31(p.id,{circle:+b.dataset.ring,circleOk:1});xpFly(document.body,'+2 XP');i++;step()});$('#civskip').onclick=()=>{i++;step()}};
+ const askNew=()=>{sheet(`<div class="civ"><div class="civp"><span class="cbig">🌌</span></div><h3>Who else is close to you?</h3><div class="xs faint" style="margin-bottom:10px">Add anyone missing — family, a friend, someone you work with.</div>
+   <div class="fld"><input id="cnn" class="inp" placeholder="Name"></div><div class="cpr">${RINGS_d31.map(([k,n,e,c])=>`<button type="button" data-nr="${k}" style="--c:${c}" class="${k===2?'on':''}"><span>${e}</span>${n}</button>`).join('')}</div>
+   <div class="btnrow"><button type="button" class="btn2" data-act="close">Done</button><button type="button" class="btn2 pri" id="cnadd">Add</button></div></div>`);let nr=2;
+  $$('#sheet [data-nr]').forEach(b=>b.onclick=()=>{nr=+b.dataset.nr;$$('#sheet [data-nr]').forEach(x=>x.classList.toggle('on',x===b))});
+  $('#cnadd').onclick=()=>{const n=$('#cnn').value.trim();if(!n){closeSheet();rerender();return}U.people=U.people||[];U.people.push({id:'u-'+uid(),name:n,rel:nr===1?'family':nr<=3?'friend':'partner',circle:nr,circleOk:1,updated:new Date().toISOString()});queueSave();toast(n+' added ✓');askNew()};
+  if(!L.length)return;confetti(40)};
+ step()}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-cp],[data-cx]');if(!a)return;e.preventDefault();e.stopPropagation();
+ if(a.dataset.cp)openCP_d31(a.dataset.cp);else if(a.dataset.cx==='interview')interview_d31();else if(a.dataset.cx==='me'){const b=$('.bcsky');b&&b.classList.remove('pulse');void b?.offsetWidth;b?.classList.add('pulse')}},true);
+
+
+/* ================= v32: people profiles from the interview · ready-to-send messages · circle links ================= */
+const MSGP_d32={omid:'p-omid',fereshte:'p-fereshte',ibrahim:'p-ibrahim',yusuf:'p-yusuf',ancel:'p-ansel'};
+const TRUST_d32=['','Careful','Low','OK','High','Total'];
+function msgFor_d32(pid){return (D.alerts||[]).filter(a=>a.type==='msg'&&!(U.seen||{})[a.id]).find(a=>{const k=(a.id.match(/^al-([a-z]+)-/)||[])[1];return MSGP_d32[k]===pid})}
+const trustHTML_d32=t=>t?`<span class="trust t${t}" title="Trust: ${TRUST_d32[t]}">${'●'.repeat(t)}${'○'.repeat(5-t)}<em>${TRUST_d32[t]} trust</em></span>`:'';
+function profileHTML_d32(p){const L=(p.links||[]).map(personById).filter(Boolean),m=msgFor_d32(p.id),r=ringOf_d31(p),R=RINGS_d31[r-1];
+ return `<div class="pprof">${R?`<span class="pring" style="--c:${R[3]}">${R[2]} ${R[1]}</span>`:''}${trustHTML_d32(p.trust)}
+ ${p.story?`<p class="pstory">${esc(p.story)}</p>`:''}
+ ${p.biz?`<div class="pline"><b>💼 Business</b><span>${esc(p.biz)}</span></div>`:''}
+ ${p.warn?`<div class="pwarn">⚠️ ${esc(p.warn)}</div>`:''}
+ ${L.length?`<div class="plinks"><b>Knows</b>${L.map(x=>`<button type="button" data-plink="${x.id}">${avatar(x,22)}${esc(short_d31(x.name))}</button>`).join('')}</div>`:''}
+ ${m?`<a class="pmsg" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer" data-msgsent="${m.id}"><span>💬 Today’s message is ready</span><q dir="auto">${esc(m.text)}</q><b>Send on WhatsApp ↗</b></a>`:''}</div>`}
+/* person sheet */
+const _openPerson_d32=openPerson;openPerson=function(id){_openPerson_d32(id);const p=personById(id);if(!p)return;const h=$('#sheet .phead');if(h&&!$('#sheet .pprof'))h.insertAdjacentHTML('afterend',profileHTML_d32(p))};
+/* circle sheet */
+const _openCP_d32=openCP_d31;openCP_d31=function(id){_openCP_d32(id);const p=personById(id);if(!p)return;const h=$('#sheet .cph');if(h&&!$('#sheet .pprof'))h.insertAdjacentHTML('afterend',profileHTML_d32(p).replace('<div class="pprof">','<div class="pprof sm">'))};
+/* person cards: trust dots + ring colour */
+const _personCard_d32=personCard;personCard=function(p){const r=ringOf_d31(p),R=RINGS_d31[r-1];return _personCard_d32(p).replace('<div class="ptags">',`<div class="ptags">${R?`<span class="pill" style="border-color:${R[3]};color:${R[3]}">${R[2]} ${R[1]}</span>`:''}${p.trust?`<span class="pill tdots t${p.trust}">${'●'.repeat(p.trust)}</span>`:''}`)};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-plink],[data-msgsent]');if(!a)return;
+ if(a.dataset.plink){e.preventDefault();e.stopPropagation();closeSheet();setTimeout(()=>openPerson(a.dataset.plink),80);return}
+ const id=a.dataset.msgsent;setTimeout(()=>{U.seen=U.seen||{};U.seen[id]={updated:new Date().toISOString()};queueSave();toast('Marked as sent ✓');if(curPage()==='today')rerender()},600)},true);
+
+/* Today: messages ready to send, one tap each */
+const _renderToday_d32=renderToday;renderToday=function(G){_renderToday_d32(G);const el=$('#p-today');if(!el||el.querySelector('.msgready'))return;
+ const M=(D.alerts||[]).filter(a=>a.type==='msg'&&!(U.seen||{})[a.id]);if(!M.length)return;
+ const html=`<div class="card mb msgready"><div class="hsh"><b>💬 Ready to send</b><span class="xs faint">${M.length} message${M.length>1?'s':''} · tap → WhatsApp → send</span></div>
+  ${M.map(a=>{const k=(a.id.match(/^al-([a-z]+)-/)||[])[1],p=personById(MSGP_d32[k]);return `<div class="mr32">${p?avatar(p,38):'<span class="av" style="width:38px;height:38px">💬</span>'}<div class="mt32"><b>${esc(p?short_d31(p.name):a.title)}</b><q dir="auto">${esc(a.text||'')}</q></div><a class="btn2 sm pri" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" data-msgsent="${a.id}">Send ↗</a><button type="button" class="x" data-seen="${a.id}" aria-label="Skip">${ic('x')}</button></div>`}).join('')}</div>`;
+ const t=el.querySelector('.v8top');if(t){const r=t.querySelector('.reward');(r||t.firstElementChild)?.insertAdjacentHTML('afterend',html)}else el.insertAdjacentHTML('afterbegin',html)};
+/* bell: msg alerts get a proper send button */
+const _alertRow_d32=alertRow;alertRow=function(a){const h=_alertRow_d32(a);return a.type==='msg'?h.replace('>Open ↗</a>',` data-msgsent="${a.id}">Send on WhatsApp ↗</a>`).replace(`<div>${esc(a.text)}</div>`,`<div dir="auto">${esc(a.text)}</div>`):h};
+
+/* circle: tap & hold the core to show who knows whom */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-cx="links"]');if(!a)return;e.preventDefault();const s=$('.bcsky');if(s)s.classList.toggle('showlinks')},true);
+const _circleHTML_d32=circleHTML_d31;circleHTML_d31=function(){let h=_circleHTML_d32();const P=people(),pos={};
+ [...h.matchAll(/data-cp="([^"]+)" style="left:([\d.]+)%;top:([\d.]+)%/g)].forEach(m=>pos[m[1]]=[+m[2],+m[3]]);const seen=new Set();let L='';
+ P.forEach(p=>(p.links||[]).forEach(q=>{const k=[p.id,q].sort().join('|');if(seen.has(k)||!pos[p.id]||!pos[q])return;seen.add(k);const bad=(p.beef||[]).includes(q)||(personById(q)?.beef||[]).includes(p.id);L+=`<line x1="${pos[p.id][0]}" y1="${pos[p.id][1]}" x2="${pos[q][0]}" y2="${pos[q][1]}" class="${bad?'beef':''}"/>`}));
+ h=h.replace('<g class="blines">',`<g class="xlinks">${L}</g><g class="blines">`);
+ return h.replace('<div class="bleg">','<div class="bleg"><button type="button" class="bclink" data-cx="links">🕸 Who knows whom</button>')};
+
+
+/* ================= v33: type any food (no photo needed) · your usual meals · eating-pattern insights ================= */
+const DISH_d33=[[/mexican|burrito bowl|my bowl/i,'🥗',570,52],[/spag|pasta|macaroni|ماکارونی|lasagn/i,'🍝',650,28],[/meat ?ball|کوفته/i,'🧆',250,18],[/burger|همبرگر/i,'🍔',650,30],[/pizza|پیتزا/i,'🍕',700,28],[/shawarma|شاورما/i,'🌯',550,30],[/koobideh|kubideh|kabab|kebab|کباب/i,'🍢',600,35],[/joojeh|jujeh|جوجه/i,'🍗',550,45],[/ghormeh|قورمه/i,'🍲',650,25],[/gheymeh|قیمه/i,'🍲',650,22],[/zereshk|زرشک/i,'🍛',700,40],[/biryani|بریانی/i,'🍛',700,30],[/(^|\s)rice|polo|chelo|برنج|پلو|چلو/i,'🍚',350,7],[/chicken|مرغ/i,'🍗',350,40],[/steak|beef|گوشت/i,'🥩',450,40],[/fish|salmon|ماهی/i,'🐟',350,35],[/sushi/i,'🍣',450,20],[/salad|سالاد/i,'🥗',200,5],[/sandwich|ساندویچ/i,'🥪',450,20],[/fries|سیب زمینی/i,'🍟',400,4],[/soup|آش|سوپ/i,'🥣',250,8],[/egg|omelet|تخم/i,'🍳',220,14],[/bread|nan|نان/i,'🫓',160,5],[/yogurt|ماست/i,'🥛',150,12],[/fruit|میوه|apple|banana/i,'🍎',100,1],[/cake|کیک|sweet|شیرینی|chocolate/i,'🍰',400,5],[/dates|خرما/i,'🌴',140,1],[/nuts|آجیل/i,'🥜',300,9],[/protein|whey/i,'🥤',150,25]];
+function guess_d33(t){t=String(t||'');let k=0,p=0,e='🍽',hit=0;DISH_d33.forEach(([re,em,kc,pr])=>{if(re.test(t)){k+=kc;p+=pr;if(!hit)e=em;hit++}});const n=+((t.match(/(\d+)\s*(x|×|pieces|portion|plate)/i)||[])[1]||1);return hit?{kcal:Math.round(k*Math.min(n,4)),p:Math.round(p*Math.min(n,4)),e}:null}
+const mealName_d33=m=>(m.items&&m.items.length?m.items.map(i=>(i.q>1?i.q+'× ':'')+i.n).join(' + '):(m.text||'')).trim();
+const mealKcal_d33=m=>{const e=(D.food_est||{})[m.id];return e&&e.kcal?e.kcal:(m.kcal||null)};
+function usual_d33(slot){const from=addDays(nowD().date,-60),G={};H_().meals.filter(m=>!m.deleted&&!m.skipped&&m.date>=from&&(!slot||m.slot===slot)).forEach(m=>{const n=mealName_d33(m);if(!n)return;const k=n.toLowerCase();const g=G[k]||(G[k]={n,c:0,last:m,kc:[]});g.c++;if((m.date+m.time)>(g.last.date+g.last.time))g.last=m;const kc=mealKcal_d33(m);if(kc)g.kc.push(kc)});
+ return Object.values(G).sort((a,b)=>b.c-a.c||(b.last.date).localeCompare(a.last.date)).slice(0,8).map(g=>({...g,kcal:g.kc.length?Math.round(g.kc.reduce((a,b)=>a+b,0)/g.kc.length):null}))}
+
+const _openMeal_d33=openMeal_d26;openMeal_d26=function(id,opt={}){_openMeal_d33(id,opt);const q=$('#mq'),tx=$('#mtext'),kc=$('#mkcal');if(!q||!tx)return;
+ q.placeholder='Type what you ate — e.g. spaghetti with meatballs';
+ /* typed food that isn't in the list → one tap to use it */
+ const useTyped=()=>{const v=q.value.trim();if(!v)return;tx.value=tx.value.trim()?tx.value.trim()+', '+v:v;const g=guess_d33(tx.value);if(g&&!kc.value&&!$('#hsel .hchip'))kc.value=g.kcal;q.value='';q.dispatchEvent(new Event('input'));tx.dispatchEvent(new Event('input'));hint()};
+ const hint=()=>{const g=guess_d33(tx.value);const h=$('#mhint');if(h&&tx.value&&!$('#hsel .hchip'))h.innerHTML=g?`≈ <b>${g.kcal} kcal</b> · ${g.p} g protein (quick guess) — Claude will check it.`:'Claude will estimate the calories within the hour.'};
+ const addBtn=()=>{const v=q.value.trim(),box=$('#hfoods');if(!box)return;box.querySelector('.huse')?.remove();if(!v)return;const g=guess_d33(v);
+  box.insertAdjacentHTML('afterbegin',`<button type="button" class="huse">${g?g.e:'➕'} Use “${esc(v)}”${g?`<small>≈${g.kcal}</small>`:''}</button>`);box.querySelector('.huse').onclick=useTyped};
+ q.addEventListener('input',()=>setTimeout(addBtn,0));q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();useTyped()}});tx.addEventListener('input',hint);
+ /* your usual meals for this slot */
+ const slotNow=()=>$('#sheet [data-sl].on')?.dataset.sl||'lunch';
+ const drawUsual=()=>{$('#husual')?.remove();const U=usual_d33(slotNow()).filter(u=>u.c>=1).slice(0,6);if(!U.length)return;
+  q.insertAdjacentHTML('beforebegin',`<div id="husual"><div class="hul">⭐ Your usual ${esc((SLOTS_d26.find(s=>s[0]===slotNow())||[])[2]||'')}</div><div class="husl">${U.map((u,i)=>`<button type="button" data-us="${i}">${esc(u.n.length>34?u.n.slice(0,32)+'…':u.n)}<small>${u.c>1?u.c+'× · ':''}${u.kcal?u.kcal+' kcal':''}</small></button>`).join('')}</div></div>`);
+  $$('#husual [data-us]').forEach(b=>b.onclick=()=>{const u=U[+b.dataset.us],m=u.last;
+   if(m.items&&m.items.length&&m.items.every(it=>$(`#hfoods [data-fd="${CSS.escape(it.n)}"]`)||true)){let ok=true;q.value='';q.dispatchEvent(new Event('input'));
+    m.items.forEach(it=>{for(let k=0;k<(it.q||1);k++){q.value=it.n;q.dispatchEvent(new Event('input'));const fb=[...$$('#hfoods [data-fd]')].find(x=>x.dataset.fd===it.n);if(fb)fb.click();else ok=false}});q.value='';q.dispatchEvent(new Event('input'));
+    if(!ok){tx.value=u.n;if(u.kcal)kc.value=u.kcal}}
+   else{tx.value=m.text||u.n;if(u.kcal)kc.value=u.kcal;tx.dispatchEvent(new Event('input'))}
+   b.classList.add('on');toast('Added: '+u.n.slice(0,40))})};
+ drawUsual();$$('#sheet [data-sl]').forEach(b=>b.addEventListener('click',()=>setTimeout(drawUsual,0)));
+ /* save: typed-but-not-added text counts too */
+ const sv=$('#msave'),orig=sv.onclick;sv.onclick=ev=>{if(q.value.trim())useTyped();if(!kc.value&&tx.value.trim()&&!$('#hsel .hchip')){/* leave kcal empty → Claude estimates */}return orig(ev)};
+ if(tx.value)hint()};
+
+/* Food tab: what you really eat */
+function patternHTML_d33(){const from=addDays(nowD().date,-13),M=H_().meals.filter(m=>!m.deleted&&!m.skipped&&m.date>=from);if(M.length<3)return '';
+ const days=new Set(M.map(m=>m.date)).size,T={};M.filter(m=>m.slot!=='drink').forEach(m=>{(m.items&&m.items.length?m.items.map(i=>i.n):[m.text]).filter(Boolean).forEach(n=>{const k=n.trim().toLowerCase();T[k]=T[k]||{n:n.trim(),c:0};T[k].c++})});
+ const top=Object.values(T).sort((a,b)=>b.c-a.c).slice(0,6),avgT=s=>{const L=M.filter(m=>m.slot===s&&m.time).map(m=>{const[h,mi]=m.time.split(':');return +h*60+ +mi});if(!L.length)return null;const a=Math.round(L.reduce((x,y)=>x+y,0)/L.length);return String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0')};
+ const coffee=M.filter(m=>m.slot==='drink'&&/coffee|espresso|latte|cappuccino|americano|flat|nescaf|turkish/i.test(m.text||'')).reduce((a,m)=>a+(m.q||1),0),late=M.filter(m=>m.time&&m.time>='22:00'&&m.slot!=='drink').length;
+ const kc=[...new Set(M.map(m=>m.date))].map(d=>M.filter(m=>m.date===d).reduce((a,m)=>a+(mealKcal_d33(m)||0),0)).filter(Boolean),avgK=kc.length?Math.round(kc.reduce((a,b)=>a+b,0)/kc.length):null;
+ const tips=[];if(top[0]&&top[0].c>=Math.max(3,days*0.6))tips.push(`You eat ${top[0].n.toLowerCase()} almost every day — I’ll keep it one tap away.`);if(coffee/days>=3)tips.push(`About ${Math.round(coffee/days)} coffees a day — try to stop after 4 pm for better sleep.`);if(late>=2)tips.push(`${late} late meals (after 10 pm) in 2 weeks — late eating slows belly-fat loss.`);if(avgK&&avgK>targets_d26().kcal+150)tips.push(`Average ≈ ${avgK} kcal a day — about ${avgK-targets_d26().kcal} over your target.`);
+ return `<div class="card mb hpat"><div class="hsh"><b>🧠 Your eating pattern</b><span class="xs faint">last 14 days · ${days} day${days>1?'s':''} logged</span></div>
+  <div class="hpt">${[['🍳 Breakfast',avgT('breakfast')],['🍛 Lunch',avgT('lunch')],['🍽 Dinner',avgT('dinner')],['☕ Coffee/day',days?(Math.round(coffee/days*10)/10):0],['🔥 Avg kcal',avgK||'—']].map(([l,v])=>`<div><small>${l}</small><b>${v??'—'}</b></div>`).join('')}</div>
+  ${top.length?`<div class="hptop">${top.map(t=>`<span>${esc(t.n)} <b>×${t.c}</b></span>`).join('')}</div>`:''}
+  ${tips.length?`<ul class="hptips">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}</div>`}
+const _renderHealth_d33=renderHealth_d26;renderHealth_d26=function(){_renderHealth_d33();const el=$('#p-health');if(!el||hTab_d26!=='food'||el.querySelector('.hpat'))return;const h=patternHTML_d33();if(!h)return;const s=el.querySelector('.hslot');(s||el.lastElementChild)?.insertAdjacentHTML('beforebegin',h)};
+
+
+/* ================= v34: Vault — passwords that really match (show/hide, no autofill mix-ups) ================= */
+const _wireVault_d34=wireVault;wireVault=function(){_wireVault_d34();const pw=$('#vpw'),go=$('#vgo');if(!pw||!go)return;const pw2=$('#vpw2'),creating=!!pw2;
+ [pw,pw2].filter(Boolean).forEach(i=>{i.setAttribute('autocomplete',creating?'new-password':'current-password');i.setAttribute('autocapitalize','off');i.setAttribute('autocorrect','off');i.setAttribute('spellcheck','false')});
+ if(!$('#vshow'))(pw2||pw).insertAdjacentHTML('afterend',`<label class="vshow"><input type="checkbox" id="vshow"> Show password${creating?'s':''}</label>`);
+ $('#vshow').onchange=e=>[pw,pw2].filter(Boolean).forEach(i=>i.type=e.target.checked?'text':'password');
+ const clean=v=>String(v||'').normalize('NFC').replace(/[​-‍﻿]/g,'').trim();
+ const live=()=>{if(!pw2)return;const a=clean(pw.value),b=clean(pw2.value),m=$('#vmsg');if(!b){m.textContent='';return}m.textContent=a===b?'✓ Passwords match':(a.startsWith(b)||b.startsWith(a))?`Keep typing… (${b.length}/${a.length})`:`Not the same yet (${a.length} vs ${b.length} characters) — tap “Show passwords” to check`;m.style.color=a===b?'#10b981':''};
+ pw.addEventListener('input',live);pw2&&pw2.addEventListener('input',live);pw2&&(pw2.onkeydown=e=>{if(e.key==='Enter')go.click()});
+ go.addEventListener('click',()=>{pw.value=clean(pw.value);if(pw2)pw2.value=clean(pw2.value)},true)};
+
+
+/* ================= v35: Notes — no Evernote import; quick Checklist button instead ================= */
+function fixNact_d35(){const l=document.querySelector('#p-notes .nact label.alt3');if(!l||!l.querySelector('#enex'))return;
+ l.outerHTML=`<button type="button" class="bigadd alt3" data-x="nchk_d35">☑️ Checklist</button>`}
+new MutationObserver(()=>fixNact_d35()).observe(document.body,{childList:true,subtree:true});
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="nchk_d35"]');if(!a)return;e.preventDefault();e.stopPropagation();
+ openNote(null);setTimeout(()=>{const t=$('#ntitle'),b=$('#nbody');if(t&&!t.value)t.value='Checklist';if(b&&!b.value){b.value='☐ \n☐ \n☐ ';b.focus();b.setSelectionRange(2,2)}},80)},true);
+
+
+/* ================= v36: Vault — stop iPhone "Strong Password" autofill; Show passwords really shows them ================= */
+const _wireVault_d36=wireVault;wireVault=function(){const P=[$('#vpw'),$('#vpw2')].filter(Boolean);
+ P.forEach(i=>{i.type='text';i.classList.add('vmask');i.value='';['autocomplete','off','autocapitalize','off','autocorrect','off','spellcheck','false','data-lpignore','true','data-1p-ignore','true','name','vault-'+Math.random().toString(36).slice(2)].reduce((a,v,k,arr)=>{if(k%2===0)i.setAttribute(v,arr[k+1]);return a},0)});
+ _wireVault_d36();
+ P.forEach(i=>{i.type='text';i.setAttribute('autocomplete','off')});
+ const s=$('#vshow');if(s){s.onchange=e=>P.forEach(i=>i.classList.toggle('vmask',!e.target.checked));s.checked=false}};
+
+/* ================= v38: one-tap WhatsApp on meetings — Confirm before, Follow up after ================= */
+function mPerson_d1003(m){const s=String(m.person||'').toLowerCase().trim();if(!s)return null;const P=people().filter(p=>p.phone);
+ const names=p=>[p.name,...(Array.isArray(p.aka)?p.aka:p.aka?String(p.aka).split(/[,;]/):[])].map(n=>String(n||'').toLowerCase().trim()).filter(n=>n.length>2);
+ return P.find(p=>names(p).includes(s))||P.find(p=>names(p).some(n=>s.includes(n)))||null}
+function mWaText_d1003(m,st,p){const n=p?short(p.name):'',hi='Hi'+(n?' '+n:'');
+ if(st==='upcoming'||st==='now'){const dd=daysBetween(nowD().date,m.date);const when=dd===0?'today':dd===1?'tomorrow':'on '+fd(m.date,{weekday:'long',day:'numeric',month:'short'});
+  return `${hi}, just confirming our meeting ${when}${m.time?' at '+m.time:''}${m.place?' — '+m.place:''}. See you there 🙏`}
+ const nx=(m.next||[])[0];return `${hi}, thank you again for our meeting${m.date?' on '+fd(m.date,{weekday:'long',day:'numeric',month:'short'}):''}. Following up on ${nx?nx:'what we discussed'} — any update from your side?`}
+function mWaLink_d1003(m){try{const st=mState(m);if(st==='cancelled'||(st==='done'&&m.followDone))return null;const p=mPerson_d1003(m);if(!p)return null;
+ return {p,st,url:`https://wa.me/${waNum(p.phone)}?text=${encodeURIComponent(mWaText_d1003(m,st,p))}`,lbl:st==='upcoming'||st==='now'?'Confirm':'Follow up'}}catch(e){return null}}
+const _meetCard_d1003=meetCard;meetCard=function(m,big){const h=_meetCard_d1003(m,big);const w=mWaLink_d1003(m);if(!w)return h;
+ const a=cls=>`<a class="${cls} wa38" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer">${ic('msg')}${w.lbl}${cls?'':' with '+esc(short(w.p.name))+' on WhatsApp'}</a>`;
+ if(h.includes('<div class="mbtns">'))return h.replace('<div class="mbtns">','<div class="mbtns">'+a('btn2'));
+ const i=h.lastIndexOf('</div>');return i<0?h:h.slice(0,i)+`<div class="wa38row">${a('')}</div>`+h.slice(i)};
+function fuWa_d1003(){try{$$('[data-fudone]').forEach(b=>{if(b.parentNode.querySelector('.wa38f'))return;const m=meetings().find(x=>x.id===b.dataset.fudone);const w=m&&mWaLink_d1003(m);if(!w)return;
+ b.insertAdjacentHTML('beforebegin',`<a class="pill wa38f" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer" aria-label="Follow up on WhatsApp">${ic('msg')}WhatsApp</a>`)})}catch(e){}}
+const _renderToday_d1003=renderToday;renderToday=function(...a){const r=_renderToday_d1003.apply(this,a);fuWa_d1003();return r};
+const _renderBusiness_d1003=renderBusiness;renderBusiness=function(...a){const r=_renderBusiness_d1003.apply(this,a);fuWa_d1003();return r};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
