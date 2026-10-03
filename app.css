@@ -1131,3 +1131,11 @@ main.wrap,.page,.g3,.grid{min-width:0;max-width:100%}
 
 /* v36 */
 .vmask{-webkit-text-security:disc;text-security:disc}
+
+/* v38: WhatsApp confirm / follow-up on meetings */
+.wa38row{margin-top:10px}
+a.wa38{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#25d366;color:#fff;border:1px solid transparent;border-radius:12px;font-weight:800;font-size:13px;text-decoration:none}
+.wa38row a.wa38{padding:8px 12px;min-height:36px}
+.mbtns a.btn2.wa38{background:#25d366;color:#fff;border-color:transparent}
+a.wa38 svg,a.wa38f svg{width:14px;height:14px}
+a.pill.wa38f{background:#25d366;color:#fff;margin-right:6px;display:inline-flex;align-items:center;gap:4px;text-decoration:none;white-space:nowrap}

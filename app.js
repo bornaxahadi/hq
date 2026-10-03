@@ -2655,6 +2655,25 @@ const _wireVault_d36=wireVault;wireVault=function(){const P=[$('#vpw'),$('#vpw2'
  P.forEach(i=>{i.type='text';i.setAttribute('autocomplete','off')});
  const s=$('#vshow');if(s){s.onchange=e=>P.forEach(i=>i.classList.toggle('vmask',!e.target.checked));s.checked=false}};
 
+/* ================= v38: one-tap WhatsApp on meetings — Confirm before, Follow up after ================= */
+function mPerson_d1003(m){const s=String(m.person||'').toLowerCase().trim();if(!s)return null;const P=people().filter(p=>p.phone);
+ const names=p=>[p.name,...(Array.isArray(p.aka)?p.aka:p.aka?String(p.aka).split(/[,;]/):[])].map(n=>String(n||'').toLowerCase().trim()).filter(n=>n.length>2);
+ return P.find(p=>names(p).includes(s))||P.find(p=>names(p).some(n=>s.includes(n)))||null}
+function mWaText_d1003(m,st,p){const n=p?short(p.name):'',hi='Hi'+(n?' '+n:'');
+ if(st==='upcoming'||st==='now'){const dd=daysBetween(nowD().date,m.date);const when=dd===0?'today':dd===1?'tomorrow':'on '+fd(m.date,{weekday:'long',day:'numeric',month:'short'});
+  return `${hi}, just confirming our meeting ${when}${m.time?' at '+m.time:''}${m.place?' — '+m.place:''}. See you there 🙏`}
+ const nx=(m.next||[])[0];return `${hi}, thank you again for our meeting${m.date?' on '+fd(m.date,{weekday:'long',day:'numeric',month:'short'}):''}. Following up on ${nx?nx:'what we discussed'} — any update from your side?`}
+function mWaLink_d1003(m){try{const st=mState(m);if(st==='cancelled'||(st==='done'&&m.followDone))return null;const p=mPerson_d1003(m);if(!p)return null;
+ return {p,st,url:`https://wa.me/${waNum(p.phone)}?text=${encodeURIComponent(mWaText_d1003(m,st,p))}`,lbl:st==='upcoming'||st==='now'?'Confirm':'Follow up'}}catch(e){return null}}
+const _meetCard_d1003=meetCard;meetCard=function(m,big){const h=_meetCard_d1003(m,big);const w=mWaLink_d1003(m);if(!w)return h;
+ const a=cls=>`<a class="${cls} wa38" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer">${ic('msg')}${w.lbl}${cls?'':' with '+esc(short(w.p.name))+' on WhatsApp'}</a>`;
+ if(h.includes('<div class="mbtns">'))return h.replace('<div class="mbtns">','<div class="mbtns">'+a('btn2'));
+ const i=h.lastIndexOf('</div>');return i<0?h:h.slice(0,i)+`<div class="wa38row">${a('')}</div>`+h.slice(i)};
+function fuWa_d1003(){try{$$('[data-fudone]').forEach(b=>{if(b.parentNode.querySelector('.wa38f'))return;const m=meetings().find(x=>x.id===b.dataset.fudone);const w=m&&mWaLink_d1003(m);if(!w)return;
+ b.insertAdjacentHTML('beforebegin',`<a class="pill wa38f" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer" aria-label="Follow up on WhatsApp">${ic('msg')}WhatsApp</a>`)})}catch(e){}}
+const _renderToday_d1003=renderToday;renderToday=function(...a){const r=_renderToday_d1003.apply(this,a);fuWa_d1003();return r};
+const _renderBusiness_d1003=renderBusiness;renderBusiness=function(...a){const r=_renderBusiness_d1003.apply(this,a);fuWa_d1003();return r};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
