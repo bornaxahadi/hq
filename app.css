@@ -1139,3 +1139,7 @@ a.wa38{display:inline-flex;align-items:center;justify-content:center;gap:6px;bac
 .mbtns a.btn2.wa38{background:#25d366;color:#fff;border-color:transparent}
 a.wa38 svg,a.wa38f svg{width:14px;height:14px}
 a.pill.wa38f{background:#25d366;color:#fff;margin-right:6px;display:inline-flex;align-items:center;gap:4px;text-decoration:none;white-space:nowrap}
+
+/* v39 deal WhatsApp */
+.wa39row{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.wa39row a.wa38{padding:7px 12px;min-height:34px;font-size:12.5px}
