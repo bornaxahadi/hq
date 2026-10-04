@@ -2674,6 +2674,13 @@ function fuWa_d1003(){try{$$('[data-fudone]').forEach(b=>{if(b.parentNode.queryS
 const _renderToday_d1003=renderToday;renderToday=function(...a){const r=_renderToday_d1003.apply(this,a);fuWa_d1003();return r};
 const _renderBusiness_d1003=renderBusiness;renderBusiness=function(...a){const r=_renderBusiness_d1003.apply(this,a);fuWa_d1003();return r};
 
+/* ================= v39: one-tap WhatsApp on deals — ask partners for an update ================= */
+function dWa_d1004(d){try{if(!d||['Won','Lost'].includes(d.stage))return [];const nm=String(d.name||'').replace(/^[^\w(]+/,'').replace(/\s+[—-]\s+AED.*$/i,'').trim();
+ return (d.people||[]).map(personById).filter(p=>p&&p.phone).map(p=>({p,url:`https://wa.me/${waNum(p.phone)}?text=${encodeURIComponent(`Hi ${short(p.name)}, quick follow-up on ${nm||'our deal'} — any update from your side? What's the next step? 🙏`)}`}))}catch(e){return []}}
+function dWaBtns_d1004(d,cls){return dWa_d1004(d).map(w=>`<a class="${cls} wa38" href="${esc(w.url)}" target="_blank" rel="noopener noreferrer">${ic('msg')}${esc(short(w.p.name))}</a>`).join('')}
+const _dealRow_d1004=dealRow;dealRow=function(d){const h=_dealRow_d1004(d),b=dWaBtns_d1004(d,'');if(!b)return h;const i=h.lastIndexOf('</div>');return i<0?h:h.slice(0,i)+`<div class="wa39row">${b}</div>`+h.slice(i)};
+const _openPipe_d1004=openPipe;openPipe=function(id){const r=_openPipe_d1004(id);try{if(id){const d=pipeline().find(x=>x.id===id),b=dWaBtns_d1004(d,'');const br=$('#dpf .btnrow');if(b&&br)br.insertAdjacentHTML('beforebegin',`<div class="fld"><label>Ask for an update on WhatsApp</label><div class="wa39row">${b}</div></div>`)}}catch(e){}return r};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
