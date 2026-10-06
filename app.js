@@ -2704,6 +2704,33 @@ function openAddNum_d1006(pid,back){const p=personById(pid);if(!p)return;
   const [k,bid]=String(back||'').split(':');if(k==='pipe'&&bid)openPipe(bid);else if(k==='person'&&bid)openPerson(bid)}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-addnum]');if(!b)return;e.preventDefault();e.stopPropagation();openAddNum_d1006(b.dataset.addnum,b.dataset.back)},true);
 
+
+/* ================= v42: Borna's day runs 9 am → 3 am — anything before 3 am counts as the day before ================= */
+const DAYEND_d42=3;
+const _nowD_d42=nowD;nowD=function(){const n=_nowD_d42();if(n.mins<DAYEND_d42*60)return{date:addDays(n.date,-1),mins:n.mins+1440,late:true};return n};
+/* food sheet: one-tap Today / Yesterday */
+const _openMeal_d42=openMeal_d26;openMeal_d26=function(id,opt={}){_openMeal_d42(id,opt);const d=$('#mdate');if(!d||$('#sheet .dpick42'))return;const t=nowD().date,y=addDays(t,-1);
+ const w=document.createElement('div');w.className='dpick42';w.innerHTML=[[t,'Today'],[y,'Yesterday']].map(([v,l])=>`<button type="button" data-d42="${v}" class="${d.value===v?'on':''}">${l}</button>`).join('');
+ d.closest('.fld').appendChild(w);const sync=()=>w.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.d42===d.value));
+ w.querySelectorAll('button').forEach(b=>b.onclick=()=>{d.value=b.dataset.d42;d.dispatchEvent(new Event('input'));d.dispatchEvent(new Event('change'));sync()});d.addEventListener('change',sync);
+ if(nowD().late&&!id){const lab=d.closest('.fld').querySelector('label');if(lab)lab.innerHTML='Date <small style="opacity:.7">· after midnight → still today’s day</small>'}};
+
+/* ================= v42: 💡 Ideas board — all your ideas, sorted into groups, each with a short summary ================= */
+const ICAT_d42=[['app','📱','Apps & business'],['story','🎬','Movies & stories'],['family','👨‍👩‍👧','Family'],['content','🎥','Content & social'],['book','📚','Books'],['other','✨','Other']];
+function ideaCat_d42(p){if(p.ideaCat)return p.ideaCat;const t=(p.name+' '+(p.desc||'')).toLowerCase();
+ return /movie|film script|story|sci-?fi|screenplay/.test(t)&&!/review/.test(t)?'story':/family|kids|daughter|homeschool/.test(t)?'family':/book|novel|publish/.test(t)?'book':/instagram|youtube|reel|channel|review|content|tiktok/.test(t)?'content':/app|platform|website|business|shop|store|agency|startup|market/.test(t)?'app':'other'}
+const ideas_d42=()=>projects().filter(p=>p.idea||(p.status||'Active')==='Thinking');
+const isum_d42=p=>{const s=String(p.sum||p.desc||'').trim();const m=s.match(/^.{20,170}?[.!?](\s|$)/);return m?m[0].trim():s.length>170?s.slice(0,168)+'…':s};
+let ideaF_d42='all';
+function ideasHTML_d42(){const L=ideas_d42().sort((a,b)=>String(b.added||b.updated||'').localeCompare(String(a.added||a.updated||'')));if(!L.length)return '';
+ const by={};L.forEach(p=>(by[ideaCat_d42(p)]=by[ideaCat_d42(p)]||[]).push(p));const cats=ICAT_d42.filter(c=>by[c[0]]);
+ const show=ideaF_d42==='all'?cats:cats.filter(c=>c[0]===ideaF_d42);
+ return `<div class="card mb ideas42"><div class="hsh"><b>💡 My ideas</b><span class="xs faint">${L.length} idea${L.length>1?'s':''} · tap one to open</span></div>
+  <div class="ichips42"><button type="button" data-if42="all" class="${ideaF_d42==='all'?'on':''}">All ${L.length}</button>${cats.map(([k,e,n])=>`<button type="button" data-if42="${k}" class="${ideaF_d42===k?'on':''}">${e} ${n} ${by[k].length}</button>`).join('')}</div>
+  ${show.map(([k,e,n])=>`<div class="igrp42"><div class="igh42">${e} ${n}</div>${by[k].map(p=>`<div class="irow42" data-editproj="${p.id}"><div class="it42"><b>${esc(p.name.replace(/^[^\w؀-ۿ]+\s*/,''))}</b><p>${esc(isum_d42(p))}</p>${p.next?`<small>➡️ ${esc(p.next)}</small>`:''}</div>${p.link?`<a href="${esc(p.link)}" target="_blank" rel="noopener" class="ilk42" onclick="event.stopPropagation()">ChatGPT ↗</a>`:''}</div>`).join('')}</div>`).join('')}</div>`}
+const _renderProjects_d42=renderProjects;renderProjects=function(){_renderProjects_d42();const el=$('#p-projects');if(!el||el.querySelector('.ideas42'))return;const h=ideasHTML_d42();if(!h)return;(el.querySelector('.stats')||el.querySelector('.pt'))?.insertAdjacentHTML('afterend',h)};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-if42]');if(!b)return;e.preventDefault();ideaF_d42=b.dataset.if42;const c=$('#p-projects .ideas42');if(c){c.outerHTML=ideasHTML_d42()}},true);
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
