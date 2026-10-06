@@ -2810,6 +2810,14 @@ function socCard_d45(){const rows=SOCB_d45.map(([k,name,L])=>{const A=L.map(([pl
 const _renderToday_d45=renderToday;renderToday=function(G){_renderToday_d45(G);const el=$('#p-today');if(!el||el.querySelector('.soc45'))return;const h=socCard_d45();if(!h)return;
  const t=el.querySelector('.v8top');if(t)t.insertAdjacentHTML('afterbegin',h);else el.insertAdjacentHTML('afterbegin',h)};
 
+
+/* ================= v46: real platform icons on the follower card ================= */
+const SICO_d46={
+ instagram:'<svg class="si46" viewBox="0 0 24 24" aria-label="Instagram"><defs><radialGradient id="ig46" cx="30%" cy="107%" r="150%"><stop offset="0" stop-color="#fdf497"/><stop offset=".1" stop-color="#fdf497"/><stop offset=".5" stop-color="#fd5949"/><stop offset=".68" stop-color="#d6249f"/><stop offset="1" stop-color="#285AEB"/></radialGradient></defs><rect x="1" y="1" width="22" height="22" rx="6.5" fill="url(#ig46)"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg>',
+ facebook:'<svg class="si46" viewBox="0 0 24 24" aria-label="Facebook"><circle cx="12" cy="12" r="11" fill="#1877F2"/><path d="M13.3 23v-8.3h2.8l.4-3.3h-3.2V9.3c0-.9.3-1.6 1.6-1.6h1.7V4.8c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.4H7.1v3.3h2.8V23z" fill="#fff"/></svg>',
+ youtube:'<svg class="si46" viewBox="0 0 24 24" aria-label="YouTube"><rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#FF0000"/><path d="M10 8.6v6.8l5.8-3.4z" fill="#fff"/></svg>'};
+Object.keys(SICO_d46).forEach(k=>{if(SOCI_d45[k])SOCI_d45[k][0]=SICO_d46[k]});
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

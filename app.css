@@ -1189,3 +1189,6 @@ button.pill.addnum41p{border-style:dashed;cursor:pointer}
 .sp45{display:flex;flex-direction:column;gap:2px;padding:10px;border-radius:14px;text-decoration:none;color:inherit;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 12%,transparent)}
 .sp45 span{font-size:16px}.sp45 b{font-size:22px;font-weight:800}.sp45 small{font-size:10.5px;opacity:.75;line-height:1.3}
 .sr45{display:flex;align-items:baseline;gap:8px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:13px}.sr45 b{font-size:16px}.sr45 small{margin-left:auto;font-size:11px;opacity:.7}
+
+/* v46 */
+.sp45 span .si46{width:26px;height:26px;display:block}.sr45 small .si46{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin:0 2px}
