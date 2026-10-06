@@ -2686,6 +2686,24 @@ const _openPipe_d1004=openPipe;openPipe=function(id){const r=_openPipe_d1004(id)
 const _habDay_d40=habDay;habDay=function(d){const h=_habDay_d40(d),c=(D?.habit_log||{})[d],u=(U?.habits||{})[d];
  if(c&&u&&c.savedAt&&(!u.savedAt||c.savedAt>u.savedAt))Object.keys(c).forEach(k=>{if(k!=='savedAt'&&c[k]!=null)h[k]=c[k]});return h};
 
+/* ================= v41: add a missing phone number in one tap — WhatsApp buttons appear right away ================= */
+function noNum_d1006(d){try{if(!d||['Won','Lost'].includes(d.stage))return [];return (d.people||[]).map(personById).filter(p=>p&&!p.phone)}catch(e){return []}}
+function addNumBtns_d1006(ps,back){return ps.map(p=>`<button type="button" class="addnum41" data-addnum="${esc(p.id)}" data-back="${esc(back||'')}">${ic('plus')}${esc(short(p.name))}’s number</button>`).join('')}
+const _dealRow_d1006=dealRow;dealRow=function(d){const h=_dealRow_d1006(d),ps=noNum_d1006(d);if(!ps.length)return h;const i=h.lastIndexOf('</div>');return i<0?h:h.slice(0,i)+`<div class="wa39row num41">${addNumBtns_d1006(ps,'pipe:'+d.id)}</div>`+h.slice(i)};
+const _openPipe_d1006=openPipe;openPipe=function(id){const r=_openPipe_d1006(id);try{if(id){const ps=noNum_d1006(pipeline().find(x=>x.id===id));const br=$('#dpf .btnrow');if(ps.length&&br)br.insertAdjacentHTML('beforebegin',`<div class="fld"><label>Add a number → WhatsApp button appears</label><div class="wa39row num41">${addNumBtns_d1006(ps,'pipe:'+id)}</div></div>`)}}catch(e){}return r};
+const _contactBtns_d1006=contactBtns;contactBtns=function(p){const h=_contactBtns_d1006(p);return p&&!p.phone?h.replace(`<button data-editperson="${p.id}">`,`<button type="button" data-addnum="${esc(p.id)}" data-back="person:${esc(p.id)}">`):h};
+const _personCard_d1006=personCard;personCard=function(p){const h=_personCard_d1006(p);return p&&!p.phone?h.replace('<span class="pill faint">no number</span>',`<button type="button" class="pill faint addnum41p" data-addnum="${esc(p.id)}" data-back="">${ic('plus')}Add number</button>`):h};
+function openAddNum_d1006(pid,back){const p=personById(pid);if(!p)return;
+ sheet(head(esc(short(p.name))+'’s number','phone','bg-g')+`<div class="sm muted" style="margin:-4px 0 12px">Paste or type ${esc(p.name)}’s mobile. Then every deal and meeting with ${esc(short(p.name))} gets a one-tap WhatsApp button.</div>
+ <form id="anf41"><div class="fld"><input class="inp" name="ph" type="tel" inputmode="tel" autocomplete="tel" placeholder="+971 5x xxx xxxx" required></div><div class="xs faint" id="anh41" style="margin:-4px 0 10px">Numbers starting with 0 are treated as UAE (+971).</div>
+ <div class="btnrow"><button type="button" class="btn2" data-act="close">Cancel</button><button type="submit" class="btn2 pri">${ic('check')} Save</button></div></form>`);
+ const f=$('#anf41');f.ph.oninput=()=>{const n=waNum(f.ph.value);$('#anh41').textContent=n.length>=7?'WhatsApp will open +'+n:'Numbers starting with 0 are treated as UAE (+971).'};
+ f.onsubmit=e=>{e.preventDefault();const v=f.ph.value.trim();if(waNum(v).length<7){toast('That number looks too short');return}const now=new Date().toISOString();
+  U.people=U.people||[];const ex=U.people.find(x=>x.id===pid);if(ex)Object.assign(ex,{phone:v,updated:now});else U.people.push({id:pid,name:p.name,phone:v,updated:now});
+  queueSave();closeSheet();rerender();toast('Number saved — WhatsApp is ready');
+  const [k,bid]=String(back||'').split(':');if(k==='pipe'&&bid)openPipe(bid);else if(k==='person'&&bid)openPerson(bid)}}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-addnum]');if(!b)return;e.preventDefault();e.stopPropagation();openAddNum_d1006(b.dataset.addnum,b.dataset.back)},true);
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

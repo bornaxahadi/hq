@@ -1143,3 +1143,8 @@ a.pill.wa38f{background:#25d366;color:#fff;margin-right:6px;display:inline-flex;
 /* v39 deal WhatsApp */
 .wa39row{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
 .wa39row a.wa38{padding:7px 12px;min-height:34px;font-size:12.5px}
+
+/* v41 add a number */
+button.addnum41{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;min-height:34px;border-radius:12px;font-size:12.5px;font-weight:800;color:var(--muted);background:var(--card2);border:1px dashed var(--line2)}
+button.addnum41 svg,button.addnum41p svg{width:13px;height:13px}
+button.pill.addnum41p{border-style:dashed;cursor:pointer}
