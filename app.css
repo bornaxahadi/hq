@@ -1159,3 +1159,9 @@ button.pill.addnum41p{border-style:dashed;cursor:pointer}
 .irow42{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}
 .it42{flex:1;min-width:0}.it42 b{display:block;font-size:14px}.it42 p{margin:3px 0 0;font-size:12.5px;line-height:1.45;opacity:.8}.it42 small{display:block;margin-top:4px;font-size:11.5px;opacity:.65}
 .ilk42{flex:0 0 auto;font-size:11px;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:14px;padding:3px 8px;opacity:.8}
+
+/* v43 */
+.dbtns .dph43{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.dgal43{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.dgal43 img{width:84px;height:84px;object-fit:cover;border-radius:12px}
+.dgal43.ed span{position:relative;display:inline-block}.dgal43.ed button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#ef4444;color:#fff;font-size:14px;line-height:22px;padding:0;cursor:pointer}
+.dentry .dgal43 img{width:84px!important;height:84px!important;max-width:none;margin:0}

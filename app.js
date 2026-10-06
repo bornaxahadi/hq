@@ -2731,6 +2731,24 @@ function ideasHTML_d42(){const L=ideas_d42().sort((a,b)=>String(b.added||b.updat
 const _renderProjects_d42=renderProjects;renderProjects=function(){_renderProjects_d42();const el=$('#p-projects');if(!el||el.querySelector('.ideas42'))return;const h=ideasHTML_d42();if(!h)return;(el.querySelector('.stats')||el.querySelector('.pt'))?.insertAdjacentHTML('afterend',h)};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-if42]');if(!b)return;e.preventDefault();ideaF_d42=b.dataset.if42;const c=$('#p-projects .ideas42');if(c){c.outerHTML=ideasHTML_d42()}},true);
 
+
+/* ================= v43: Dear diary — 📷 snap or upload photos (several per entry) ================= */
+let dPend_d43=null;
+const shrink_d43=(file,W=900)=>new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,W/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.75))};im.onerror=()=>res(null);im.src=r.result};r.readAsDataURL(file)});
+const _diaryPanel_d43=diaryPanel;diaryPanel=function(c){return _diaryPanel_d43(c).replace('✍️ Write</button>','✍️ Write</button><label class="btn2 dph43" title="Snap or upload a photo">📷 Photo<input type="file" accept="image/*" multiple hidden data-dph43></label>')};
+const _diaryEntryHTML_d43=diaryEntryHTML;diaryEntryHTML=function(e){let h=_diaryEntryHTML_d43(e);const P=(e.photos||[]).filter(Boolean);if(!P.length)return h;
+ const g=`<div class="dgal43">${P.map(p=>`<img src="${p}" alt="">`).join('')}</div>`;return h.includes('class="dtext"')?h.replace('<div class="dtext">',g+'<div class="dtext">'):h+g};
+const _openDiary_d43=openDiary;openDiary=function(id,voice,date){_openDiary_d43(id,voice,date);const e=(NB.diary||[]).find(x=>x.id===id);let extra=[...((e&&e.photos)||[])];if(dPend_d43){extra.push(...dPend_d43);dPend_d43=null}
+ const row=$('#sheet .dphrow');if(!row)return;const lab=row.querySelector('label');if(lab)lab.style.display='none';const fl=row.closest('.fld')?.querySelector('label');if(fl)fl.textContent='Photos';
+ row.insertAdjacentHTML('beforeend','<label class="btn2 sm">📷 Snap / upload<input type="file" accept="image/*" multiple hidden id="dmore43"></label>');row.insertAdjacentHTML('afterend','<div class="dgal43 ed" id="dgal43"></div>');
+ const draw=()=>{$('#dgal43').innerHTML=extra.map((p,i)=>`<span><img src="${p}" alt=""><button type="button" data-rm43="${i}" aria-label="Remove">×</button></span>`).join('');$$('#dgal43 [data-rm43]').forEach(b=>b.onclick=()=>{extra.splice(+b.dataset.rm43,1);draw()})};draw();
+ $('#dmore43').onchange=async ev=>{for(const f of ev.target.files){const p=await shrink_d43(f);if(p)extra.push(p)}ev.target.value='';draw()};
+ const sv=$('#dsave'),orig=sv.onclick;sv.onclick=ev=>{const ta=$('#dtext'),txt=ta.value.trim(),n=(NB.diary||[]).length,moodB=$('#sheet [data-x="dmood"].on'),mood=moodB?+moodB.dataset.v:null;
+  if(!id&&!txt&&extra.length){const t=nowISO();NB.diary.push({id:nid(),date:date||diaryDay||nowD().date,text:'',mood,photo:extra[0],photos:extra.slice(1),voice:false,at:t,created:t,updated:t});nbQueue();closeSheet();refreshDiaryViews();toast('Saved to your diary 📔');return}
+  orig(ev);const tg=id?(NB.diary||[]).find(x=>x.id===id):((NB.diary||[]).length>n?NB.diary[NB.diary.length-1]:null);if(!tg)return;
+  if(!tg.photo&&extra.length){tg.photo=extra[0];tg.photos=extra.slice(1)}else tg.photos=extra;tg.updated=nowISO();nbQueue();refreshDiaryViews()}};
+document.addEventListener('change',async ev=>{const i=ev.target.closest&&ev.target.closest('[data-dph43]');if(!i)return;const L=[];for(const f of i.files){const p=await shrink_d43(f);if(p)L.push(p)}i.value='';if(!L.length)return;dPend_d43=L;await loadNB();openDiary(null,false)});
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
