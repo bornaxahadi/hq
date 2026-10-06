@@ -2793,6 +2793,23 @@ function c3dCard_d44(){const k=c3dTab_d44,T=C3D_d44[k];return `<div class="card 
 const _renderToday_d44=renderToday;renderToday=function(G){_renderToday_d44(G);const el=$('#p-today');if(!el||el.querySelector('.c3dc44'))return;const s=el.querySelector('.smoke');const h=c3dCard_d44();if(s)s.insertAdjacentHTML('afterend',h);else el.insertAdjacentHTML('beforeend',h)};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-c3d]');if(!b)return;e.preventDefault();c3dTab_d44=b.dataset.c3d;const c=$('.c3dc44');if(c)c.outerHTML=c3dCard_d44()},true);
 
+
+/* ================= v45: Today — big follower counter for Time Culture (Instagram · Facebook · YouTube) + X Species ================= */
+const SOCB_d45=[['tc','⏱ Time Culture',[['instagram','timecultur'],['facebook','TimeCulture'],['youtube','timecultur']]],['xs','🦎 X Species',[['instagram','x.species'],['facebook','X.species'],['youtube','x.species']]]];
+const SOCI_d45={instagram:['📸','Instagram','followers','#e1306c'],facebook:['📘','Facebook','followers','#1877f2'],youtube:['▶️','YouTube','subscribers','#ff0000']};
+const fmtN_d45=n=>n==null?'—':n>=1e4?(n/1e3).toFixed(n>=1e5?0:1).replace(/\.0$/,'')+'K':n.toLocaleString('en-US');
+function socAcc_d45(pl,h){return (D.social||[]).find(s=>s.platform===pl&&String(s.handle||'').toLowerCase()===h.toLowerCase())}
+function socDelta_d45(a){const H=(a&&a.history||[]).filter(x=>x.followers!=null);if(H.length<2)return null;const n=nowD().date,old=H.filter(x=>x.date<=addDays(n,-7)).pop()||H[0];return (a.followers??H[H.length-1].followers)-old.followers}
+function socCard_d45(){const rows=SOCB_d45.map(([k,name,L])=>{const A=L.map(([pl,h])=>({pl,a:socAcc_d45(pl,h)})).filter(x=>x.a);if(!A.length)return null;
+  const tot=A.reduce((s,x)=>s+(+x.a.followers||0),0),dl=A.reduce((s,x)=>s+(socDelta_d45(x.a)||0),0);return{k,name,A,tot,dl}}).filter(Boolean);if(!rows.length)return '';
+ const [m,...rest]=rows;const upd=D.social_updated?ago(D.social_updated):'';
+ const pill=x=>{const I=SOCI_d45[x.pl],d=socDelta_d45(x.a);return `<a class="sp45" href="${esc(x.a.url||'#')}" target="_blank" rel="noopener" style="--c:${I[3]}"><span>${I[0]}</span><b>${fmtN_d45(+x.a.followers||0)}</b><small>${I[1]} ${I[2]}${d?` · <em class="${d>0?'up':'dn'}">${d>0?'+':''}${d}</em>`:''}</small></a>`};
+ return `<div class="card mb soc45"><div class="sh45"><div><small>${esc(m.name)} · all platforms</small><b class="st45">${fmtN_d45(m.tot)}</b><span class="xs faint">followers & subscribers${m.dl?` · <em class="${m.dl>0?'up':'dn'}">${m.dl>0?'+':''}${m.dl} this week</em>`:''}</span></div>${upd?`<span class="xs faint">checked ${esc(upd)}</span>`:''}</div>
+  <div class="sps45">${m.A.map(pill).join('')}</div>
+  ${rest.map(r=>`<div class="sr45"><span>${esc(r.name)}</span><b>${fmtN_d45(r.tot)}</b><small>${r.A.map(x=>SOCI_d45[x.pl][0]+' '+fmtN_d45(+x.a.followers||0)).join(' · ')}</small></div>`).join('')}</div>`}
+const _renderToday_d45=renderToday;renderToday=function(G){_renderToday_d45(G);const el=$('#p-today');if(!el||el.querySelector('.soc45'))return;const h=socCard_d45();if(!h)return;
+ const t=el.querySelector('.v8top');if(t)t.insertAdjacentHTML('afterbegin',h);else el.insertAdjacentHTML('afterbegin',h)};
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
