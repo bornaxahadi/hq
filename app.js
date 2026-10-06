@@ -2749,6 +2749,50 @@ const _openDiary_d43=openDiary;openDiary=function(id,voice,date){_openDiary_d43(
   if(!tg.photo&&extra.length){tg.photo=extra[0];tg.photos=extra.slice(1)}else tg.photos=extra;tg.updated=nowISO();nbQueue();refreshDiaryViews()}};
 document.addEventListener('change',async ev=>{const i=ev.target.closest&&ev.target.closest('[data-dph43]');if(!i)return;const L=[];for(const f of i.files){const p=await shrink_d43(f);if(p)L.push(p)}i.value='';if(!L.length)return;dPend_d43=L;await loadNB();openDiary(null,false)});
 
+
+/* ================= v44: sleep + nap on Today · 3D week chart (sleep, food, gym, smoking) ================= */
+const SLH_d44=[4,5,6,7,8],NAP_d44=[[0,'None'],[0.5,'30m'],[1,'1h'],[1.5,'1½h'],[2,'2h+']];
+const _moodRow_d44=moodRow;moodRow=function(d){const h=habDay(d),s=h.sleepH!=null?+h.sleepH:null,n=h.nap!=null?+h.nap:null;
+ return _moodRow_d44(d)+`<div class="moodrow sl44"><span class="xs faint">Sleep</span>${SLH_d44.map(v=>`<button type="button" class="opt ${s===v||(v===8&&s>8)?'on':''}" data-x="sleeph44" data-v="${v}">${v}${v===8?'+':''}h</button>`).join('')}</div>
+ <div class="moodrow sl44"><span class="xs faint">Nap</span>${NAP_d44.map(([v,l])=>`<button type="button" class="opt ${n===v?'on':''}" data-x="nap44" data-v="${v}">${l}</button>`).join('')}</div>`};
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="sleeph44"],[data-x="nap44"]');if(!a)return;e.preventDefault();e.stopPropagation();const d=nowD().date,v=+a.dataset.v;
+ if(a.dataset.x==='sleeph44'){setHab('sleepH',v,d);setHab('sleep',v>=7?1:0,d)}else setHab('nap',v,d);
+ a.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===a));const h=habDay(d);toast(`😴 ${h.sleepH??'—'}h night${h.nap?' + '+h.nap+'h nap':''} saved`);setTimeout(()=>{if(curPage()==='today')rerender()},400)},true);
+
+let c3dTab_d44='sleep';
+function c3dData_d44(k){const n=nowD().date,days=Array.from({length:7},(_,i)=>addDays(n,i-6));
+ return days.map(d=>{const h=habDay(d);let a=null,b=0;
+  if(k==='sleep'){a=h.sleepH!=null?+h.sleepH:null;b=+(h.nap||0)}
+  else if(k==='food'){let M=[];try{M=H_().meals.filter(m=>m.date===d&&!m.deleted&&!m.skipped)}catch(e){}const t=M.reduce((s,m)=>s+(mealKcal_d33(m)||0),0);a=M.length?t:null}
+  else if(k==='gym'){const c=(U.checkins||{})[d];let g=gymMin(d)||(c&&+c.gymMin)||0;if(!g&&h.gym)g=90;a=g||(h.gym===0?0:null)}
+  else if(k==='smoke'){a=cigs(d)}
+  return{d,a,b}})}
+const C3D_d44={sleep:['😴','Sleep','h',10,8,'#22d3ee','#a78bfa'],food:['🍽','Food','kcal',3500,null,'#f472b6','#fb923c'],gym:['🏋️','Gym','min',150,90,'#34d399','#22d3ee'],smoke:['🚬','Smoking','cigs',45,null,'#f87171','#fbbf24']};
+function c3dSVG_d44(k){const [,, unit,max0,goal,c1,c2]=C3D_d44[k],R=c3dData_d44(k);let max=Math.max(max0,...R.map(r=>(r.a||0)+(r.b||0)));
+const tgt=k==='food'?(targets_d26?.().kcal||2200):k==='smoke'?smokeLimit(nowD().date):goal;
+ const W=340,H=210,x0=34,y0=170,bw=26,gap=17,dx=12,dy=8,sc=v=>v/max*120;
+ let g='';for(let i=0;i<=4;i++){const y=y0-i*30;g+=`<line x1="${x0-6}" y1="${y}" x2="${x0+7*(bw+gap)+dx}" y2="${y-dy}" class="g44"/>`}
+ const box=(x,y,h,col,op)=>h<=0?'':`<polygon points="${x},${y} ${x+bw},${y} ${x+bw},${y-h} ${x},${y-h}" fill="url(#f44${col})" opacity="${op}"/><polygon points="${x+bw},${y} ${x+bw+dx},${y-dy} ${x+bw+dx},${y-dy-h} ${x+bw},${y-h}" fill="url(#s44${col})" opacity="${op}"/><polygon points="${x},${y-h} ${x+bw},${y-h} ${x+bw+dx},${y-dy-h} ${x+dx},${y-dy-h}" fill="url(#t44${col})" opacity="${op}"/>`;
+ let bars='';R.forEach((r,i)=>{const x=x0+i*(bw+gap),ha=sc(r.a||0),hb=sc(r.b||0),today=i===6;
+  bars+=r.a==null&&!r.b?`<polygon points="${x},${y0} ${x+bw},${y0} ${x+bw+dx},${y0-dy} ${x+dx},${y0-dy}" class="e44"/>`:box(x,y0,ha,1,1)+box(x,y0-ha,hb,2,.95);
+  const v=r.a==null?'—':k==='sleep'?(r.a+(r.b?'+'+r.b:'')):Math.round(r.a);
+  bars+=`<text x="${x+bw/2+dx/2}" y="${y0-ha-hb-dy-6}" class="v44">${v}</text><text x="${x+bw/2}" y="${y0+16}" class="d44${today?' on':''}">${today?'Today':fd(r.d,{weekday:'short'}).slice(0,2)}</text>`});
+ const ty=tgt?y0-sc(tgt):null;
+ const defs=[[1,c1],[2,c2]].map(([n,c])=>`<linearGradient id="f44${n}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${c}" stop-opacity=".35"/><stop offset="1" stop-color="${c}"/></linearGradient><linearGradient id="s44${n}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${c}" stop-opacity=".15"/><stop offset="1" stop-color="${c}" stop-opacity=".6"/></linearGradient><linearGradient id="t44${n}"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="${c}"/></linearGradient>`).join('');
+ return `<svg viewBox="0 0 ${W} ${H}" class="c3d44" role="img" aria-label="${C3D_d44[k][1]} last 7 days"><defs>${defs}<filter id="gl44"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <polygon points="${x0-10},${y0+2} ${x0+7*(bw+gap)},${y0+2} ${x0+7*(bw+gap)+dx+6},${y0-dy-4} ${x0+dx-4},${y0-dy-4}" class="fl44"/>${g}<g filter="url(#gl44)">${bars}</g>
+  ${ty?`<line x1="${x0-6}" y1="${ty}" x2="${x0+7*(bw+gap)+dx}" y2="${ty-dy}" class="t44"/><text x="${x0-8}" y="${ty+3}" class="tl44">${k==='smoke'?'limit':'goal'}</text>`:''}</svg>`}
+function c3dStats_d44(k){const R=c3dData_d44(k).filter(r=>r.a!=null),av=R.length?R.reduce((s,r)=>s+r.a+(r.b||0),0)/R.length:null;
+ if(k==='sleep'){const naps=R.filter(r=>r.b).length;return av==null?'Tap your hours above to start tracking sleep.':`Avg ${av.toFixed(1)} h a day${naps?` · ${naps} nap${naps>1?'s':''}`:''} · ${av>=7?'good — keep it 💪':'under 7 h — your body needs more rest'}`}
+ if(k==='food')return av==null?'Log meals to see your calories.':`Avg ${Math.round(av)} kcal a day · target ${targets_d26().kcal}`;
+ if(k==='gym'){const n=R.filter(r=>r.a>0).length;return `${n} gym day${n===1?'':'s'} this week${n>=5?' — beast mode 🔥':n>=3?' — solid':' — aim for 5'}`}
+ return av==null?'No smoking logged yet.':`Avg ${av.toFixed(1)} a day · limit ${smokeLimit(nowD().date)} now`}
+function c3dCard_d44(){const k=c3dTab_d44,T=C3D_d44[k];return `<div class="card mb c3dc44"><div class="hsh"><b>📊 Your week in 3D</b><span class="xs faint">last 7 days</span></div>
+ <div class="c3dt44">${Object.entries(C3D_d44).map(([id,t])=>`<button type="button" data-c3d="${id}" class="${id===k?'on':''}" style="--c:${t[5]}">${t[0]} ${t[1]}</button>`).join('')}</div>
+ <div class="c3dw44">${c3dSVG_d44(k)}</div>${k==='sleep'?'<div class="xs faint lg44"><i style="background:#22d3ee"></i>night <i style="background:#a78bfa"></i>nap</div>':''}<div class="c3ds44">${esc(c3dStats_d44(k))}</div></div>`}
+const _renderToday_d44=renderToday;renderToday=function(G){_renderToday_d44(G);const el=$('#p-today');if(!el||el.querySelector('.c3dc44'))return;const s=el.querySelector('.smoke');const h=c3dCard_d44();if(s)s.insertAdjacentHTML('afterend',h);else el.insertAdjacentHTML('beforeend',h)};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-c3d]');if(!b)return;e.preventDefault();c3dTab_d44=b.dataset.c3d;const c=$('.c3dc44');if(c)c.outerHTML=c3dCard_d44()},true);
+
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

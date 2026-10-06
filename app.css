@@ -1165,3 +1165,17 @@ button.pill.addnum41p{border-style:dashed;cursor:pointer}
 .dgal43{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.dgal43 img{width:84px;height:84px;object-fit:cover;border-radius:12px}
 .dgal43.ed span{position:relative;display:inline-block}.dgal43.ed button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#ef4444;color:#fff;font-size:14px;line-height:22px;padding:0;cursor:pointer}
 .dentry .dgal43 img{width:84px!important;height:84px!important;max-width:none;margin:0}
+
+/* v44 */
+.sl44 .opt{font-size:12px!important;padding:6px 0!important}
+.c3dc44{background:radial-gradient(120% 90% at 50% 0%,rgba(139,92,246,.18),transparent 60%),radial-gradient(90% 70% at 50% 110%,rgba(34,211,238,.14),transparent 60%),var(--card,#111827)!important;border-color:rgba(103,232,249,.25)!important}
+.c3dt44{display:flex;gap:6px;overflow-x:auto;margin:8px 0 4px;scrollbar-width:none}.c3dt44::-webkit-scrollbar{display:none}
+.c3dt44 button{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:inherit;border-radius:20px;padding:5px 11px;font:inherit;font-size:12px;cursor:pointer}
+.c3dt44 button.on{border-color:var(--c);color:#fff;background:color-mix(in srgb,var(--c) 30%,transparent);box-shadow:0 0 12px color-mix(in srgb,var(--c) 50%,transparent)}
+.c3dw44{perspective:700px}.c3d44{width:100%;height:auto;display:block;transform:rotateX(8deg);transform-origin:50% 100%;animation:rise44 .7s ease-out}
+@keyframes rise44{from{opacity:0;transform:rotateX(35deg) translateY(14px)}to{opacity:1;transform:rotateX(8deg)}}
+.c3d44 .g44{stroke:rgba(103,232,249,.13);stroke-width:.6}.c3d44 .fl44{fill:rgba(103,232,249,.06);stroke:rgba(103,232,249,.3);stroke-width:.6}
+.c3d44 .e44{fill:none;stroke:rgba(255,255,255,.25);stroke-dasharray:2 2}
+.c3d44 .v44{font-size:10px;font-weight:700;fill:#e0f2fe;text-anchor:middle}.c3d44 .d44{font-size:9.5px;fill:rgba(255,255,255,.55);text-anchor:middle}.c3d44 .d44.on{fill:#67e8f9;font-weight:700}
+.c3d44 .t44{stroke:#fbbf24;stroke-width:1;stroke-dasharray:4 3;opacity:.8}.c3d44 .tl44{font-size:8.5px;fill:#fbbf24;text-anchor:end}
+.c3ds44{font-size:12.5px;margin-top:4px;opacity:.85}.lg44{display:flex;align-items:center;gap:6px;margin-top:2px}.lg44 i{width:9px;height:9px;border-radius:3px;display:inline-block}
