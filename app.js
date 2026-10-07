@@ -2818,6 +2818,12 @@ const SICO_d46={
  youtube:'<svg class="si46" viewBox="0 0 24 24" aria-label="YouTube"><rect x="1" y="4.5" width="22" height="15" rx="4.5" fill="#FF0000"/><path d="M10 8.6v6.8l5.8-3.4z" fill="#fff"/></svg>'};
 Object.keys(SICO_d46).forEach(k=>{if(SOCI_d45[k])SOCI_d45[k][0]=SICO_d46[k]});
 
+/* ================= d1007: "Jump to" chips at the top of Today ================= */
+const JMP_d1007=[['💰','Money','Money & deals'],['⏭','Next up','Next up'],['✅','To-do','To-do'],['🎯','Focus',"Today's focus"],['📰','Briefing','Morning briefing'],['🔥','Habits','Daily habits'],['📣','Post','Post today']];
+function jmpFind_d1007(key){const el=$('#p-today');if(!el)return null;for(const c of el.querySelectorAll('.card')){if(c.closest('.jmp1007'))continue;const t=(c.innerText||'').split('\n').slice(0,4).map(s=>s.replace(/^[^A-Za-z0-9']+/,'').trim());if(t.some(s=>s===key||s.startsWith(key+' ')))return c}return null}
+function jmpGo_d1007(key){const c=jmpFind_d1007(key);if(!c)return;const top=document.querySelector('.top');const off=(top?top.getBoundingClientRect().height:60)+10;window.scrollTo({top:c.getBoundingClientRect().top+window.scrollY-off,behavior:'smooth'});c.classList.remove('jmpflash');void c.offsetWidth;c.classList.add('jmpflash');setTimeout(()=>c.classList.remove('jmpflash'),1600)}
+const _renderToday_d1007=renderToday;renderToday=function(G){_renderToday_d1007(G);try{const el=$('#p-today');if(!el)return;const old=el.querySelector('.jmp1007');if(old)old.remove();const chips=JMP_d1007.filter(x=>jmpFind_d1007(x[2])).map(x=>`<button type="button" class="jchip" data-jmp="${x[2].replace(/"/g,'&quot;')}"><span>${x[0]}</span>${x[1]}</button>`).join('');if(!chips)return;const h=`<div class="jmp1007" role="navigation" aria-label="Jump to">${chips}</div>`;const b=el.querySelector('#banner');if(b)b.insertAdjacentHTML('afterend',h);else el.insertAdjacentHTML('afterbegin',h)}catch(e){}};
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-jmp]');if(!b)return;e.preventDefault();jmpGo_d1007(b.dataset.jmp)});
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}

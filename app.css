@@ -1192,3 +1192,12 @@ button.pill.addnum41p{border-style:dashed;cursor:pointer}
 
 /* v46 */
 .sp45 span .si46{width:26px;height:26px;display:block}.sr45 small .si46{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin:0 2px}
+
+/* d1007: Jump-to chips on Today */
+.jmp1007{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 2px 10px;margin:0 0 4px}
+.jmp1007::-webkit-scrollbar{display:none}
+.jmp1007 .jchip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font:600 13px/1 'Plus Jakarta Sans',system-ui,sans-serif;color:var(--text,inherit);background:color-mix(in srgb,var(--card2,#1f2937) 85%,transparent);border:1px solid var(--line,rgba(255,255,255,.1));border-radius:999px;padding:9px 13px;min-height:36px;cursor:pointer}
+.jmp1007 .jchip:active{transform:scale(.96)}
+.jmp1007 .jchip span{font-size:14px}
+.card.jmpflash{animation:jmpfl_d1007 1.5s ease}
+@keyframes jmpfl_d1007{0%,40%{box-shadow:0 0 0 3px rgba(139,92,246,.55)}100%{box-shadow:0 0 0 0 rgba(139,92,246,0)}}
