@@ -67,7 +67,7 @@ const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim
 const fmt=n=>n==null?'—':n>=1e6?(n/1e6).toFixed(1).replace('.0','')+'M':n>=1e4?Math.round(n/1e3)+'K':n>=1e3?(n/1e3).toFixed(1).replace('.0','')+'K':String(n);
 const hrs=h=>h?(h%1?h.toFixed(1):h)+'h':'0h';
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-function nowD(){const p=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const g=t=>p.find(x=>x.type===t).value;return{date:`${g('year')}-${g('month')}-${g('day')}`,mins:(+g('hour')%24)*60+(+g('minute'))}}
+function nowD(){const p=(nowD.f||(nowD.f=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}))).formatToParts(new Date());const g=t=>p.find(x=>x.type===t).value;return{date:`${g('year')}-${g('month')}-${g('day')}`,mins:(+g('hour')%24)*60+(+g('minute'))}}
 const toMin=hm=>{const[h,m]=(hm||'0:0').split(':').map(Number);return h*60+(m||0)};
 const fd=(iso,o={day:'numeric',month:'short'})=>iso?new Date(iso+(iso.length===10?'T12:00:00':'')).toLocaleDateString('en-GB',{...o,timeZone:TZ}):'';
 const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
@@ -297,7 +297,7 @@ const PLACE_ICON={Home:'sun',Gym:'gym',Office:'brief',Pool:'sun',Mosque:'star',C
 let HERE=null,geoBusy=false,rec=null;
 function dist(a,b,c,d){const R=6371e3,t=Math.PI/180,x=(c-a)*t,y=(d-b)*t,h=Math.sin(x/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
 const places=()=>(U?.places||[]).filter(p=>!p.deleted);
-function dubaiDate(iso){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(iso))}
+function dubaiDate(iso){const f=dubaiDate.f||(dubaiDate.f=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}));return f.format(new Date(iso))}
 const tm=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
 const lastVisit=()=>(U?.visits||[]).filter(v=>!v.deleted).slice().sort((a,b)=>a.at<b.at?-1:1).pop();
 function logVisit(place,type,src){U.visits=U.visits||[];const now=new Date().toISOString(),last=lastVisit();
