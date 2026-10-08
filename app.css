@@ -1201,3 +1201,17 @@ button.pill.addnum41p{border-style:dashed;cursor:pointer}
 .jmp1007 .jchip span{font-size:14px}
 .card.jmpflash{animation:jmpfl_d1007 1.5s ease}
 @keyframes jmpfl_d1007{0%,40%{box-shadow:0 0 0 3px rgba(139,92,246,.55)}100%{box-shadow:0 0 0 0 rgba(139,92,246,0)}}
+/* d1008 reach out + last talk */
+.ro1008{padding:14px 14px 12px;margin-bottom:12px}
+.ro1008 .roh{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.ro1008 .roh small{color:var(--muted);font-size:12px}
+.ro1008 .rorow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.ro1008 .roh+.rorow{border-top:0}
+.ro1008 .rotx{flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:1px}
+.ro1008 .rotx small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro1008 .robtn{flex:0 0 auto;width:40px;height:40px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line2);background:var(--card2);color:var(--green);font:800 17px/1 'Plus Jakarta Sans',system-ui,sans-serif;cursor:pointer;text-decoration:none}
+.ro1008 .robtn.wa{background:#25d366;border-color:#25d366;color:#fff}
+.ro1008 .robtn svg{width:18px;height:18px}
+.pill.lt1008.old{color:var(--amber)}
+.lt1008s{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 2px;font-size:13px;color:var(--muted)}
+.lt1008s b{color:var(--text)}
