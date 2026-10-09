@@ -1215,3 +1215,8 @@ button.pill.addnum41p{border-style:dashed;cursor:pointer}
 .pill.lt1008.old{color:var(--amber)}
 .lt1008s{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 2px;font-size:13px;color:var(--muted)}
 .lt1008s b{color:var(--text)}
+
+/* d1009: Reach out on Today */
+.ro1008 .robtn.add{color:var(--text,inherit);font-size:13px;width:auto;padding:0 9px;letter-spacing:-.02em}
+.ro1009{border:1px solid rgba(37,211,102,.28);background:linear-gradient(135deg,rgba(37,211,102,.09),rgba(99,102,241,.06)),var(--card)}
+.ro1008 .romore1009{display:block;margin-top:8px;font-size:13px;font-weight:700;color:var(--green);text-decoration:none}
