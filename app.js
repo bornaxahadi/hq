@@ -2840,6 +2840,81 @@ const _renderPeople_d1008=renderPeople;renderPeople=function(){_renderPeople_d10
  try{$$('#p-people .person[data-person]').forEach(c=>{const n=daysSince_d1008(lastTalk_d1008(c.dataset.person));if(n==null)return;const t=c.querySelector('.ptags');if(t&&!t.querySelector('.lt1008'))t.insertAdjacentHTML('beforeend',`<span class="pill lt1008${n>=7?' old':''}">💬 ${n===0?'today':n+'d'}</span>`)})}catch(e){}};
 const _openPerson_d1008=openPerson;openPerson=function(id){_openPerson_d1008(id);try{const s=$('#sheet');const cb=s&&s.querySelector('.cbtns');if(!cb||s.querySelector('.lt1008s'))return;const n=daysSince_d1008(lastTalk_d1008(id));cb.insertAdjacentHTML('afterend',`<div class="lt1008s"><span>💬 Last talk: <b>${agoTxt_d1008(n)}</b></span><button type="button" class="btn2 sm" data-ro1008="${id}">✓ Talked today</button></div>`)}catch(e){}};
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-ro1008]');if(!b)return;e.preventDefault();e.stopPropagation();touch_d1008(b.dataset.ro1008);const s=$('#sheet');if(s&&s.contains(b)){const x=s.querySelector('.lt1008s b');if(x)x.textContent='today';b.disabled=true}if(curPage()==='people'){const y=scrollY;renderPeople();window.scrollTo(0,y)}});
+
+
+/* ================= v49: 10-day goal countdown card on Today ================= */
+function goalCard_d49(){const p=(D.projects||[]).find(x=>x.id==='p-computers');if(!p||!p.due)return '';
+ const n=nowD().date,ms=new Date(p.due+'T00:00:00')-new Date(n+'T00:00:00'),left=Math.round(ms/864e5),S=p.steps||[],done=S.filter(s=>s.done).length;
+ const tot=10,used=Math.max(0,Math.min(tot,tot-left)),pct=Math.round(used/tot*100);
+ const R=[['💰','Ali — Solvex money','pl-solvex-mvp'],['🛢️','Qatar oil — Ansel → Emmanuel','pl-qatar'],['🖥️','Dr. Ibrahim — 2 computers',null],['🌱','Emmanuel — seeds website','pl-emm-seeds']];
+ const st=id=>{const d=id&&(D.pipeline||[]).find(x=>x.id===id);return d?(d.hot?'🔥 ':'')+esc(d.stage||''):'waiting'};
+ return `<div class="card mb gl49" onclick="location.hash='projects'"><div class="gh49"><div><small>🎯 10-day goal</small><b>Computer + money</b><span class="xs faint">by ${esc(fd(p.due,{weekday:'short',day:'numeric',month:'short'}))}</span></div>
+  <div class="gd49 ${left<=3?'hot':''}"><b>${left<0?0:left}</b><small>day${left===1?'':'s'} left</small></div></div>
+  <div class="gb49"><i style="width:${pct}%"></i></div>
+  <div class="gr49">${R.map(([e,l,id])=>`<div><span>${e}</span><em>${l}</em><small>${st(id)}</small></div>`).join('')}</div>
+  <div class="xs faint">${done}/${S.length} steps done · whichever lands first buys MacBook Pro #1</div></div>`}
+(function(){const c=document.createElement('style');c.textContent=`.gl49{cursor:pointer;background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(99,102,241,.12));border:1px solid rgba(16,185,129,.35)}.gh49{display:flex;justify-content:space-between;align-items:center;gap:12px}.gh49 small{display:block;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:.7rem;opacity:.8}.gh49 b{display:block;font-size:1.35rem;line-height:1.2}.gd49{text-align:center;min-width:76px;padding:8px 10px;border-radius:16px;background:rgba(16,185,129,.18)}.gd49.hot{background:rgba(244,63,94,.2)}.gd49 b{font-size:2rem;line-height:1}.gd49 small{font-size:.7rem;opacity:.8}.gb49{height:8px;border-radius:9px;background:rgba(127,127,127,.2);margin:12px 0;overflow:hidden}.gb49 i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#10b981,#6366f1)}.gr49{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}.gr49>div{display:grid;grid-template-columns:auto 1fr;column-gap:6px;padding:8px;border-radius:12px;background:rgba(127,127,127,.08)}.gr49 span{grid-row:span 2;font-size:1.2rem}.gr49 em{font-style:normal;font-weight:600;font-size:.82rem}.gr49 small{font-size:.72rem;opacity:.75}`;document.head.appendChild(c)})();
+const _renderToday_d49=renderToday;renderToday=function(G){_renderToday_d49(G);const el=$('#p-today');if(!el||el.querySelector('.gl49'))return;const h=goalCard_d49();if(!h)return;
+ const t=el.querySelector('.v8top');if(t)t.insertAdjacentHTML('afterbegin',h);else el.insertAdjacentHTML('afterbegin',h)};
+
+/* ================= v50: no lost taps, instant smoking counter, fix-up sheet, no zoom ================= */
+let editVer_d50=0;
+const _setHab_d50=setHab;setHab=function(k,v,d){editVer_d50++;return _setHab_d50(k,v,d)};
+// Saving: taps made while a save is in flight are kept (old code replaced U with the pre-tap snapshot)
+doSave=async function(){if(saving){again=true;return}saving=true;const v0=editVer_d50;
+ try{for(let i=0;i<3;i++){const g=await ghGet('user.enc');let remote=null,sha=null;if(g){sha=g.sha;userSalt=g.json.salt;remote=await dec(g.json)}
+   const merged=mergeU(remote,U);try{await ghPut('user.enc',await enc(merged,userSalt),sha,'Update from app');
+     if(editVer_d50!==v0){U={...emptyU(),...mergeU(merged,U)};again=true}else U=merged;
+     ls.set('hq.user',JSON.stringify(U));setSync(again?'busy':'ok');break}catch(e){if(e.status!==409&&e.status!==422)throw e}}
+ }catch(e){console.warn(e);setSync('local');toast(e.status===401||e.status===403?'Saving key not valid — check Settings':'Saved on this device; will sync later')}
+ saving=false;if(again){again=false;clearTimeout(saveTimer);saveTimer=setTimeout(doSave,300)}};
+// Smoking: update the number instantly, redraw the page once you stop tapping
+let smT_d50=null;
+function smPaint_d50(){const n=nowD().date,c=cigs(n)||0,L=smokeLimit(n);$$('.smoke .smbig').forEach(el=>{el.classList.toggle('over',c>L);const b=el.querySelector('b');if(b)b.textContent=c;el.classList.remove('pop50');void el.offsetWidth;el.classList.add('pop50')});
+ $$('.smoke .bar i').forEach(i=>{i.style.width=Math.min(100,c/L*100)+'%';i.style.background=c>L?'var(--red,#f87171)':'var(--green)'})}
+function cigAdd_d50(delta,day){const n=nowD().date,d=day||n,c=Math.max(0,(cigs(d)||0)+delta);setHab('cigs',c,d);
+ if(delta>0&&d===n&&!habDay(n).first){setHab('first',new Intl.DateTimeFormat('en-GB',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date()),n)}
+ try{navigator.vibrate&&navigator.vibrate(8)}catch(e){}
+ smPaint_d50();clearTimeout(smT_d50);smT_d50=setTimeout(()=>{if(!$('#sheet').classList.contains('on')){const y=scrollY;rerender();scrollTo(0,y)}},900);
+ const L=smokeLimit(d);toast(d!==n?`${c} on ${fd(d,{weekday:'short',day:'numeric',month:'short'})}`:c>L?`${c} today — over your limit of ${L}`:c===L?`That’s your limit for today (${L})`:`${c} of ${L} today`);return c}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-x="cig"]');if(!a)return;e.stopImmediatePropagation();e.preventDefault();cigAdd_d50(+a.dataset.v)},true);
+// Tap the big number → fix the count (forgot some, or yesterday)
+function cigSheet_d50(day){const n=nowD().date,y=addDays(n,-1);day=day||n;const c=cigs(day)||0;
+ sheet(`<h3 style="margin:0 0 4px">🚬 Fix the count</h3><div class="xs faint" style="margin-bottom:12px">Forgot to log some? Set the right number.</div>
+ <div class="seg50">${[[n,'Today'],[y,'Yesterday']].map(([d,l])=>`<button type="button" data-cd50="${d}" class="${d===day?'on':''}">${l}</button>`).join('')}</div>
+ <div class="stp50"><button type="button" data-cs50="-1">−</button><b id="cc50">${c}</b><button type="button" data-cs50="1">+</button></div>
+ <div class="qk50">${[2,3,5,10].map(k=>`<button type="button" data-cs50="${k}">+${k}</button>`).join('')}</div>
+ <button type="button" class="btn2 pri" style="width:100%;margin-top:14px" data-cdone50>Done</button>`);$('#sheet').dataset.day50=day}
+document.addEventListener('click',e=>{const s=$('#sheet');
+ if(e.target.closest('.smoke .smbig')){e.preventDefault();cigSheet_d50();return}
+ const dd=e.target.closest('[data-cd50]');if(dd){cigSheet_d50(dd.dataset.cd50);return}
+ const st=e.target.closest('[data-cs50]');if(st){const d=s.dataset.day50||nowD().date,c=cigAdd_d50(+st.dataset.cs50,d);const b=$('#cc50');if(b){b.textContent=c;b.classList.remove('pop50');void b.offsetWidth;b.classList.add('pop50')}return}
+ if(e.target.closest('[data-cdone50]')){$('#scrim').click();setTimeout(()=>{const y=scrollY;rerender();scrollTo(0,y)},60)}});
+// No pinch / double-tap zoom on phones, faster taps
+(function(){const m=document.querySelector('meta[name=viewport]');if(m)m.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+ ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+ document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
+ let lt=0;document.addEventListener('touchend',e=>{const t=Date.now();if(t-lt<300&&!e.target.closest('input,textarea,select,[contenteditable]'))e.preventDefault();lt=t},{passive:false});
+ const c=document.createElement('style');c.textContent=`html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}button,a,[data-x],[data-p]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+ button:active,.btn2:active,[data-x]:active{transform:scale(.96);transition:transform .06s}
+ @media (max-width:820px){input,textarea,select{font-size:16px!important}}
+ .smoke .smbig{cursor:pointer;-webkit-user-select:none;user-select:none}.smoke .smbig small::after{content:' ✎';opacity:.7}
+ .pop50{animation:pop50 .22s ease}@keyframes pop50{40%{transform:scale(1.18)}}
+ .seg50{display:flex;gap:6px;background:rgba(127,127,127,.12);padding:4px;border-radius:12px}.seg50 button{flex:1;border:0;background:none;padding:9px;border-radius:9px;font:inherit;font-weight:600;color:inherit}.seg50 .on{background:var(--card,#fff);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+ .stp50{display:flex;align-items:center;justify-content:center;gap:26px;margin:18px 0 10px}.stp50 b{font-size:3rem;min-width:80px;text-align:center}.stp50 button{width:58px;height:58px;border-radius:50%;border:1px solid rgba(127,127,127,.3);background:none;font-size:1.8rem;color:inherit}
+ .qk50{display:flex;gap:8px;justify-content:center}.qk50 button{padding:9px 14px;border-radius:12px;border:1px solid rgba(127,127,127,.3);background:none;font:inherit;font-weight:600;color:inherit}`;document.head.appendChild(c)})();
+/* ================= d1009: 📞 Reach out on Today · deal contacts of any tag (not family) · add a missing number from the card ================= */
+reachList_d1008=function(lim){const open=pipeline().filter(d=>!['Won','Lost'].includes(d.stage));
+ return people().filter(p=>p.rel!=='family').map(p=>({p,ds:open.filter(d=>(d.people||[]).includes(p.id)).sort((a,b)=>(b.hot?1:0)-(a.hot?1:0)),n:daysSince_d1008(lastTalk_d1008(p.id))})).filter(x=>x.ds.length&&(x.n==null||x.n>=4)).sort((a,b)=>((b.n??999)-(a.n??999))||(b.ds.length-a.ds.length)).slice(0,lim||5)};
+function roRow_d1009({p,ds,n}){const dn=String(ds[0].name||'').replace(/^[^\p{L}\p{N}]+/u,'').replace(/\s+[—-]\s+AED.*$/i,'').slice(0,34);
+ const act=p.phone?`<a class="robtn wa" href="https://wa.me/${waNum(p.phone)}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp ${esc(short(p.name))}">${ic('msg')}</a>`:`<button type="button" class="robtn add" data-addnum="${esc(p.id)}" data-back="" aria-label="Add ${esc(short(p.name))}’s number">＋📱</button>`;
+ return `<div class="rorow">${avatar(p,38)}<button type="button" class="rotx" data-person="${p.id}"><b>${esc(short(p.name))}</b><small>${n==null?'No talk logged':'Last talk '+agoTxt_d1008(n)} · ${esc(dn)}${ds.length>1?' +'+(ds.length-1):''}</small></button>${act}<button type="button" class="robtn ok" data-ro1008="${p.id}" aria-label="Mark talked today">✓</button></div>`}
+reachHTML_d1008=function(lim,today){const all=reachList_d1008(99),L=all.slice(0,lim||5);if(!L.length)return '';
+ return `<div class="card ro1008${today?' mb ro1009':''}"><div class="roh"><b>📞 Reach out</b><small>${today?'Deal partners waiting to hear from you':'Deal partners you haven’t talked to in 4+ days'}</small></div>${L.map(roRow_d1009).join('')}${today&&all.length>L.length?`<a class="romore1009" href="#people">See all ${all.length} on People →</a>`:''}<div class="xs faint" style="margin-top:6px">${today?'Tap ✓ after you talk. ＋📱 adds a number so WhatsApp works.':'Tap ✓ after a call or meeting. Call and WhatsApp taps in the app are logged automatically. ＋📱 adds a missing number.'}</div></div>`};
+const _renderToday_d1009=renderToday;renderToday=function(G){const r=_renderToday_d1009.apply(this,arguments);try{const el=$('#p-today');if(!el)return r;el.querySelectorAll('.ro1009').forEach(x=>x.remove());
+ const h=reachHTML_d1008(3,true);if(!h)return r;const m=jmpFind_d1007('Money & deals')||jmpFind_d1007('Next up');if(m)m.insertAdjacentHTML('afterend',h);else el.insertAdjacentHTML('beforeend',h);
+ const bar=el.querySelector('.jmp1007');if(bar&&!bar.querySelector('[data-jmp="Reach out"]')){const c=`<button type="button" class="jchip" data-jmp="Reach out"><span>📞</span>Reach out</button>`;const f=bar.querySelector('.jchip');if(f)f.insertAdjacentHTML('afterend',c);else bar.insertAdjacentHTML('beforeend',c)}}catch(e){console.warn(e)}return r};
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-ro1008]');if(!b||curPage()!=='today')return;setTimeout(()=>{const y=scrollY;renderToday(game());scrollTo(0,y)},30)});
 window.addEventListener('load',()=>{if(D)draw(curPage())});
 setInterval(()=>{if(D&&!$('#sheet').classList.contains('on')&&['today','calendar','business'].includes(curPage())){const y=scrollY;renderToday(game());renderCalendar();renderBusiness();window.scrollTo(0,y)}},60000);
 const saved=ls.get(KEY);if(saved){$('#pw').value=saved;unlock(saved,true).catch(()=>{ls.del(KEY);$('#pw').value='';PW=null})}
